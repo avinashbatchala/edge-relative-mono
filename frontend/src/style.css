@@ -1,0 +1,253 @@
+:root {
+  font-family: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
+  color: #202d2b;
+  background: #f4f3ed;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+a {
+  color: inherit;
+}
+a:focus-visible {
+  outline: 3px solid #a1432e;
+  outline-offset: 6px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+.workstation {
+  max-width: 1440px;
+  margin: auto;
+  padding: 0 6vw;
+}
+.masthead,
+.brand,
+.connection,
+.section-heading,
+footer {
+  display: flex;
+  align-items: center;
+}
+.masthead {
+  justify-content: space-between;
+  gap: 24px;
+  padding: 30px 0;
+  border-bottom: 1px solid #d5d9d0;
+}
+.brand {
+  gap: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  line-height: 1.4;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  background: #202d2b;
+  color: #f4f3ed;
+  font:
+    27px Georgia,
+    serif;
+}
+.brand-caption {
+  display: block;
+  color: #5d6964;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.connection {
+  gap: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #717971;
+  border-radius: 50%;
+}
+.intro {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  align-items: center;
+  gap: 8%;
+  padding: 80px 0;
+}
+.eyebrow {
+  color: #5d6964;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+h1 {
+  margin: 24px 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.8rem, 5.5vw, 5rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+h1 span {
+  color: #68756a;
+}
+.intro-copy {
+  max-width: 470px;
+  color: #5d6964;
+}
+.availability {
+  background: #202d2b;
+  color: #f4f3ed;
+  padding: 32px;
+  border-top: 3px solid #dc9b7c;
+}
+.availability .eyebrow {
+  color: #e3ac91;
+}
+.availability h2 {
+  margin: 18px 0 12px;
+  font-size: 1.45rem;
+  font-weight: 500;
+}
+.availability p:not(.eyebrow) {
+  color: #c6cfc8;
+  font-size: 0.9rem;
+}
+.availability .availability-note {
+  border-top: 1px solid #4a5651;
+  padding-top: 20px;
+  margin-top: 24px;
+}
+.section-heading {
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #d5d9d0;
+  padding-bottom: 16px;
+}
+.section-heading h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.section-heading span {
+  color: #5d6964;
+  font-size: 0.75rem;
+}
+.areas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.area {
+  padding: 32px 28px;
+  border-bottom: 1px solid #d5d9d0;
+}
+.area:first-child {
+  padding-left: 0;
+}
+.area:last-child {
+  padding-right: 0;
+}
+.area + .area {
+  border-left: 1px solid #d5d9d0;
+}
+.area-marker {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: #8c998b;
+  margin-bottom: 26px;
+}
+.area h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.area p {
+  font-size: 0.875rem;
+  color: #5d6964;
+  max-width: 290px;
+}
+.authority-note {
+  max-width: 760px;
+  margin: 28px 0 64px;
+  color: #5d6964;
+  font-size: 0.8rem;
+}
+footer {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid #d5d9d0;
+  color: #5d6964;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 700px) {
+  .masthead {
+    padding: 20px 0;
+    gap: 12px;
+  }
+  .brand {
+    gap: 10px;
+    font-size: 0.875rem;
+  }
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    font-size: 23px;
+  }
+  .brand-caption {
+    font-size: 0.65rem;
+  }
+  .connection {
+    font-size: 0.7rem;
+    gap: 6px;
+  }
+  .intro {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 44px 0;
+  }
+  .availability {
+    padding: 24px;
+  }
+  .areas {
+    grid-template-columns: 1fr;
+  }
+  .area,
+  .area:first-child,
+  .area:last-child {
+    padding: 24px 0;
+  }
+  .area + .area {
+    border-left: 0;
+  }
+  .area-marker {
+    margin-bottom: 16px;
+  }
+  .area p {
+    max-width: none;
+  }
+  .authority-note {
+    margin-bottom: 40px;
+  }
+  footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
