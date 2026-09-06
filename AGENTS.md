@@ -41,7 +41,7 @@ or granting trading authority.
 
 DD-04A also proposes `contracts/`, `infra/`, `docker/`, `scripts/`, and more backend
 modules. These are not implemented yet; add them when concrete requirements exist.
-Keep actual documentation in `design-docs/` unless a move is explicitly requested.
+Keep actual documentation in `docs/design-docs` unless a move is explicitly requested.
 Do not introduce distributed messaging, Redis, Cassandra, Kubernetes, microservices,
 or monorepo orchestration tools without a demonstrated requirement.
 

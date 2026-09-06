@@ -11,7 +11,7 @@ database, or live order capability.
   Spring Boot `application` module. The domain is intentionally empty.
 - `frontend/`: Vue 3 / TypeScript / Vite operator-workstation placeholder.
 - `research/`: Python src-layout package managed with uv, without trading logic.
-- `design-docs/`: product, strategy, risk, stack, and data specifications.
+- `docs/design-docs`: product, strategy, risk, stack, and data specifications.
 - `.github/workflows/ci.yml`: independent backend, frontend, and research checks.
 
 Add further modules, contracts, SQL Flyway migrations, jOOQ adapters, and deployment

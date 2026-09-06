@@ -17,50 +17,50 @@ The objective is not to select the theoretically fastest or most sophisticated t
 
 The objective is to build a stack that is:
 
-- reliable;
+-   reliable;
     
-- deterministic;
+-   deterministic;
     
-- maintainable;
+-   maintainable;
     
-- performant;
+-   performant;
     
-- observable;
+-   observable;
     
-- testable;
+-   testable;
     
-- easy to operate;
+-   easy to operate;
     
-- easy to hire for;
+-   easy to hire for;
     
-- suitable for quantitative research;
+-   suitable for quantitative research;
     
-- suitable for low-latency trading decisions;
+-   suitable for low-latency trading decisions;
     
-- capable of evolving into a larger multi-user platform.
+-   capable of evolving into a larger multi-user platform.
     
 
 The stack should minimize unnecessary infrastructure complexity so engineering effort can remain concentrated on the areas that create actual product value:
 
-- market data;
+-   market data;
     
-- quantitative features;
+-   quantitative features;
     
-- trading strategies;
+-   trading strategies;
     
-- risk;
+-   risk;
     
-- execution;
+-   execution;
     
-- broker reliability;
+-   broker reliability;
     
-- backtesting;
+-   backtesting;
     
-- research;
+-   research;
     
-- machine learning;
+-   machine learning;
     
-- operational safety.
+-   operational safety.
     
 
 DD-01 establishes the fundamental system separation:
@@ -93,19 +93,19 @@ Edge Relative should avoid introducing technology merely because it may become u
 
 The initial platform does not require:
 
-- hundreds of microservices;
+-   hundreds of microservices;
     
-- distributed databases;
+-   distributed databases;
     
-- Kubernetes;
+-   Kubernetes;
     
-- service meshes;
+-   service meshes;
     
-- distributed caches;
+-   distributed caches;
     
-- large streaming platforms;
+-   large streaming platforms;
     
-- specialized HFT infrastructure.
+-   specialized HFT infrastructure.
     
 
 The system initially serves one operator and actively analyzes no more than 20 stocks.
@@ -228,21 +228,21 @@ It means:
 
 The primary benefits are:
 
-- atomic cross-stack changes;
+-   atomic cross-stack changes;
     
-- synchronized backend/frontend contracts;
+-   synchronized backend/frontend contracts;
     
-- synchronized Java/Python feature definitions;
+-   synchronized Java/Python feature definitions;
     
-- shared test fixtures;
+-   shared test fixtures;
     
-- simpler early-stage development;
+-   simpler early-stage development;
     
-- one pull request for one conceptual change;
+-   one pull request for one conceptual change;
     
-- centralized CI/CD;
+-   centralized CI/CD;
     
-- centralized architectural documentation.
+-   centralized architectural documentation.
     
 
 For example, changing:
@@ -255,19 +255,19 @@ RRS_V3
 
 might affect:
 
-- Java feature implementation;
+-   Java feature implementation;
     
-- Python research implementation;
+-   Python research implementation;
     
-- persisted schema;
+-   persisted schema;
     
-- API models;
+-   API models;
     
-- frontend presentation;
+-   frontend presentation;
     
-- tests;
+-   tests;
     
-- documentation.
+-   documentation.
     
 
 A monorepo allows this to remain one coordinated change.
@@ -284,31 +284,31 @@ Java will own production trading authority.
 
 Production responsibilities include:
 
-- market-data processing;
+-   market-data processing;
     
-- canonical feature calculation;
+-   canonical feature calculation;
     
-- deterministic strategy execution;
+-   deterministic strategy execution;
     
-- live ML inference where practical;
+-   live ML inference where practical;
     
-- risk decisions;
+-   risk decisions;
     
-- portfolio state;
+-   portfolio state;
     
-- OMS;
+-   OMS;
     
-- execution;
+-   execution;
     
-- broker integration;
+-   broker integration;
     
-- reconciliation;
+-   reconciliation;
     
-- journal generation;
+-   journal generation;
     
-- production-grade backtesting;
+-   production-grade backtesting;
     
-- system health and recovery.
+-   system health and recovery.
     
 
 ---
@@ -342,44 +342,44 @@ The primary Java application framework is:
 
 Spring Boot will provide:
 
-- dependency injection;
+-   dependency injection;
     
-- application lifecycle;
+-   application lifecycle;
     
-- externalized configuration;
+-   externalized configuration;
     
-- REST APIs;
+-   REST APIs;
     
-- security;
+-   security;
     
-- transaction management;
+-   transaction management;
     
-- database integration;
+-   database integration;
     
-- metrics;
+-   metrics;
     
-- health checks;
+-   health checks;
     
-- observability;
+-   observability;
     
-- scheduling;
+-   scheduling;
     
-- external service integration.
+-   external service integration.
     
 
 Spring Boot was selected primarily because it provides:
 
-- mature ecosystem support;
+-   mature ecosystem support;
     
-- broad developer familiarity;
+-   broad developer familiarity;
     
-- a large hiring pool;
+-   a large hiring pool;
     
-- strong maintainability;
+-   strong maintainability;
     
-- extensive integration capabilities;
+-   extensive integration capabilities;
     
-- long-term organizational scalability.
+-   long-term organizational scalability.
     
 
 ---
@@ -505,13 +505,13 @@ Architecture will not rely solely on documentation.
 
 Module dependencies should be enforced through:
 
-- Maven module dependencies;
+-   Maven module dependencies;
     
-- ArchUnit tests;
+-   ArchUnit tests;
     
-- package rules;
+-   package rules;
     
-- CI validation.
+-   CI validation.
     
 
 A violation such as:
@@ -550,17 +550,17 @@ These are ordinary Java method calls.
 
 No unnecessary:
 
-- HTTP;
+-   HTTP;
     
-- gRPC;
+-   gRPC;
     
-- WebSocket;
+-   WebSocket;
     
-- database round-trip;
+-   database round-trip;
     
-- serialization;
+-   serialization;
     
-- external queue.
+-   external queue.
     
 
 This is essential for both latency and deterministic behavior.
@@ -575,15 +575,15 @@ It should be used selectively.
 
 Good use cases include:
 
-- broker WebSocket feeds;
+-   broker WebSocket feeds;
     
-- market-data streams;
+-   market-data streams;
     
-- asynchronous external I/O;
+-   asynchronous external I/O;
     
-- bounded stream transformations;
+-   bounded stream transformations;
     
-- event ingestion.
+-   event ingestion.
     
 
 Reactor should not automatically propagate through every trading-domain method.
@@ -628,17 +628,17 @@ Portfolio
 
 Benefits include:
 
-- deterministic ordering;
+-   deterministic ordering;
     
-- fewer races;
+-   fewer races;
     
-- fewer locks;
+-   fewer locks;
     
-- easier replay;
+-   easier replay;
     
-- easier debugging;
+-   easier debugging;
     
-- predictable latency.
+-   predictable latency.
     
 
 ---
@@ -647,15 +647,15 @@ Benefits include:
 
 Virtual threads may be used for naturally blocking I/O such as:
 
-- REST calls;
+-   REST calls;
     
-- broker APIs;
+-   broker APIs;
     
-- historical-data requests;
+-   historical-data requests;
     
-- administrative operations;
+-   administrative operations;
     
-- database access where appropriate.
+-   database access where appropriate.
     
 
 They are not considered a replacement for carefully controlled low-latency event processing.
@@ -672,35 +672,35 @@ PostgreSQL will own authoritative operational and transactional state.
 
 Examples include:
 
-- users;
+-   users;
     
-- broker accounts;
+-   broker accounts;
     
-- instruments;
+-   instruments;
     
-- strategies;
+-   strategies;
     
-- feature definitions;
+-   feature definitions;
     
-- risk policies;
+-   risk policies;
     
-- trade plans;
+-   trade plans;
     
-- risk decisions;
+-   risk decisions;
     
-- orders;
+-   orders;
     
-- fills;
+-   fills;
     
-- positions;
+-   positions;
     
-- journals;
+-   journals;
     
-- model registry metadata;
+-   model registry metadata;
     
-- audit events;
+-   audit events;
     
-- configuration.
+-   configuration.
     
 
 ---
@@ -729,21 +729,21 @@ Domain/application ports
 
 jOOQ is preferred because Edge Relative is expected to contain significant:
 
-- relational querying;
+-   relational querying;
     
-- aggregation;
+-   aggregation;
     
-- temporal querying;
+-   temporal querying;
     
-- execution analysis;
+-   execution analysis;
     
-- research extraction;
+-   research extraction;
     
-- analytical SQL;
+-   analytical SQL;
     
-- batch persistence;
+-   batch persistence;
     
-- PostgreSQL-specific functionality.
+-   PostgreSQL-specific functionality.
     
 
 The system intentionally embraces SQL rather than hiding SQL behind ORM semantics.
@@ -781,13 +781,13 @@ Plain JDBC is allowed only when justified.
 
 Typical potential use cases:
 
-- extremely high-volume batch ingestion;
+-   extremely high-volume batch ingestion;
     
-- `COPY` operations;
+-   `COPY` operations;
     
-- specialized PostgreSQL functionality;
+-   specialized PostgreSQL functionality;
     
-- measured jOOQ overhead in a proven hot persistence path.
+-   measured jOOQ overhead in a proven hot persistence path.
     
 
 Plain JDBC should not become the default merely for theoretical performance.
@@ -872,15 +872,15 @@ operational.orders → READ
 
 Python owns research-oriented tables such as:
 
-- experiments;
+-   experiments;
     
-- training runs;
+-   training runs;
     
-- research results;
+-   research results;
     
-- candidate models;
+-   candidate models;
     
-- analysis outputs.
+-   analysis outputs.
     
 
 ---
@@ -909,17 +909,17 @@ Large historical and ML-oriented datasets should gradually move toward:
 
 Examples:
 
-- historical candles;
+-   historical candles;
     
-- historical ticks;
+-   historical ticks;
     
-- feature datasets;
+-   feature datasets;
     
-- ML training datasets;
+-   ML training datasets;
     
-- outcome datasets;
+-   outcome datasets;
     
-- backtest exports.
+-   backtest exports.
     
 
 Conceptually:
@@ -940,15 +940,15 @@ Cassandra is not part of the initial stack.
 
 It may be reconsidered only if a future append-heavy dataset demonstrates requirements such as:
 
-- billions of events per day;
+-   billions of events per day;
     
-- massive horizontal write scale;
+-   massive horizontal write scale;
     
-- multi-region ingestion;
+-   multi-region ingestion;
     
-- known partition-key access patterns;
+-   known partition-key access patterns;
     
-- PostgreSQL demonstrably becoming unsuitable.
+-   PostgreSQL demonstrably becoming unsuitable.
     
 
 Cassandra would supplement PostgreSQL for a specialized workload rather than automatically replace PostgreSQL.
@@ -961,15 +961,15 @@ Redis is not part of the initial stack.
 
 It may be introduced if a demonstrated requirement appears for:
 
-- distributed caching;
+-   distributed caching;
     
-- shared ephemeral state;
+-   shared ephemeral state;
     
-- rate limiting;
+-   rate limiting;
     
-- distributed coordination;
+-   distributed coordination;
     
-- short-lived high-speed lookup.
+-   short-lived high-speed lookup.
     
 
 The initial modular monolith does not require distributed cache infrastructure.
@@ -990,11 +990,11 @@ is preferred when synchronous communication is sufficient.
 
 Internal events may initially use:
 
-- in-process queues;
+-   in-process queues;
     
-- persisted event records;
+-   persisted event records;
     
-- explicit asynchronous workers.
+-   explicit asynchronous workers.
     
 
 A distributed message broker should be introduced only when actual independent processes need durable asynchronous communication.
@@ -1025,17 +1025,17 @@ Strategy continues
 
 This applies to data such as:
 
-- RRS;
+-   RRS;
     
-- RVOL;
+-   RVOL;
     
-- RVE;
+-   RVE;
     
-- intermediate feature observations;
+-   intermediate feature observations;
     
-- telemetry;
+-   telemetry;
     
-- many feature snapshots.
+-   many feature snapshots.
     
 
 ---
@@ -1050,9 +1050,9 @@ May not need persistence.
 
 Examples:
 
-- temporary UI-derived values;
+-   temporary UI-derived values;
     
-- transient intermediate calculations.
+-   transient intermediate calculations.
     
 
 ## Recoverable
@@ -1061,11 +1061,11 @@ May be persisted asynchronously.
 
 Examples:
 
-- feature snapshots;
+-   feature snapshots;
     
-- statistical observations;
+-   statistical observations;
     
-- opportunity scores.
+-   opportunity scores.
     
 
 ## Critical
@@ -1074,19 +1074,19 @@ Must use explicit durability guarantees.
 
 Examples:
 
-- risk approval;
+-   risk approval;
     
-- order intent;
+-   order intent;
     
-- broker submission;
+-   broker submission;
     
-- fills;
+-   fills;
     
-- position state;
+-   position state;
     
-- kill-switch changes;
+-   kill-switch changes;
     
-- manual overrides.
+-   manual overrides.
     
 
 ---
@@ -1161,16 +1161,41 @@ Financial and statistical values require explicit representation rules.
 
 Recommended policy:
 
-|Value|Representation|
-|---|---|
-|Account money|BigDecimal or scaled integer|
-|Fees/taxes|BigDecimal or scaled integer|
-|Quantity|integer/long|
-|Hot-path prices|investigate scaled integer/ticks|
-|Statistical indicators|double|
-|ML features|double|
-|Probabilities|double|
-|PostgreSQL financial values|NUMERIC or minor-unit integer|
+Value
+
+Representation
+
+Account money
+
+BigDecimal or scaled integer
+
+Fees/taxes
+
+BigDecimal or scaled integer
+
+Quantity
+
+integer/long
+
+Hot-path prices
+
+investigate scaled integer/ticks
+
+Statistical indicators
+
+double
+
+ML features
+
+double
+
+Probabilities
+
+double
+
+PostgreSQL financial values
+
+NUMERIC or minor-unit integer
 
 Do not casually represent authoritative account money as floating-point `double`.
 
@@ -1251,25 +1276,25 @@ Python is not the authoritative production trading runtime.
 
 Its primary responsibilities are:
 
-- exploratory quantitative research;
+-   exploratory quantitative research;
     
-- statistics;
+-   statistics;
     
-- feature research;
+-   feature research;
     
-- strategy experimentation;
+-   strategy experimentation;
     
-- Monte Carlo;
+-   Monte Carlo;
     
-- data analysis;
+-   data analysis;
     
-- ML training;
+-   ML training;
     
-- ML evaluation;
+-   ML evaluation;
     
-- visualization;
+-   visualization;
     
-- notebooks.
+-   notebooks.
     
 
 ---
@@ -1422,15 +1447,15 @@ Frontend state should be classified.
 
 Examples:
 
-- strategies;
+-   strategies;
     
-- journal;
+-   journal;
     
-- historical trades;
+-   historical trades;
     
-- broker configuration;
+-   broker configuration;
     
-- watchlist configuration.
+-   watchlist configuration.
     
 
 Use:
@@ -1441,23 +1466,23 @@ Use:
 
 Examples:
 
-- LTP;
+-   LTP;
     
-- RRS;
+-   RRS;
     
-- RVOL;
+-   RVOL;
     
-- RVE;
+-   RVE;
     
-- P&L;
+-   P&L;
     
-- position state;
+-   position state;
     
-- order updates;
+-   order updates;
     
-- broker health;
+-   broker health;
     
-- opportunity ranking.
+-   opportunity ranking.
     
 
 Use:
@@ -1468,13 +1493,13 @@ Use:
 
 Examples:
 
-- selected stock;
+-   selected stock;
     
-- modal state;
+-   modal state;
     
-- active tab;
+-   active tab;
     
-- chart timeframe.
+-   chart timeframe.
     
 
 Use normal Vue component/reactive state.
@@ -1521,19 +1546,19 @@ Preferred initial financial chart library:
 
 Use cases include:
 
-- candlesticks;
+-   candlesticks;
     
-- volume;
+-   volume;
     
-- RRS;
+-   RRS;
     
-- RVOL;
+-   RVOL;
     
-- RVE;
+-   RVE;
     
-- overlays;
+-   overlays;
     
-- multiple panes.
+-   multiple panes.
     
 
 Licensing/attribution requirements must be respected.
@@ -1544,17 +1569,17 @@ Licensing/attribution requirements must be respected.
 
 The frontend must never become authoritative for:
 
-- position size;
+-   position size;
     
-- valid strategy state;
+-   valid strategy state;
     
-- permitted risk;
+-   permitted risk;
     
-- order completion;
+-   order completion;
     
-- broker position truth;
+-   broker position truth;
     
-- kill-switch enforcement.
+-   kill-switch enforcement.
     
 
 Example:
@@ -1613,11 +1638,11 @@ Explicit API DTOs are preferred.
 
 WebSocket is used for:
 
-- browser live state;
+-   browser live state;
     
-- broker live market feeds when provided;
+-   broker live market feeds when provided;
     
-- broker order-update streams when provided.
+-   broker order-update streams when provided.
     
 
 It is not the default communication mechanism between internal application modules.
@@ -1707,15 +1732,37 @@ Use Protobuf where machine-to-machine strongly typed communication matters.
 
 Recommended:
 
-|Boundary|Format|
-|---|---|
-|Browser REST|JSON|
-|Browser WebSocket|JSON initially|
-|Broker|Broker-defined|
-|Internal Java|Native objects|
-|Future gRPC|Protobuf|
-|Java↔Python RPC|Protobuf|
-|Large analytical datasets|Parquet|
+Boundary
+
+Format
+
+Browser REST
+
+JSON
+
+Browser WebSocket
+
+JSON initially
+
+Broker
+
+Broker-defined
+
+Internal Java
+
+Native objects
+
+Future gRPC
+
+Protobuf
+
+Java↔Python RPC
+
+Protobuf
+
+Large analytical datasets
+
+Parquet
 
 ---
 
@@ -1729,15 +1776,15 @@ contracts/proto/
 
 for future cross-language contracts such as:
 
-- MarketEvent;
+-   MarketEvent;
     
-- FeatureSnapshot;
+-   FeatureSnapshot;
     
-- ModelPrediction;
+-   ModelPrediction;
     
-- RiskDecision;
+-   RiskDecision;
     
-- OrderEvent.
+-   OrderEvent.
     
 
 Protobuf-generated classes should not automatically become the internal domain model.
@@ -1766,13 +1813,13 @@ A Maven multi-module project will enforce Java module structure.
 
 Maven is preferred primarily for:
 
-- Spring ecosystem familiarity;
+-   Spring ecosystem familiarity;
     
-- team maintainability;
+-   team maintainability;
     
-- predictable conventions;
+-   predictable conventions;
     
-- future Java hiring.
+-   future Java hiring.
     
 
 ---
@@ -1819,11 +1866,11 @@ pnpm build
 
 Do not initially introduce:
 
-- Nx;
+-   Nx;
     
-- Turborepo;
+-   Turborepo;
     
-- Bazel.
+-   Bazel.
     
 
 Each ecosystem should retain its natural tooling.
@@ -1844,13 +1891,13 @@ Application builds should produce immutable OCI container images.
 
 Use Docker primarily for:
 
-- deployment artifacts;
+-   deployment artifacts;
     
-- local infrastructure;
+-   local infrastructure;
     
-- integration testing;
+-   integration testing;
     
-- repeatable environments.
+-   repeatable environments.
     
 
 ---
@@ -2120,19 +2167,19 @@ Do not substitute H2 for PostgreSQL behavior where database semantics matter.
 
 Broker integration tests should use controllable broker simulators capable of producing:
 
-- timeouts;
+-   timeouts;
     
-- rejection;
+-   rejection;
     
-- partial fills;
+-   partial fills;
     
-- duplicate callbacks;
+-   duplicate callbacks;
     
-- delayed responses;
+-   delayed responses;
     
-- stale feeds;
+-   stale feeds;
     
-- disconnections.
+-   disconnections.
     
 
 ---
@@ -2153,13 +2200,13 @@ should hold across generated scenarios.
 
 Other examples:
 
-- position quantity cannot become negative unless shorting rules permit it;
+-   position quantity cannot become negative unless shorting rules permit it;
     
-- executed quantity cannot exceed order quantity;
+-   executed quantity cannot exceed order quantity;
     
-- portfolio exposure cannot exceed hard limits;
+-   portfolio exposure cannot exceed hard limits;
     
-- invalid setups never become live trades due solely to ML.
+-   invalid setups never become live trades due solely to ML.
     
 
 ---
@@ -2174,26 +2221,26 @@ for Java microbenchmarks.
 
 Candidate benchmarks:
 
-- feature update;
+-   feature update;
     
-- RRS calculation;
+-   RRS calculation;
     
-- RVOL calculation;
+-   RVOL calculation;
     
-- strategy evaluation;
+-   strategy evaluation;
     
-- risk evaluation;
+-   risk evaluation;
     
-- position sizing.
+-   position sizing.
     
 
 Metrics should include:
 
-- execution time;
+-   execution time;
     
-- allocation rate;
+-   allocation rate;
     
-- throughput.
+-   throughput.
     
 
 Larger end-to-end replay tests should measure latency distributions such as:
@@ -2241,23 +2288,23 @@ Playwright
 
 Critical operator workflows need E2E testing, including:
 
-- trade approval;
+-   trade approval;
     
-- manual exit;
+-   manual exit;
     
-- cancel order;
+-   cancel order;
     
-- kill switch;
+-   kill switch;
     
-- broker disconnected state;
+-   broker disconnected state;
     
-- partial fill;
+-   partial fill;
     
-- order rejection;
+-   order rejection;
     
-- stale market data;
+-   stale market data;
     
-- position mismatch.
+-   position mismatch.
     
 
 ---
@@ -2266,13 +2313,13 @@ Critical operator workflows need E2E testing, including:
 
 Initial tooling may include:
 
-- Spotless;
+-   Spotless;
     
-- Maven Enforcer;
+-   Maven Enforcer;
     
-- compiler warnings;
+-   compiler warnings;
     
-- ArchUnit.
+-   ArchUnit.
     
 
 Additional tools such as NullAway/Error Prone may be evaluated later.
@@ -2283,13 +2330,13 @@ Additional tools such as NullAway/Error Prone may be evaluated later.
 
 Use:
 
-- Ruff;
+-   Ruff;
     
-- type checker such as Pyright or mypy where useful;
+-   type checker such as Pyright or mypy where useful;
     
-- pytest;
+-   pytest;
     
-- Hypothesis.
+-   Hypothesis.
     
 
 ---
@@ -2298,13 +2345,13 @@ Use:
 
 Use:
 
-- ESLint;
+-   ESLint;
     
-- Prettier;
+-   Prettier;
     
-- vue-tsc;
+-   vue-tsc;
     
-- TypeScript strict mode where practical.
+-   TypeScript strict mode where practical.
     
 
 Formatting and linting should be CI-enforced.
@@ -2342,29 +2389,29 @@ Exact observability hosting may evolve independently.
 
 Important metrics include:
 
-- market-data latency;
+-   market-data latency;
     
-- feature latency;
+-   feature latency;
     
-- strategy latency;
+-   strategy latency;
     
-- ML latency;
+-   ML latency;
     
-- risk latency;
+-   risk latency;
     
-- broker request latency;
+-   broker request latency;
     
-- broker acknowledgement latency;
+-   broker acknowledgement latency;
     
-- persistence queue depth;
+-   persistence queue depth;
     
-- stale-feed age;
+-   stale-feed age;
     
-- WebSocket reconnects;
+-   WebSocket reconnects;
     
-- order rejection rate;
+-   order rejection rate;
     
-- reconciliation failures.
+-   reconciliation failures.
     
 
 These align with the observability requirements in DD-01.
@@ -2406,15 +2453,15 @@ rather than scattering raw configuration access throughout the codebase.
 
 Separate categories include:
 
-- infrastructure configuration;
+-   infrastructure configuration;
     
-- broker configuration;
+-   broker configuration;
     
-- strategy configuration;
+-   strategy configuration;
     
-- risk configuration;
+-   risk configuration;
     
-- secrets.
+-   secrets.
     
 
 ---
@@ -2425,11 +2472,11 @@ Trading configuration affects historical meaning.
 
 Therefore strategy/risk parameters should be:
 
-- versioned;
+-   versioned;
     
-- auditable;
+-   auditable;
     
-- immutable for historical decisions.
+-   immutable for historical decisions.
     
 
 Examples:
@@ -2453,11 +2500,11 @@ Local development may use ignored local environment configuration.
 
 Production should use:
 
-- cloud secret manager;
+-   cloud secret manager;
     
-- Vault-equivalent;
+-   Vault-equivalent;
     
-- managed secure secret storage.
+-   managed secure secret storage.
     
 
 Secret access should follow least privilege.
@@ -2483,9 +2530,9 @@ Avoid uncontrolled floating dependency versions.
 
 Use:
 
-- Renovate;
+-   Renovate;
     
-- or Dependabot.
+-   or Dependabot.
     
 
 Automated updates should still pass full CI before merging.
@@ -2498,15 +2545,15 @@ Critical production dependencies should not be updated blindly.
 
 CI should gradually include:
 
-- secret scanning;
+-   secret scanning;
     
-- dependency vulnerability scanning;
+-   dependency vulnerability scanning;
     
-- container scanning;
+-   container scanning;
     
-- SBOM generation;
+-   SBOM generation;
     
-- artifact provenance/attestation.
+-   artifact provenance/attestation.
     
 
 This is particularly relevant because the application controls financial accounts.
@@ -2519,17 +2566,17 @@ The backend is the authoritative security and trading boundary.
 
 The frontend should never be trusted to enforce:
 
-- maximum risk;
+-   maximum risk;
     
-- position limits;
+-   position limits;
     
-- broker permissions;
+-   broker permissions;
     
-- strategy eligibility;
+-   strategy eligibility;
     
-- kill-switch state;
+-   kill-switch state;
     
-- trade validity.
+-   trade validity.
     
 
 Every enforcement decision is repeated authoritatively on the backend.
@@ -2563,15 +2610,15 @@ The absence of these technologies is intentional.
 
 Kubernetes may become appropriate when Edge Relative requires:
 
-- many independently deployed services;
+-   many independently deployed services;
     
-- substantial orchestration;
+-   substantial orchestration;
     
-- autoscaling;
+-   autoscaling;
     
-- complex multi-tenant workloads;
+-   complex multi-tenant workloads;
     
-- high-availability service fleets.
+-   high-availability service fleets.
     
 
 A single-user modular monolith does not currently justify Kubernetes.
@@ -2584,17 +2631,17 @@ Modules should become separate services only when there is a concrete reason.
 
 Valid reasons include:
 
-- independent scaling;
+-   independent scaling;
     
-- independent failure isolation;
+-   independent failure isolation;
     
-- independent deployment lifecycle;
+-   independent deployment lifecycle;
     
-- different runtime/language requirement;
+-   different runtime/language requirement;
     
-- dedicated resource requirements;
+-   dedicated resource requirements;
     
-- multiple independent consumers.
+-   multiple independent consumers.
     
 
 Invalid reason:
@@ -2702,46 +2749,161 @@ while remaining within actual trading requirements.
 
 The initial approved stack is:
 
-|Layer|Technology|
-|---|---|
-|Repository|Monorepo|
-|Production language|Java 25 LTS|
-|Application framework|Spring Boot|
-|Architecture|Modular monolith|
-|Trading core|Framework-light Java|
-|Reactive I/O|Project Reactor selectively|
-|Persistence abstraction|jOOQ|
-|Operational DB|PostgreSQL|
-|DB migration|Flyway|
-|Research language|Python|
-|Python tooling|uv|
-|Analytical format|Parquet|
-|Analytical storage|Object storage|
-|Frontend|Vue 3|
-|Frontend language|TypeScript|
-|Vue style|Composition API + `<script setup>`|
-|Frontend state|Pinia|
-|HTTP server state|TanStack Query where useful|
-|Frontend build|Vite|
-|Frontend package manager|pnpm|
-|HTTP API|HTTPS + JSON|
-|HTTP schema|OpenAPI|
-|Realtime frontend|WebSocket + JSON|
-|Future internal RPC|gRPC|
-|Future RPC schema|Protobuf|
-|Java build|Maven Wrapper|
-|Containers|Docker|
-|Local infra|Docker Compose|
-|Infrastructure as code|Terraform|
-|CI/CD|GitHub Actions|
-|Java tests|JUnit 5 / AssertJ / Testcontainers|
-|Architecture testing|ArchUnit|
-|Java benchmarking|JMH|
-|Python testing|pytest / Hypothesis|
-|Frontend testing|Vitest / Playwright|
-|Metrics|Micrometer|
-|Tracing|OpenTelemetry|
-|Logging|Structured logging|
+Layer
+
+Technology
+
+Repository
+
+Monorepo
+
+Production language
+
+Java 25 LTS
+
+Application framework
+
+Spring Boot
+
+Architecture
+
+Modular monolith
+
+Trading core
+
+Framework-light Java
+
+Reactive I/O
+
+Project Reactor selectively
+
+Persistence abstraction
+
+jOOQ
+
+Operational DB
+
+PostgreSQL
+
+DB migration
+
+Flyway
+
+Research language
+
+Python
+
+Python tooling
+
+uv
+
+Analytical format
+
+Parquet
+
+Analytical storage
+
+Object storage
+
+Frontend
+
+Vue 3
+
+Frontend language
+
+TypeScript
+
+Vue style
+
+Composition API + `<script setup>`
+
+Frontend state
+
+Pinia
+
+HTTP server state
+
+TanStack Query where useful
+
+Frontend build
+
+Vite
+
+Frontend package manager
+
+pnpm
+
+HTTP API
+
+HTTPS + JSON
+
+HTTP schema
+
+OpenAPI
+
+Realtime frontend
+
+WebSocket + JSON
+
+Future internal RPC
+
+gRPC
+
+Future RPC schema
+
+Protobuf
+
+Java build
+
+Maven Wrapper
+
+Containers
+
+Docker
+
+Local infra
+
+Docker Compose
+
+Infrastructure as code
+
+Terraform
+
+CI/CD
+
+GitHub Actions
+
+Java tests
+
+JUnit 5 / AssertJ / Testcontainers
+
+Architecture testing
+
+ArchUnit
+
+Java benchmarking
+
+JMH
+
+Python testing
+
+pytest / Hypothesis
+
+Frontend testing
+
+Vitest / Playwright
+
+Metrics
+
+Micrometer
+
+Tracing
+
+OpenTelemetry
+
+Logging
+
+Structured logging
 
 ---
 
@@ -2841,51 +3003,6 @@ The development stack can be summarized as:
 
 This stack should remain stable through the initial research, workstation, assisted-live and guarded-autopilot phases unless concrete engineering evidence demonstrates that one of the selected technologies cannot meet the required reliability, maintainability or performance characteristics.
 
-# Architecture Componentes   
+# Architecture Componentes
 
-DD-04
-SYSTEM ARCHITECTURE
-│
-├── Context
-├── Components
-├── Module Boundaries
-├── Dependency Direction
-├── State Ownership
-├── Runtime Processing Model
-├── Concurrency Model
-├── Commands
-├── Events
-├── Internal Contracts
-├── External APIs
-├── Transaction Boundaries
-├── Consistency Guarantees
-├── Idempotency
-├── State Machines
-├── Failure Semantics
-├── Recovery
-├── Reconciliation
-├── Security Boundaries
-├── Deployment Topology
-└── Logical Data Model
-        │
-        ▼
-DD-04B
-OPERATIONAL DATA MODEL & DATABASE DESIGN
-│
-├── PostgreSQL Schemas
-├── Tables
-├── Complete DDL
-├── PK/FK Strategy
-├── Constraints
-├── Unique Keys
-├── Indexes
-├── Optimistic Locking
-├── Transaction Mapping
-├── Event Ledger Tables
-├── Outbox Tables
-├── Audit Tables
-├── Retention
-├── Partitioning
-├── Permissions
-├── Migration Rules
-└── Flyway Organization
+DD-04 SYSTEM ARCHITECTURE │ ├── Context ├── Components ├── Module Boundaries ├── Dependency Direction ├── State Ownership ├── Runtime Processing Model ├── Concurrency Model ├── Commands ├── Events ├── Internal Contracts ├── External APIs ├── Transaction Boundaries ├── Consistency Guarantees ├── Idempotency ├── State Machines ├── Failure Semantics ├── Recovery ├── Reconciliation ├── Security Boundaries ├── Deployment Topology └── Logical Data Model │ ▼ DD-04B OPERATIONAL DATA MODEL & DATABASE DESIGN │ ├── PostgreSQL Schemas ├── Tables ├── Complete DDL ├── PK/FK Strategy ├── Constraints ├── Unique Keys ├── Indexes ├── Optimistic Locking ├── Transaction Mapping ├── Event Ledger Tables ├── Outbox Tables ├── Audit Tables ├── Retention ├── Partitioning ├── Permissions ├── Migration Rules └── Flyway Organization
