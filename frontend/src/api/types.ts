@@ -86,7 +86,8 @@ export interface BrokerQuote {
 
 export interface BrokerCandle {
   openTime: string
-  open: number
+  /** Optional: Groww omits `open` on daily cash-equity candles. */
+  open: number | null
   high: number
   low: number
   close: number
@@ -119,4 +120,34 @@ export interface BrokerExpiry {
 
 export interface BrokerContract {
   brokerSymbol: string
+}
+
+export interface BrokerOptionGreeks {
+  delta: number
+  gamma: number
+  theta: number
+  vega: number
+  rho: number
+  impliedVolatility: number
+}
+
+export interface BrokerOptionChainEntry {
+  tradingSymbol: string
+  lastPrice: number | null
+  openInterest: number
+  volume: number
+  greeks: BrokerOptionGreeks | null
+}
+
+export interface BrokerOptionChainStrike {
+  strikePrice: number
+  call: BrokerOptionChainEntry | null
+  put: BrokerOptionChainEntry | null
+}
+
+export interface BrokerOptionChain {
+  underlying: string
+  expiryDate: string
+  underlyingLastPrice: number | null
+  strikes: BrokerOptionChainStrike[]
 }

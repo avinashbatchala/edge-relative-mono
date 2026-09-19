@@ -287,22 +287,31 @@ public class GrowwMapper {
         return strikes;
     }
 
-    public BrokerCandle toCandle(List<JsonNode> row, GrowwOperation operation) {
+    /**
+     * Maps one historical candle row, returning {@code null} when the row is unusable.
+     *
+     * <p>Groww occasionally emits a row with a missing/incomplete bar (null or non-numeric OHLC,
+     * e.g. a halted or untraded session). A single such row must not fail the whole series; callers
+     * skip nulls and decide whether the overall result is trustworthy.
+     *
+     * <p>Groww deliberately omits {@code open} on daily cash-equity candles (it is present for
+     * indices and intraday), so {@code open} is treated as optional while high/low/close remain
+     * required for a usable bar.
+     */
+    public BrokerCandle toCandle(List<JsonNode> row) {
         if (row == null || row.size() < 6) {
-            throw new BrokerProtocolException(
-                    "Historical candle row had fewer than 6 elements", "groww", operation.name(), null, null);
+            return null;
         }
+        Instant openTime = instant(row.get(0));
         BigDecimal open = decimal(row.get(1));
         BigDecimal high = decimal(row.get(2));
         BigDecimal low = decimal(row.get(3));
         BigDecimal close = decimal(row.get(4));
-        if (open == null || high == null || low == null || close == null) {
-            throw new BrokerProtocolException(
-                    "Historical candle row contained non-numeric prices", "groww", operation.name(), null, null);
+        if (openTime == null || high == null || low == null || close == null) {
+            return null;
         }
         BigDecimal openInterest = row.size() > 6 ? decimal(row.get(6)) : null;
-        return new BrokerCandle(
-                instant(row.get(0)), open, high, low, close, longValue(decimal(row.get(5))), openInterest);
+        return new BrokerCandle(openTime, open, high, low, close, longValue(decimal(row.get(5))), openInterest);
     }
 
     public BrokerExpiry toExpiry(String date) {

@@ -59,7 +59,9 @@ function candleData(): CandlestickData<UTCTimestamp>[] {
     }
     data.push({
       time,
-      open: candle.open,
+      // Some broker series (e.g. Groww daily cash equities) omit open; fall back to close so the
+      // bar still renders. The historical table shows the true (missing) value.
+      open: candle.open ?? candle.close,
       high: candle.high,
       low: candle.low,
       close: candle.close,
@@ -76,11 +78,11 @@ function volumeData(): HistogramData<UTCTimestamp>[] {
     if (time === null) {
       continue
     }
+    const open = candle.open ?? candle.close
     data.push({
       time,
       value: candle.volume,
-      color:
-        candle.close >= candle.open ? `${colors.up}55` : `${colors.down}55`,
+      color: candle.close >= open ? `${colors.up}55` : `${colors.down}55`,
     })
   }
   return data

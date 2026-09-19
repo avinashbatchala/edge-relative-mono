@@ -252,6 +252,46 @@ class GrowwReadClientsIntegrationTest {
     }
 
     @Test
+    void skipsUnusableHistoricalRowsInsteadOfFailingTheWholeSeries() {
+        fixture.server()
+                .stubFor(get(urlPathEqualTo("/v1/historical/candles"))
+                        .willReturn(okJson("""
+                                {"status":"SUCCESS","payload":{"candles":[
+                                  ["2025-09-24T10:30:00",100,101,99,100.5,1000],
+                                  ["2025-09-24T10:35:00",null,null,null,null,0],
+                                  ["2025-09-24T10:40:00",101,103,100,102.5,900]
+                                ],"closing_price":102.5}}""")));
+
+        var series = fixture.historical().candles(new HistoricalCandleRequest(
+                BrokerExchange.NSE, BrokerSegment.CASH, "NSE-RELIANCE",
+                Instant.parse("2025-09-24T10:00:00Z"), Instant.parse("2025-09-24T11:00:00Z"),
+                BrokerCandleInterval.FIVE_MINUTE));
+
+        assertThat(series.candles()).hasSize(2);
+        assertThat(series.candles().get(1).close()).isEqualByComparingTo("102.5");
+    }
+
+    @Test
+    void dailyEquityCandlesAllowMissingOpen() {
+        fixture.server()
+                .stubFor(get(urlPathEqualTo("/v1/historical/candles"))
+                        .willReturn(okJson("""
+                                {"status":"SUCCESS","payload":{"candles":[
+                                  ["2026-09-01T00:00:00", null, 1311.7, 1280.0, 1309.0, 24706257, null],
+                                  ["2026-09-02T00:00:00", null, 1310.0, 1290.0, 1300.0, 20000000, null]
+                                ]}}""")));
+
+        var series = fixture.historical().candles(new HistoricalCandleRequest(
+                BrokerExchange.NSE, BrokerSegment.CASH, "NSE-RELIANCE",
+                Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-03T00:00:00Z"),
+                BrokerCandleInterval.ONE_DAY));
+
+        assertThat(series.candles()).hasSize(2);
+        assertThat(series.candles().get(0).open()).isNull();
+        assertThat(series.candles().get(0).close()).isEqualByComparingTo("1309.0");
+    }
+
+    @Test
     void longHistoricalRangeIsSplitIntoMultipleRequests() {
         fixture.server()
                 .stubFor(get(urlPathEqualTo("/v1/historical/candles"))

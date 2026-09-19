@@ -31,6 +31,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -41,6 +43,9 @@ import tools.jackson.databind.JsonNode;
  * ascending, de-duplicated series; a partial failure is surfaced, never silently returned as success.
  */
 public class GrowwHistoricalDataClient implements HistoricalDataBroker {
+
+    private static final Logger LOG = LoggerFactory.getLogger(GrowwHistoricalDataClient.class);
+    private static final int MAX_SKIPPED_SAMPLES = 5;
 
     private final GrowwAuthorizedExecutor executor;
     private final GrowwHttpClient http;
@@ -156,10 +161,42 @@ public class GrowwHistoricalDataClient implements HistoricalDataBroker {
             GrowwCandleRangeResponse dto =
                     mapper.dto(payload, GrowwCandleRangeResponse.class, GrowwOperation.HISTORICAL_CANDLES);
             List<BrokerCandle> candles = new ArrayList<>();
+            int rows = 0;
+            int skipped = 0;
+            List<String> skippedSamples = new ArrayList<>();
             if (dto.candles() != null) {
                 for (List<JsonNode> row : dto.candles()) {
-                    candles.add(mapper.toCandle(row, GrowwOperation.HISTORICAL_CANDLES));
+                    rows++;
+                    BrokerCandle candle = mapper.toCandle(row);
+                    if (candle == null) {
+                        skipped++;
+                        if (skippedSamples.size() < MAX_SKIPPED_SAMPLES && row != null && !row.isEmpty()) {
+                            skippedSamples.add(row.get(0).asString("?"));
+                        }
+                        continue;
+                    }
+                    candles.add(candle);
                 }
+            }
+            if (rows > 0 && candles.isEmpty()) {
+                String firstRow = dto.candles() == null || dto.candles().isEmpty()
+                        ? "[]"
+                        : String.valueOf(dto.candles().get(0));
+                throw new BrokerProtocolException(
+                        "All %d historical candle rows were invalid for %s (first row %s)"
+                                .formatted(rows, request.brokerSymbol(), firstRow),
+                        "groww",
+                        GrowwOperation.HISTORICAL_CANDLES.name(),
+                        null,
+                        null);
+            }
+            if (skipped > 0 && LOG.isWarnEnabled()) {
+                LOG.warn(
+                        "Skipped {} invalid historical candle row(s) for {} (sample timestamps {}); kept {} candles",
+                        skipped,
+                        request.brokerSymbol(),
+                        skippedSamples,
+                        candles.size());
             }
             candles.sort(java.util.Comparator.comparing(BrokerCandle::openTime));
             return candles;
