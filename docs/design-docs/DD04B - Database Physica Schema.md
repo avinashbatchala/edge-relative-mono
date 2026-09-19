@@ -947,3 +947,40 @@ The physical schema fixes the relational model, but these remain measured decisi
 # 23. Foundational Persistence Invariant
 
 > **Immutable evidence is never replaced by a mutable projection; every capital-changing action is traceable to the exact market observation, strategy version, risk policy, decision, trade intent, order and fill that produced it; large analytical history remains reconstructable and point-in-time correct without turning the operational PostgreSQL database into the market-data warehouse.**
+
+---
+
+# 24. Amendment: Canonical Candle Storage (Scoped)
+
+> **Amendment date:** 2026-09-20. See `docs/design-docs/dev/ADR-001-candle-storage.md`.
+
+For the current single-operator, <50-instrument scope, **PostgreSQL is the
+authoritative canonical candle store**. Only M1 is persisted; higher timeframes
+are derived in process by the shared deterministic aggregator. This is a
+deliberate, bounded exception to §2.2/§16 ("M1/M5/... candles in Parquet"), with
+documented deferral triggers in ADR-001. The DD-05 candle contract and lineage
+rules (§91–§106) still apply logically and must be modelled in the PostgreSQL
+store so a later move to Parquet is physical, not semantic.
+
+Migrations added since the original list in §21:
+
+```text
+db/migration/
+├── V008__history_candles.sql
+├── V009__drop_non_m1_persisted_history.sql
+├── V010__candle_contract_and_revisions.sql
+├── V011__timeframe_registry_and_ingestion.sql
+├── V012__purge_misclocked_m1_history.sql
+└── R__grants_template.sql
+```
+
+The `market` schema additionally contains two ingestion-support tables not
+enumerated in §13, documented here as intended schema:
+
+```text
+market.candle_coverage   durable per (instrument, timeframe, range) backfill unit
+market.ingestion_run     requested backfill range, progress and outcome
+```
+
+Both reference `reference.market_data_source`. Data-quality failures may be
+recorded in the existing `market.market_data_incident`.

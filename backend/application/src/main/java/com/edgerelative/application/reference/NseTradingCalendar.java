@@ -1,6 +1,7 @@
 package com.edgerelative.application.reference;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -41,6 +42,11 @@ public final class NseTradingCalendar {
 
     public LocalDate sessionDate(Instant instant) {
         return instant.atZone(EXCHANGE_ZONE).toLocalDate();
+    }
+
+    /** Number of one-minute slots in a normal session (375 for 09:15–15:30). */
+    public long sessionMinutes() {
+        return Duration.between(SESSION_OPEN, SESSION_CLOSE).toMinutes();
     }
 
     public Instant sessionOpen(LocalDate date) {

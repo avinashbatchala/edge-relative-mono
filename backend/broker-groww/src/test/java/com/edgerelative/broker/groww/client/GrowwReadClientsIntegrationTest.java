@@ -248,6 +248,8 @@ class GrowwReadClientsIntegrationTest {
 
         assertThat(series.candles()).hasSize(2);
         assertThat(series.candles().get(0).openTime()).isBefore(series.candles().get(1).openTime());
+        // Groww's "10:30:00" is exchange-local (IST), i.e. 05:00:00Z.
+        assertThat(series.candles().get(0).openTime()).isEqualTo(Instant.parse("2025-09-24T05:00:00Z"));
         assertThat(series.candles().get(0).close()).isEqualByComparingTo("100.5");
     }
 

@@ -8,7 +8,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
@@ -16,11 +18,14 @@ import org.jooq.Query;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
-/** jOOQ persistence for canonical candles, coverage, and backfill runs. */
+/** jOOQ persistence for canonical candles, coverage, and ingestion runs. */
 @Repository
 public class HistoryRepository {
 
     private static final int MAX_ERROR_LENGTH = 1000;
+    private static final String M1_DEFINITION_VERSION = "er-m1-base-v1";
+    private static final String SOURCE_REVISION = "groww-m1-backfill-v1";
+    private static final int M1_CLOSE_SECONDS = 60;
 
     private final DSLContext dsl;
 
@@ -30,74 +35,187 @@ public class HistoryRepository {
 
     // --- candles ------------------------------------------------------------------
 
-    public int insertCandles(long instrumentId, long timeframeId, List<BrokerCandle> candles, int batchSize) {
+    /**
+     * Serializes writers for one instrument/timeframe for the current transaction. Consecutive
+     * boundary chunks can both fetch the same minute, so without this two workers could race the
+     * read-then-insert revision logic.
+     */
+    public void lockSeries(long instrumentId, long timeframeId) {
+        dsl.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                "market.candle:" + instrumentId + ":" + timeframeId);
+    }
+
+    /**
+     * Writes M1 candles idempotently and append-only. An identical existing current bar is left
+     * untouched; a changed bar becomes a new revision and the previous one is marked non-current
+     * (DD-05 §105/§106). Returns the number of rows written.
+     */
+    public int upsertCandles(
+            long instrumentId, long timeframeId, List<BrokerCandle> candles, int batchSize) {
         if (candles.isEmpty()) {
             return 0;
         }
-        int inserted = 0;
-        List<Query> batch = new ArrayList<>(Math.min(batchSize, candles.size()));
+        Instant min = candles.get(0).openTime();
+        Instant max = min;
         for (BrokerCandle candle : candles) {
-            batch.add(dsl.query(
-                    "INSERT INTO market.candle (instrument_id, timeframe_id, open_time, open, high, low, close, "
-                            + "volume, open_interest, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'GROWW') "
-                            + "ON CONFLICT (instrument_id, timeframe_id, open_time) DO NOTHING",
-                    instrumentId,
-                    timeframeId,
-                    timestamp(candle.openTime()),
-                    candle.open(),
-                    candle.high(),
-                    candle.low(),
-                    candle.close(),
-                    candle.volume(),
-                    candle.openInterest()));
-            if (batch.size() >= batchSize) {
-                inserted += sum(dsl.batch(batch).execute());
-                batch.clear();
+            if (candle.openTime().isBefore(min)) {
+                min = candle.openTime();
+            }
+            if (candle.openTime().isAfter(max)) {
+                max = candle.openTime();
             }
         }
-        if (!batch.isEmpty()) {
-            inserted += sum(dsl.batch(batch).execute());
+        Map<Instant, Record> current = new HashMap<>();
+        for (Record record : dsl.fetch(
+                "SELECT candle_id, open_time, revision_no, open, high, low, close, volume, open_interest, close_time "
+                        + "FROM market.candle WHERE instrument_id = ? AND timeframe_id = ? "
+                        + "AND candle_definition_version = ? AND is_current AND open_time BETWEEN ?::timestamptz AND ?::timestamptz",
+                instrumentId,
+                timeframeId,
+                M1_DEFINITION_VERSION,
+                utc(min),
+                utc(max))) {
+            current.put(record.get("open_time", OffsetDateTime.class).toInstant(), record);
         }
-        return inserted;
-    }
 
-    public List<HistoricalCandle> candles(long instrumentId, long timeframeId, Instant from, Instant to, int limit) {
-        return dsl.fetch(
-                        "SELECT open_time, open, high, low, close, volume, open_interest FROM market.candle "
-                                + "WHERE instrument_id = ? AND timeframe_id = ? AND open_time >= ? AND open_time <= ? "
-                                + "ORDER BY open_time LIMIT ?",
+        List<Query> inserts = new ArrayList<>();
+        List<Long> superseded = new ArrayList<>();
+        for (BrokerCandle candle : candles) {
+            Instant openTime = candle.openTime();
+            Instant closeTime = openTime.plusSeconds(M1_CLOSE_SECONDS);
+            Record existing = current.get(openTime);
+            if (existing == null) {
+                inserts.add(insertCandle(instrumentId, timeframeId, candle, closeTime, 1, null));
+            } else if (!sameValues(existing, candle, closeTime)) {
+                superseded.add(existing.get("candle_id", Long.class));
+                inserts.add(insertCandle(
                         instrumentId,
                         timeframeId,
-                        timestamp(from),
-                        timestamp(to),
+                        candle,
+                        closeTime,
+                        existing.get("revision_no", Integer.class) + 1,
+                        existing.get("revision_no", Integer.class)));
+            }
+        }
+
+        if (superseded.isEmpty() && inserts.isEmpty()) {
+            return 0;
+        }
+        List<Query> demotions = new ArrayList<>(superseded.size());
+        for (Long candleId : superseded) {
+            demotions.add(dsl.query("UPDATE market.candle SET is_current = FALSE WHERE candle_id = ?", candleId));
+        }
+        int written = 0;
+        for (int i = 0; i < demotions.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, demotions.size());
+            dsl.batch(demotions.subList(i, end)).execute();
+        }
+        for (int i = 0; i < inserts.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, inserts.size());
+            written += sum(dsl.batch(inserts.subList(i, end)).execute());
+        }
+        return written;
+    }
+
+    private Query insertCandle(
+            long instrumentId,
+            long timeframeId,
+            BrokerCandle candle,
+            Instant closeTime,
+            int revisionNo,
+            Integer previousRevisionNo) {
+        return dsl.query(
+                "INSERT INTO market.candle (instrument_id, timeframe_id, open_time, close_time, open, high, low, "
+                        + "close, volume, open_interest, source, candle_definition_version, source_revision, "
+                        + "revision_no, previous_revision_no, is_current, is_complete, quality_state) "
+                        + "VALUES (?, ?, ?::timestamptz, ?::timestamptz, ?, ?, ?, ?, ?, ?, 'GROWW', ?, ?, ?, ?, TRUE, TRUE, 'GOOD') "
+                        // Conflict-tolerant: a concurrent/duplicate write of the same bar is ignored
+                        // rather than aborting the whole chunk (the series lock usually prevents this).
+                        + "ON CONFLICT DO NOTHING",
+                instrumentId,
+                timeframeId,
+                utc(candle.openTime()),
+                utc(closeTime),
+                candle.open(),
+                candle.high(),
+                candle.low(),
+                candle.close(),
+                candle.volume(),
+                candle.openInterest(),
+                M1_DEFINITION_VERSION,
+                SOURCE_REVISION,
+                revisionNo,
+                previousRevisionNo);
+    }
+
+    private static boolean sameValues(Record existing, BrokerCandle candle, Instant closeTime) {
+        return equal(existing.get("open", BigDecimal.class), candle.open())
+                && equal(existing.get("high", BigDecimal.class), candle.high())
+                && equal(existing.get("low", BigDecimal.class), candle.low())
+                && equal(existing.get("close", BigDecimal.class), candle.close())
+                && existing.get("volume", Long.class) == candle.volume()
+                && equal(existing.get("open_interest", BigDecimal.class), candle.openInterest())
+                && closeTime.equals(existing.get("close_time", OffsetDateTime.class).toInstant());
+    }
+
+    private static boolean equal(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    public List<HistoricalCandle> candles(
+            long instrumentId, long timeframeId, Instant from, Instant to, int limit) {
+        return dsl.fetch(
+                        "SELECT open_time, close_time, open, high, low, close, volume, open_interest, trade_count, "
+                                + "vwap, is_complete, quality_state FROM market.candle "
+                                + "WHERE instrument_id = ? AND timeframe_id = ? AND is_current "
+                                + "AND open_time >= ?::timestamptz AND open_time <= ?::timestamptz ORDER BY open_time LIMIT ?",
+                        instrumentId,
+                        timeframeId,
+                        utc(from),
+                        utc(to),
                         limit)
                 .map(record -> new HistoricalCandle(
                         record.get("open_time", OffsetDateTime.class).toInstant(),
+                        record.get("close_time", OffsetDateTime.class).toInstant(),
                         record.get("open", BigDecimal.class),
                         record.get("high", BigDecimal.class),
                         record.get("low", BigDecimal.class),
                         record.get("close", BigDecimal.class),
                         record.get("volume", Long.class),
-                        record.get("open_interest", BigDecimal.class)));
+                        record.get("open_interest", BigDecimal.class),
+                        record.get("trade_count", Integer.class),
+                        record.get("vwap", BigDecimal.class),
+                        Boolean.TRUE.equals(record.get("is_complete", Boolean.class)),
+                        record.get("quality_state", String.class)));
     }
 
     // --- coverage -----------------------------------------------------------------
 
     public void upsertPendingChunk(long instrumentId, long timeframeId, Instant start, Instant end) {
         dsl.execute(
-                "INSERT INTO market.candle_coverage (instrument_id, timeframe_id, chunk_start, chunk_end, status) "
-                        + "VALUES (?, ?, ?, ?, 'PENDING') ON CONFLICT (instrument_id, timeframe_id, chunk_start, chunk_end) "
-                        + "DO UPDATE SET updated_at = CURRENT_TIMESTAMP WHERE market.candle_coverage.status = 'FAILED'",
+                "INSERT INTO market.candle_coverage (instrument_id, timeframe_id, market_data_source_id, "
+                        + "chunk_start, chunk_end, status) VALUES (?, ?, (SELECT market_data_source_id FROM "
+                        + "reference.market_data_source WHERE code = ?), ?::timestamptz, ?::timestamptz, 'PENDING') "
+                        // Re-running a download requeues only previously failed chunks; completed and
+                        // pending chunks are left untouched so the re-run focuses on what is missing.
+                        + "ON CONFLICT (instrument_id, timeframe_id, chunk_start, chunk_end) DO UPDATE SET "
+                        + "status = 'PENDING', last_error = NULL, updated_at = CURRENT_TIMESTAMP "
+                        + "WHERE market.candle_coverage.status = 'FAILED'",
                 instrumentId,
                 timeframeId,
-                timestamp(start),
-                timestamp(end));
+                CanonicalInstrumentService.BROKER_CODE,
+                utc(start),
+                utc(end));
     }
 
     public CoverageResponse coverage(long instrumentId, long timeframeId, String timeframeCode) {
         Record totals = dsl.fetchOne(
                 "SELECT min(open_time) AS earliest, max(open_time) AS latest, count(*) AS candle_count "
-                        + "FROM market.candle WHERE instrument_id = ? AND timeframe_id = ?",
+                        + "FROM market.candle WHERE instrument_id = ? AND timeframe_id = ? AND is_current",
                 instrumentId,
                 timeframeId);
         Record chunks = dsl.fetchOne(
@@ -144,10 +262,10 @@ public class HistoryRepository {
                         + "WHERE cc.candle_coverage_id = ("
                         + "  SELECT c2.candle_coverage_id FROM market.candle_coverage c2 "
                         + "  WHERE c2.status = 'PENDING' AND EXISTS ("
-                        + "    SELECT 1 FROM market.backfill_run br "
-                        + "    WHERE br.instrument_id = c2.instrument_id AND br.timeframe_id = c2.timeframe_id "
-                        + "      AND br.status IN ('QUEUED','RUNNING') "
-                        + "      AND br.requested_from <= c2.chunk_start AND br.requested_to >= c2.chunk_end) "
+                        + "    SELECT 1 FROM market.ingestion_run ir "
+                        + "    WHERE ir.instrument_id = c2.instrument_id AND ir.timeframe_id = c2.timeframe_id "
+                        + "      AND ir.status IN ('QUEUED','RUNNING') "
+                        + "      AND ir.requested_from <= c2.chunk_start AND ir.requested_to >= c2.chunk_end) "
                         + "  ORDER BY c2.chunk_start LIMIT 1 FOR UPDATE SKIP LOCKED) "
                         + "RETURNING candle_coverage_id, instrument_id, timeframe_id, chunk_start, chunk_end");
         if (claimed == null) {
@@ -202,14 +320,14 @@ public class HistoryRepository {
 
     public List<Long> coveringRunIds(long instrumentId, long timeframeId, Instant start, Instant end) {
         return dsl.fetch(
-                        "SELECT backfill_run_id FROM market.backfill_run "
+                        "SELECT ingestion_run_id FROM market.ingestion_run "
                                 + "WHERE instrument_id = ? AND timeframe_id = ? AND status IN ('QUEUED','RUNNING') "
-                                + "AND requested_from <= ? AND requested_to >= ?",
+                                + "AND requested_from <= ?::timestamptz AND requested_to >= ?::timestamptz",
                         instrumentId,
                         timeframeId,
-                        timestamp(start),
-                        timestamp(end))
-                .getValues("backfill_run_id", Long.class);
+                        utc(start),
+                        utc(end))
+                .getValues("ingestion_run_id", Long.class);
     }
 
     // --- runs ---------------------------------------------------------------------
@@ -217,59 +335,63 @@ public class HistoryRepository {
     public long createRun(
             UUID runKey, long instrumentId, long timeframeId, Instant from, Instant to, int totalChunks) {
         Record record = dsl.fetchOne(
-                "INSERT INTO market.backfill_run (run_key, instrument_id, timeframe_id, requested_from, requested_to, "
-                        + "status, total_chunks) VALUES (?, ?, ?, ?, ?, 'QUEUED', ?) RETURNING backfill_run_id",
+                "INSERT INTO market.ingestion_run (run_key, instrument_id, timeframe_id, market_data_source_id, "
+                        + "requested_from, requested_to, status, total_chunks) VALUES (?, ?, ?, (SELECT "
+                        + "market_data_source_id FROM reference.market_data_source WHERE code = ?), "
+                        + "?::timestamptz, ?::timestamptz, 'QUEUED', ?) "
+                        + "RETURNING ingestion_run_id",
                 runKey,
                 instrumentId,
                 timeframeId,
-                timestamp(from),
-                timestamp(to),
+                CanonicalInstrumentService.BROKER_CODE,
+                utc(from),
+                utc(to),
                 totalChunks);
-        return record.get("backfill_run_id", Long.class);
+        return record.get("ingestion_run_id", Long.class);
     }
 
     public void refreshRun(long runId) {
         dsl.execute(
-                "UPDATE market.backfill_run br SET "
-                        + "completed_chunks = (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "  AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to AND cc.status = 'COMPLETED'), "
-                        + "failed_chunks = (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "  AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to AND cc.status = 'FAILED'), "
-                        + "candles_written = (SELECT COALESCE(sum(cc.candle_count), 0) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "  AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to), "
+                "UPDATE market.ingestion_run ir SET "
+                        + "completed_chunks = (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "  AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to AND cc.status = 'COMPLETED'), "
+                        + "failed_chunks = (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "  AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to AND cc.status = 'FAILED'), "
+                        + "candles_written = (SELECT COALESCE(sum(cc.candle_count), 0) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "  AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to), "
                         + "status = CASE "
-                        + "  WHEN br.status = 'CANCELLED' THEN 'CANCELLED' "
-                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "        AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to AND cc.status IN ('PENDING','RUNNING')) > 0 THEN 'RUNNING' "
-                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "        AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to AND cc.status = 'FAILED') > 0 THEN 'PARTIAL' "
+                        + "  WHEN ir.status = 'CANCELLED' THEN 'CANCELLED' "
+                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "        AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to AND cc.status IN ('PENDING','RUNNING')) > 0 THEN 'RUNNING' "
+                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "        AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to AND cc.status = 'FAILED') > 0 THEN 'PARTIAL' "
                         + "  ELSE 'COMPLETED' END, "
                         + "completed_at = CASE "
-                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = br.instrument_id "
-                        + "        AND cc.timeframe_id = br.timeframe_id AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to AND cc.status IN ('PENDING','RUNNING')) = 0 THEN CURRENT_TIMESTAMP "
+                        + "  WHEN (SELECT count(*) FROM market.candle_coverage cc WHERE cc.instrument_id = ir.instrument_id "
+                        + "        AND cc.timeframe_id = ir.timeframe_id AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to AND cc.status IN ('PENDING','RUNNING')) = 0 THEN CURRENT_TIMESTAMP "
                         + "  ELSE NULL END "
-                        + "WHERE br.backfill_run_id = ?",
+                        + "WHERE ir.ingestion_run_id = ?",
                 runId);
     }
 
     public Optional<BackfillRunResponse> findRun(String runKey) {
         Record record = dsl.fetchOne(
-                "SELECT br.run_key, br.instrument_id, t.code AS timeframe_code, br.requested_from, br.requested_to, "
-                        + "br.status, br.total_chunks, br.completed_chunks, br.failed_chunks, br.candles_written, "
-                        + "br.last_error, br.created_at, br.updated_at, br.completed_at "
-                        + "FROM market.backfill_run br JOIN reference.timeframe t ON t.timeframe_id = br.timeframe_id "
-                        + "WHERE br.run_key = ?",
+                "SELECT ir.run_key, ir.instrument_id, t.code AS timeframe_code, ir.requested_from, ir.requested_to, "
+                        + "ir.status, ir.total_chunks, ir.completed_chunks, ir.failed_chunks, ir.candles_written, "
+                        + "ir.last_error, ir.created_at, ir.updated_at, ir.completed_at "
+                        + "FROM market.ingestion_run ir JOIN reference.timeframe t ON t.timeframe_id = ir.timeframe_id "
+                        + "WHERE ir.run_key = ?",
                 UUID.fromString(runKey));
         return record == null ? Optional.empty() : Optional.of(toRun(record));
     }
 
     public List<BackfillRunResponse> runsForInstrument(long instrumentId, int limit) {
         return dsl.fetch(
-                        "SELECT br.run_key, br.instrument_id, t.code AS timeframe_code, br.requested_from, br.requested_to, "
-                                + "br.status, br.total_chunks, br.completed_chunks, br.failed_chunks, br.candles_written, "
-                                + "br.last_error, br.created_at, br.updated_at, br.completed_at "
-                                + "FROM market.backfill_run br JOIN reference.timeframe t ON t.timeframe_id = br.timeframe_id "
-                                + "WHERE br.instrument_id = ? ORDER BY br.created_at DESC LIMIT ?",
+                        "SELECT ir.run_key, ir.instrument_id, t.code AS timeframe_code, ir.requested_from, ir.requested_to, "
+                                + "ir.status, ir.total_chunks, ir.completed_chunks, ir.failed_chunks, ir.candles_written, "
+                                + "ir.last_error, ir.created_at, ir.updated_at, ir.completed_at "
+                                + "FROM market.ingestion_run ir JOIN reference.timeframe t ON t.timeframe_id = ir.timeframe_id "
+                                + "WHERE ir.instrument_id = ? ORDER BY ir.created_at DESC LIMIT ?",
                         instrumentId,
                         limit)
                 .map(HistoryRepository::toRun);
@@ -278,18 +400,18 @@ public class HistoryRepository {
     public void requeueFailed(String runKey) {
         dsl.execute(
                 "UPDATE market.candle_coverage cc SET status = 'PENDING', last_error = NULL "
-                        + "FROM market.backfill_run br WHERE br.run_key = ? "
-                        + "AND cc.instrument_id = br.instrument_id AND cc.timeframe_id = br.timeframe_id "
-                        + "AND cc.status = 'FAILED' AND cc.chunk_start >= br.requested_from AND cc.chunk_end <= br.requested_to",
+                        + "FROM market.ingestion_run ir WHERE ir.run_key = ? "
+                        + "AND cc.instrument_id = ir.instrument_id AND cc.timeframe_id = ir.timeframe_id "
+                        + "AND cc.status = 'FAILED' AND cc.chunk_start >= ir.requested_from AND cc.chunk_end <= ir.requested_to",
                 UUID.fromString(runKey));
         dsl.execute(
-                "UPDATE market.backfill_run SET status = 'QUEUED', last_error = NULL, completed_at = NULL WHERE run_key = ?",
+                "UPDATE market.ingestion_run SET status = 'QUEUED', last_error = NULL, completed_at = NULL WHERE run_key = ?",
                 UUID.fromString(runKey));
     }
 
     public void recoverStaleWork() {
         dsl.execute("UPDATE market.candle_coverage SET status = 'PENDING' WHERE status = 'RUNNING'");
-        dsl.execute("UPDATE market.backfill_run SET status = 'QUEUED' WHERE status = 'RUNNING'");
+        dsl.execute("UPDATE market.ingestion_run SET status = 'QUEUED' WHERE status = 'RUNNING'");
     }
 
     // --- helpers ------------------------------------------------------------------
@@ -324,10 +446,12 @@ public class HistoryRepository {
                         : record.get("completed_at", OffsetDateTime.class).toInstant());
     }
 
-    private static java.sql.Timestamp timestamp(Instant instant) {
-        // The JDBC session is pinned to UTC (Hikari connection-init-sql), so a plain timestamp is
-        // unambiguous. jOOQ plain SQL does not infer parameter types from the schema.
-        return instant == null ? null : java.sql.Timestamp.from(instant);
+    /**
+     * Binds instants as explicit UTC ISO strings cast to {@code timestamptz}. This avoids any
+     * dependence on the JVM default zone (DD-04: the host timezone must not define behavior).
+     */
+    private static String utc(Instant instant) {
+        return instant == null ? null : instant.atOffset(java.time.ZoneOffset.UTC).toString();
     }
 
     private static long value(Record record, String field, long fallback) {
@@ -354,5 +478,4 @@ public class HistoryRepository {
             Instant start,
             Instant end) {
     }
-
 }

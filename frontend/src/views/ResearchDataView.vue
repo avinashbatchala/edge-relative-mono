@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { Database, Download, RotateCw } from '@lucide/vue'
-import type { BrokerCandleInterval } from '@/api/types'
+import { Download, Loader2 } from '@lucide/vue'
 import {
   getCandles,
   getCoverage,
-  getRuns,
+  HISTORY_TIMEFRAMES,
   historyKeys,
-  retryRun,
   startBackfill,
-  type BackfillRunResponse,
 } from '@/api/history'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { Badge } from '@/components/ui/badge'
@@ -27,18 +24,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import PriceChart from '@/components/market-data/PriceChart.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
 import { formatAge, formatCompact, formatIstDateTime } from '@/lib/format'
-import { exchangeDateToInstant, INTERVAL_OPTIONS } from '@/lib/market-time'
+import { exchangeDateToInstant } from '@/lib/market-time'
 
 const queryClient = useQueryClient()
 
@@ -49,12 +38,12 @@ const watchlistQuery = useQuery(() => ({
   retry: 1,
 }))
 
-const M1: BrokerCandleInterval = 'ONE_MINUTE'
+const M1 = 'M1'
 const VIEW_LIMIT = 5000
 
 const selectedInstrumentId = ref<number | null>(null)
 // The persisted base is always M1; this selects which derived timeframe the chart shows.
-const viewTimeframe = ref<BrokerCandleInterval>('ONE_DAY')
+const viewTimeframe = ref('D1')
 
 const entries = computed(() => watchlistQuery.data.value?.entries ?? [])
 
@@ -78,21 +67,10 @@ const coverageQuery = useQuery(() => ({
   queryFn: ({ signal }) =>
     getCoverage(selectedInstrumentId.value ?? 0, M1, signal),
   enabled: selectedInstrumentId.value !== null,
-  refetchInterval: 5_000,
-  staleTime: 2_000,
-  retry: 1,
-}))
-
-const runsQuery = useQuery(() => ({
-  queryKey: historyKeys.runs(selectedInstrumentId.value ?? 0),
-  queryFn: ({ signal }) => getRuns(selectedInstrumentId.value ?? 0, 20, signal),
-  enabled: selectedInstrumentId.value !== null,
-  refetchInterval: (query: { state: { data?: BackfillRunResponse[] } }) => {
-    const active = (query.state.data ?? []).some(
-      (run) => run.status === 'RUNNING' || run.status === 'QUEUED',
-    )
-    return active ? 2_000 : 10_000
-  },
+  // Poll faster while a download is active, including when the tab is in the background.
+  refetchInterval: (query: { state: { data?: { status?: string } } }) =>
+    query.state.data?.status === 'RUNNING' ? 2_000 : 15_000,
+  refetchIntervalInBackground: true,
   staleTime: 1_000,
   retry: 1,
 }))
@@ -171,13 +149,17 @@ const candlesQuery = useQuery(() => ({
   retry: 1,
 }))
 
-const runs = computed(() => runsQuery.data.value ?? [])
 const persistedCandles = computed(() => candlesQuery.data.value ?? [])
 const candlesCapped = computed(
   () => persistedCandles.value.length >= VIEW_LIMIT,
 )
 const partialCandles = computed(
   () => persistedCandles.value.filter((candle) => candle.partial).length,
+)
+const incompleteCandles = computed(
+  () =>
+    persistedCandles.value.filter((c) => c.qualityState === 'INCOMPLETE')
+      .length,
 )
 const coverage = computed(() => coverageQuery.data.value ?? null)
 const plannedChunks = computed(() =>
@@ -209,17 +191,9 @@ const startMutation = useMutation({
   },
 })
 
-const retryMutation = useMutation({
-  mutationFn: (runKey: string) => retryRun(runKey),
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: historyKeys.all }),
-})
-
-function runProgress(run: BackfillRunResponse): number {
-  if (run.totalChunks <= 0) {
-    return run.status === 'COMPLETED' ? 100 : 0
-  }
-  return Math.round((run.completedChunks / run.totalChunks) * 100)
-}
+const isDownloading = computed(
+  () => startMutation.isPending.value || coverage.value?.status === 'RUNNING',
+)
 
 function progressClass(status: string): string {
   if (status === 'COMPLETE' || status === 'COMPLETED') {
@@ -257,12 +231,12 @@ function statusVariant(
       </p>
     </div>
 
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="text-sm font-medium">Download</CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader class="pb-3">
+          <CardTitle class="text-sm font-medium">Download</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-3">
           <div class="space-y-1.5">
             <Label>Instrument (watchlist)</Label>
             <Select v-model="selectedInstrumentId">
@@ -283,56 +257,63 @@ function statusVariant(
               </SelectContent>
             </Select>
           </div>
-          <div class="space-y-1.5">
-            <Label for="download-from-date">From</Label>
-            <Input
-              id="download-from-date"
-              v-model="downloadFromDate"
-              type="date"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label for="download-to-date">To</Label>
-            <Input id="download-to-date" v-model="downloadToDate" type="date" />
-          </div>
-        </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <Button
-            v-for="preset in DOWNLOAD_PRESETS"
-            :key="preset.label"
-            variant="outline"
-            size="sm"
-            @click="applyDownloadPreset(preset.years)"
-          >
-            {{ preset.label }}
-          </Button>
-          <div class="ml-auto">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <Label for="download-from-date">From</Label>
+              <Input
+                id="download-from-date"
+                v-model="downloadFromDate"
+                type="date"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <Label for="download-to-date">To</Label>
+              <Input
+                id="download-to-date"
+                v-model="downloadToDate"
+                type="date"
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1">
             <Button
-              :disabled="
-                selectedInstrumentId === null || startMutation.isPending.value
-              "
+              v-for="preset in DOWNLOAD_PRESETS"
+              :key="preset.label"
+              variant="outline"
+              size="sm"
+              @click="applyDownloadPreset(preset.years)"
+            >
+              {{ preset.label }}
+            </Button>
+            <Button
+              class="ml-auto"
+              :disabled="selectedInstrumentId === null || isDownloading"
               @click="startMutation.mutate()"
             >
-              <Download class="size-4" aria-hidden="true" />
-              Download / resume
+              <Loader2
+                v-if="isDownloading"
+                class="size-4 animate-spin"
+                aria-hidden="true"
+              />
+              <Download v-else class="size-4" aria-hidden="true" />
+              {{ isDownloading ? 'Downloading…' : 'Download / resume' }}
             </Button>
           </div>
-        </div>
 
-        <SectionState
-          v-if="startMutation.isError.value"
-          title="Could not start download"
-          :error="startMutation.error.value"
-          @retry="startMutation.mutate()"
-        />
-      </CardContent>
-    </Card>
+          <SectionState
+            v-if="startMutation.isError.value"
+            title="Could not start download"
+            :error="startMutation.error.value"
+            @retry="startMutation.mutate()"
+          />
+        </CardContent>
+      </Card>
 
-    <div class="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader class="pb-3">
-          <CardTitle class="text-sm font-medium">M1 base coverage</CardTitle>
+          <CardTitle class="text-sm font-medium">M1 coverage</CardTitle>
         </CardHeader>
         <CardContent class="space-y-3">
           <SectionState
@@ -359,8 +340,27 @@ function statusVariant(
               <Badge :variant="statusVariant(coverage.status)">{{
                 coverage.status
               }}</Badge>
+              <span
+                v-if="coverage.status === 'RUNNING'"
+                class="flex items-center gap-1 text-xs font-medium"
+              >
+                <Loader2 class="size-3.5 animate-spin" aria-hidden="true" />
+                Downloading…
+              </span>
               <span class="text-xs text-muted-foreground tabular-nums">
                 {{ formatCompact(coverage.candleCount) }} candles
+              </span>
+              <span
+                class="ml-auto text-xs text-muted-foreground tabular-nums"
+                :title="
+                  coverage.lastSyncedAt
+                    ? `Last synced ${formatIstDateTime(coverage.lastSyncedAt)}`
+                    : undefined
+                "
+              >
+                {{
+                  coverage.lastSyncedAt ? formatAge(coverage.lastSyncedAt) : '—'
+                }}
               </span>
             </div>
             <Progress
@@ -369,7 +369,14 @@ function statusVariant(
               :aria-label="`${coverage.completedChunks} of ${plannedChunks} chunks`"
               :title="`${coverage.completedChunks} of ${plannedChunks} chunks`"
             />
-            <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <p
+              v-if="coverage.status === 'RUNNING'"
+              class="text-xs text-muted-foreground tabular-nums"
+            >
+              {{ coverage.completedChunks }} / {{ plannedChunks }} chunks
+              downloaded
+            </p>
+            <dl class="grid grid-cols-2 gap-x-6 text-sm">
               <div>
                 <dt class="text-xs text-muted-foreground">Earliest</dt>
                 <dd class="tabular-nums">
@@ -382,93 +389,14 @@ function statusVariant(
                   {{ formatIstDateTime(coverage.latest) }}
                 </dd>
               </div>
-              <div>
-                <dt class="text-xs text-muted-foreground">Last synced</dt>
-                <dd class="tabular-nums">
-                  {{
-                    coverage.lastSyncedAt
-                      ? formatAge(coverage.lastSyncedAt)
-                      : '—'
-                  }}
-                </dd>
-              </div>
             </dl>
+            <p
+              v-if="coverage.status === 'PARTIAL'"
+              class="text-xs text-muted-foreground"
+            >
+              Some chunks failed — Download / resume retries them.
+            </p>
           </template>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="pb-3">
-          <CardTitle class="text-sm font-medium">Backfill runs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SectionState
-            v-if="runsQuery.isError.value"
-            title="Runs unavailable"
-            :error="runsQuery.error.value"
-            @retry="runsQuery.refetch()"
-          />
-          <p
-            v-else-if="runs.length === 0"
-            class="flex items-center gap-2 py-8 text-sm text-muted-foreground"
-          >
-            <Database class="size-4" aria-hidden="true" />
-            No backfill runs yet.
-          </p>
-          <div v-else class="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Range</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead class="text-right">Candles</TableHead>
-                  <TableHead class="text-right">Updated</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow v-for="run in runs" :key="run.runKey">
-                  <TableCell class="whitespace-nowrap text-xs tabular-nums">
-                    {{ formatIstDateTime(run.requestedFrom) }} →
-                    {{ formatIstDateTime(run.requestedTo) }}
-                  </TableCell>
-                  <TableCell>
-                    <Badge :variant="statusVariant(run.status)">{{
-                      run.status
-                    }}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Progress
-                      :model-value="runProgress(run)"
-                      :class="progressClass(run.status)"
-                      :aria-label="`${run.completedChunks} of ${run.totalChunks} chunks`"
-                      :title="`${run.completedChunks} of ${run.totalChunks} chunks`"
-                    />
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {{ formatCompact(run.candlesWritten) }}
-                  </TableCell>
-                  <TableCell
-                    class="text-right text-xs text-muted-foreground tabular-nums"
-                  >
-                    {{ formatAge(run.updatedAt) }}
-                  </TableCell>
-                  <TableCell class="text-right">
-                    <Button
-                      v-if="run.status === 'PARTIAL' || run.status === 'FAILED'"
-                      variant="outline"
-                      size="sm"
-                      @click="retryMutation.mutate(run.runKey)"
-                    >
-                      <RotateCw class="size-3.5" aria-hidden="true" />
-                      Retry
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -489,7 +417,7 @@ function statusVariant(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem
-                  v-for="option in INTERVAL_OPTIONS"
+                  v-for="option in HISTORY_TIMEFRAMES"
                   :key="option.value"
                   :value="option.value"
                 >
@@ -549,9 +477,7 @@ function statusVariant(
         <template v-else>
           <p class="text-xs text-muted-foreground tabular-nums">
             {{ formatCompact(persistedCandles.length) }}
-            {{
-              viewTimeframe === 'ONE_MINUTE' ? 'M1' : `derived ${viewTimeframe}`
-            }}
+            {{ viewTimeframe === 'M1' ? 'M1' : `derived ${viewTimeframe}` }}
             candles ·
             {{ formatIstDateTime(persistedCandles[0]?.openTime) }} →
             {{
@@ -561,6 +487,12 @@ function statusVariant(
             }}
             <span v-if="partialCandles > 0">
               · {{ partialCandles }} partial session bar(s)
+            </span>
+            <span
+              v-if="incompleteCandles > 0"
+              class="text-amber-600 dark:text-amber-500"
+            >
+              · {{ incompleteCandles }} incomplete (missing minutes)
             </span>
             <span v-if="candlesCapped">
               · capped at the first {{ formatCompact(VIEW_LIMIT) }} in range

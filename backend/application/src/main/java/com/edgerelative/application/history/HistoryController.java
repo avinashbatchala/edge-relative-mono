@@ -4,7 +4,6 @@ import com.edgerelative.application.history.api.BackfillRunResponse;
 import com.edgerelative.application.history.api.CoverageResponse;
 import com.edgerelative.application.history.api.HistoryCandleResponse;
 import com.edgerelative.application.history.api.StartBackfillRequest;
-import com.edgerelative.broker.api.model.BrokerCandleInterval;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -30,7 +29,7 @@ public class HistoryController {
 
     @GetMapping("/coverage")
     public CoverageResponse coverage(
-            @RequestParam long instrumentId, @RequestParam BrokerCandleInterval timeframe) {
+            @RequestParam long instrumentId, @RequestParam String timeframe) {
         return service.coverage(instrumentId, timeframe);
     }
 
@@ -59,7 +58,7 @@ public class HistoryController {
     @GetMapping("/candles")
     public List<HistoryCandleResponse> candles(
             @RequestParam long instrumentId,
-            @RequestParam BrokerCandleInterval timeframe,
+            @RequestParam String timeframe,
             @RequestParam Instant from,
             @RequestParam Instant to,
             @RequestParam(defaultValue = "5000") int limit) {

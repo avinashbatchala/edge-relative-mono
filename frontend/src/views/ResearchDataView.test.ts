@@ -17,10 +17,8 @@ vi.mock('@/api/history', async (importOriginal) => {
   return {
     ...actual,
     getCoverage: vi.fn(),
-    getRuns: vi.fn(),
     getCandles: vi.fn(),
     startBackfill: vi.fn(),
-    retryRun: vi.fn(),
   }
 })
 
@@ -41,26 +39,29 @@ vi.mock('@/api/watchlist', async (importOriginal) => {
 })
 
 const getCoverage = vi.mocked(historyApi.getCoverage)
-const getRuns = vi.mocked(historyApi.getRuns)
 const getCandles = vi.mocked(historyApi.getCandles)
 const startBackfill = vi.mocked(historyApi.startBackfill)
-const retryRun = vi.mocked(historyApi.retryRun)
 
 const candle = {
   openTime: '2026-09-18T03:45:00Z',
+  closeTime: '2026-09-18T03:50:00Z',
   open: 100,
   high: 105,
   low: 99,
   close: 104,
   volume: 1000,
   openInterest: null,
+  tradeCount: null,
+  vwap: null,
   partial: false,
+  complete: true,
+  qualityState: 'GOOD',
   definitionVersion: 'er-aggregate-v1',
 }
 
 const coverage = {
   instrumentId: 7,
-  timeframe: 'ONE_MINUTE',
+  timeframe: 'M1',
   earliest: '2019-01-01T03:45:00Z',
   latest: '2026-09-19T10:00:00Z',
   candleCount: 12345,
@@ -74,7 +75,7 @@ const coverage = {
 const run = {
   runKey: 'run-1',
   instrumentId: 7,
-  timeframe: 'ONE_MINUTE',
+  timeframe: 'M1',
   requestedFrom: '2019-01-01T00:00:00Z',
   requestedTo: '2026-09-19T00:00:00Z',
   status: 'PARTIAL',
@@ -123,10 +124,8 @@ beforeEach(() => {
     ],
   })
   getCoverage.mockReset().mockResolvedValue(coverage)
-  getRuns.mockReset().mockResolvedValue([run])
   getCandles.mockReset().mockResolvedValue([candle])
   startBackfill.mockReset().mockResolvedValue(run)
-  retryRun.mockReset().mockResolvedValue({ ...run, status: 'RUNNING' })
 })
 
 afterEach(cleanup)
@@ -136,17 +135,16 @@ test('shows persisted coverage for the default watchlist instrument', async () =
 
   expect(await screen.findByText('BACKFILLING')).toBeTruthy()
   expect(screen.getAllByText(/candles/i).length).toBeGreaterThan(0)
-  expect(getCoverage).toHaveBeenCalledWith(7, 'ONE_MINUTE', expect.anything())
+  expect(getCoverage).toHaveBeenCalledWith(7, 'M1', expect.anything())
 })
 
-test('lists runs and retries a partial run', async () => {
+test('shows an active download indicator while coverage is running', async () => {
+  getCoverage.mockResolvedValue({ ...coverage, status: 'RUNNING' })
   setup()
 
-  const retry = await screen.findByRole('button', { name: /retry/i })
-  expect(screen.getByText('PARTIAL')).toBeTruthy()
-  await fireEvent.click(retry)
-
-  await waitFor(() => expect(retryRun).toHaveBeenCalledWith('run-1'))
+  await waitFor(() =>
+    expect(screen.getAllByText('Downloading…').length).toBeGreaterThan(0),
+  )
 })
 
 test('renders persisted candles read from the database', async () => {
@@ -156,7 +154,7 @@ test('renders persisted candles read from the database', async () => {
   expect(screen.getByText('Persisted history (database)')).toBeTruthy()
   expect(getCandles).toHaveBeenCalledWith(
     7,
-    'ONE_DAY',
+    'D1',
     expect.any(String),
     expect.any(String),
     5000,
@@ -175,7 +173,7 @@ test('starting a backfill posts the selected instrument and timeframe', async ()
   await waitFor(() => expect(startBackfill).toHaveBeenCalledTimes(1))
   const request = startBackfill.mock.calls[0]?.[0]
   expect(request?.instrumentId).toBe(7)
-  expect(request?.timeframe).toBe('ONE_MINUTE')
+  expect(request?.timeframe).toBe('M1')
   expect(request?.from).toMatch(/T/)
   expect(request?.to).toMatch(/T/)
 })

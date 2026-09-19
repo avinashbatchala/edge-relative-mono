@@ -60,7 +60,7 @@ class GrowwMapperTest {
         assertThat(order.product()).isEqualTo(BrokerProduct.CNC);
         assertThat(order.status()).isEqualTo(BrokerOrderStatus.EXECUTED);
         assertThat(order.price()).isEqualByComparingTo(new BigDecimal("2500.55"));
-        assertThat(order.createdAt()).isEqualTo(Instant.parse("2023-10-01T10:15:30Z"));
+        assertThat(order.createdAt()).isEqualTo(Instant.parse("2023-10-01T04:45:30Z"));
         assertThat(order.tradeDate()).isEqualTo(Instant.parse("2024-08-24T14:15:22Z"));
     }
 
@@ -97,8 +97,9 @@ class GrowwMapperTest {
     @Test
     void parsesDocumentedTimestampFormats() {
         assertThat(mapper.instant("2024-08-24T14:15:22Z")).isEqualTo(Instant.parse("2024-08-24T14:15:22Z"));
-        assertThat(mapper.instant("2023-10-01T10:15:30")).isEqualTo(Instant.parse("2023-10-01T10:15:30Z"));
-        assertThat(mapper.instant("2023-10-01 10:15:30")).isEqualTo(Instant.parse("2023-10-01T10:15:30Z"));
+        // Zone-less Groww timestamps are exchange-local (IST), not UTC.
+        assertThat(mapper.instant("2023-10-01T10:15:30")).isEqualTo(Instant.parse("2023-10-01T04:45:30Z"));
+        assertThat(mapper.instant("2023-10-01 10:15:30")).isEqualTo(Instant.parse("2023-10-01T04:45:30Z"));
         assertThat(mapper.instant((String) null)).isNull();
     }
 

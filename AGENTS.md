@@ -45,7 +45,7 @@ or granting trading authority.
 - Research: Python managed with `uv`; Python does not own authoritative production trading state.
 - Frontend: Vue 3, TypeScript, Composition API with `<script setup>`, Vite, Pinia, and `pnpm`. Vue is intentionally selected over React.
 - Contracts: OpenAPI for HTTP APIs and explicit versioned WebSocket schemas; shared Java/Python calculation fixtures.
-- Analytical history: Parquet and object storage rather than PostgreSQL as an unlimited tick warehouse.
+- Analytical history: PostgreSQL is the authoritative canonical candle store for the watched universe (<50 instruments, M1 base only, higher timeframes derived on read). Parquet and object storage remain the eventual store for broad analytical history and are deferred with documented triggers (`docs/design-docs/dev/ADR-001-candle-storage.md`); do not treat PostgreSQL as an unlimited tick warehouse.
 - Operations: Docker/Compose, Terraform, and GitHub Actions when needed.
 
 DD-04A also proposes `contracts/`, `infra/`, `docker/`, `scripts/`, and more backend

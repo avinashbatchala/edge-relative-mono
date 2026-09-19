@@ -1,9 +1,7 @@
 package com.edgerelative.application.reference;
 
-import com.edgerelative.broker.api.model.BrokerCandleInterval;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -29,20 +27,6 @@ public class CanonicalInstrumentService {
             "NSE", "National Stock Exchange",
             "BSE", "BSE",
             "MCX", "Multi Commodity Exchange");
-
-    private static final Map<BrokerCandleInterval, TimeframeDefinition> TIMEFRAMES = Map.ofEntries(
-            Map.entry(BrokerCandleInterval.ONE_MINUTE, new TimeframeDefinition("M1", 60, false)),
-            Map.entry(BrokerCandleInterval.TWO_MINUTE, new TimeframeDefinition("M2", 120, false)),
-            Map.entry(BrokerCandleInterval.THREE_MINUTE, new TimeframeDefinition("M3", 180, false)),
-            Map.entry(BrokerCandleInterval.FIVE_MINUTE, new TimeframeDefinition("M5", 300, false)),
-            Map.entry(BrokerCandleInterval.TEN_MINUTE, new TimeframeDefinition("M10", 600, false)),
-            Map.entry(BrokerCandleInterval.FIFTEEN_MINUTE, new TimeframeDefinition("M15", 900, false)),
-            Map.entry(BrokerCandleInterval.THIRTY_MINUTE, new TimeframeDefinition("M30", 1800, false)),
-            Map.entry(BrokerCandleInterval.ONE_HOUR, new TimeframeDefinition("H1", 3600, false)),
-            Map.entry(BrokerCandleInterval.FOUR_HOUR, new TimeframeDefinition("H4", 14400, false)),
-            Map.entry(BrokerCandleInterval.ONE_DAY, new TimeframeDefinition("D1", null, true)),
-            Map.entry(BrokerCandleInterval.ONE_WEEK, new TimeframeDefinition("W1", null, true)),
-            Map.entry(BrokerCandleInterval.ONE_MONTH, new TimeframeDefinition("MN1", null, true)));
 
     private final DSLContext dsl;
 
@@ -130,49 +114,17 @@ public class CanonicalInstrumentService {
                 token);
     }
 
-    public long ensureTimeframe(BrokerCandleInterval interval) {
-        TimeframeDefinition definition = TIMEFRAMES.get(interval);
-        if (definition == null) {
-            throw new IllegalArgumentException("Unsupported timeframe: " + interval);
-        }
+    /** Ensures the registry row exists and returns its id; rejects unregistered codes. */
+    public long ensureTimeframe(String code) {
+        TimeframeCatalog.Spec spec = TimeframeCatalog.require(code);
         Record record = dsl.fetchOne(
                 "INSERT INTO reference.timeframe (code, duration_seconds, calendar_based) VALUES (?, ?, ?) "
                         + "ON CONFLICT (code) DO UPDATE SET duration_seconds = EXCLUDED.duration_seconds, "
-                        + "calendar_based = EXCLUDED.calendar_based RETURNING timeframe_id",
-                definition.code(),
-                definition.durationSeconds(),
-                definition.calendarBased());
+                        + "calendar_based = EXCLUDED.calendar_based, active = TRUE RETURNING timeframe_id",
+                spec.code(),
+                spec.durationSeconds(),
+                spec.calendarBased());
         return record.get("timeframe_id", Long.class);
-    }
-
-    public static String timeframeCode(BrokerCandleInterval interval) {
-        TimeframeDefinition definition = TIMEFRAMES.get(interval);
-        if (definition == null) {
-            throw new IllegalArgumentException("Unsupported timeframe: " + interval);
-        }
-        return definition.code();
-    }
-
-    /** Fixed bar length for intraday timeframes; {@code null} for calendar-based (D1/W1/MN1). */
-    public static Duration barDuration(BrokerCandleInterval interval) {
-        TimeframeDefinition definition = TIMEFRAMES.get(interval);
-        if (definition == null || definition.durationSeconds() == null) {
-            return null;
-        }
-        return Duration.ofSeconds(definition.durationSeconds());
-    }
-
-    public static boolean isCalendarBased(BrokerCandleInterval interval) {
-        TimeframeDefinition definition = TIMEFRAMES.get(interval);
-        return definition != null && definition.calendarBased();
-    }
-
-    public static BrokerCandleInterval intervalForTimeframeCode(String code) {
-        return TIMEFRAMES.entrySet().stream()
-                .filter(entry -> entry.getValue().code().equals(code))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown timeframe code: " + code));
     }
 
     private long ensureBroker() {
@@ -198,8 +150,5 @@ public class CanonicalInstrumentService {
 
     private static UUID deterministicKey(String value) {
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private record TimeframeDefinition(String code, Integer durationSeconds, boolean calendarBased) {
     }
 }

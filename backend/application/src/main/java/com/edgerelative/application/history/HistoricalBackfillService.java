@@ -7,6 +7,7 @@ import com.edgerelative.application.history.api.CoverageResponse;
 import com.edgerelative.application.history.api.HistoryCandleResponse;
 import com.edgerelative.application.history.api.StartBackfillRequest;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
+import com.edgerelative.application.reference.TimeframeCatalog;
 import com.edgerelative.application.watchlist.WatchlistService;
 import com.edgerelative.broker.api.model.BrokerCandleInterval;
 import com.edgerelative.broker.api.model.BrokerCandleSeries;
@@ -38,6 +39,7 @@ public class HistoricalBackfillService {
     private final HistoryProperties properties;
     private final WatchlistService watchlist;
     private final CandleAggregator aggregator;
+    private final BackfillChunkWriter chunkWriter;
 
     public HistoricalBackfillService(
             CanonicalInstrumentService canonical,
@@ -45,13 +47,15 @@ public class HistoricalBackfillService {
             HistoryRepository repository,
             HistoryProperties properties,
             WatchlistService watchlist,
-            CandleAggregator aggregator) {
+            CandleAggregator aggregator,
+            BackfillChunkWriter chunkWriter) {
         this.canonical = canonical;
         this.historicalDataBroker = historicalDataBroker;
         this.repository = repository;
         this.properties = properties;
         this.watchlist = watchlist;
         this.aggregator = aggregator;
+        this.chunkWriter = chunkWriter;
     }
 
     @Transactional
@@ -61,10 +65,10 @@ public class HistoricalBackfillService {
         }
         // Only the M1 base is persisted from the broker; higher timeframes are derived from it
         // (DD-05 §94/§97) rather than independently trusting vendor bars.
-        if (request.timeframe() != BrokerCandleInterval.ONE_MINUTE) {
+        if (!TimeframeCatalog.M1.equalsIgnoreCase(request.timeframe().trim())) {
             throw new HistoryException(
                     HistoryException.INVALID,
-                    "Only ONE_MINUTE is the canonical persisted base; %s is derived".formatted(request.timeframe()));
+                    "Only M1 is the canonical persisted base; %s is derived".formatted(request.timeframe()));
         }
         // Only the active watchlist may be persisted; data collection does not imply execution
         // eligibility, but it is still deliberately limited to the watched universe.
@@ -73,8 +77,8 @@ public class HistoricalBackfillService {
                     HistoryException.NOT_WATCHED,
                     "Instrument %d is not on the active watchlist".formatted(request.instrumentId()));
         }
-        long timeframeId = canonical.ensureTimeframe(request.timeframe());
-        Duration maxWindow = historicalDataBroker.maxWindow(request.timeframe());
+        long timeframeId = canonical.ensureTimeframe(TimeframeCatalog.M1);
+        Duration maxWindow = historicalDataBroker.maxWindow(BrokerCandleInterval.ONE_MINUTE);
         List<Chunk> chunks = HistoricalBackfillPlanner.plan(request.from(), request.to(), maxWindow);
         // Gap-aware: only missing chunks are queued; completed coverage is left untouched.
         for (Chunk chunk : chunks) {
@@ -88,9 +92,10 @@ public class HistoricalBackfillService {
                 .orElseThrow(() -> new HistoryException(HistoryException.NOT_FOUND, "Run not found"));
     }
 
-    public CoverageResponse coverage(long instrumentId, BrokerCandleInterval timeframe) {
-        long timeframeId = canonical.ensureTimeframe(timeframe);
-        return repository.coverage(instrumentId, timeframeId, CanonicalInstrumentService.timeframeCode(timeframe));
+    public CoverageResponse coverage(long instrumentId, String timeframeCode) {
+        TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
+        long timeframeId = canonical.ensureTimeframe(spec.code());
+        return repository.coverage(instrumentId, timeframeId, spec.code());
     }
 
     public List<BackfillRunResponse> runs(long instrumentId, int limit) {
@@ -113,34 +118,46 @@ public class HistoricalBackfillService {
      * deterministically from the persisted M1 base with the same aggregator used everywhere.
      */
     public List<HistoryCandleResponse> candles(
-            long instrumentId, BrokerCandleInterval timeframe, Instant from, Instant to, int limit) {
-        long m1TimeframeId = canonical.ensureTimeframe(BrokerCandleInterval.ONE_MINUTE);
+            long instrumentId, String timeframeCode, Instant from, Instant to, int limit) {
+        TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
+        long m1TimeframeId = canonical.ensureTimeframe(TimeframeCatalog.M1);
         int requested = Math.min(Math.max(limit, 1), 10_000);
-        if (timeframe == BrokerCandleInterval.ONE_MINUTE) {
+        if (TimeframeCatalog.M1.equals(spec.code())) {
             return aggregator
-                    .aggregate(repository.candles(instrumentId, m1TimeframeId, from, to, requested), timeframe)
+                    .aggregate(repository.candles(instrumentId, m1TimeframeId, from, to, requested), spec.code())
                     .stream()
                     .map(HistoricalBackfillService::toResponse)
                     .toList();
         }
         List<HistoricalCandle> source =
                 repository.candles(instrumentId, m1TimeframeId, from, to, properties.getMaxSourceCandles());
-        return aggregator.aggregate(source, timeframe).stream()
+        return aggregator.aggregate(source, spec.code()).stream()
                 .limit(requested)
                 .map(HistoricalBackfillService::toResponse)
                 .toList();
     }
 
+    private static TimeframeCatalog.Spec requireTimeframe(String timeframeCode) {
+        return TimeframeCatalog.find(timeframeCode)
+                .orElseThrow(() -> new HistoryException(
+                        HistoryException.INVALID, "Unsupported timeframe: " + timeframeCode));
+    }
+
     private static HistoryCandleResponse toResponse(AggregatedCandle candle) {
         return new HistoryCandleResponse(
                 candle.openTime(),
+                candle.closeTime(),
                 candle.open(),
                 candle.high(),
                 candle.low(),
                 candle.close(),
                 candle.volume(),
                 candle.openInterest(),
+                candle.tradeCount(),
+                candle.vwap(),
                 candle.partial(),
+                candle.complete(),
+                candle.qualityState(),
                 candle.definitionVersion());
     }
 
@@ -154,25 +171,26 @@ public class HistoricalBackfillService {
         repository.releaseCoverage(chunk.coverageId());
     }
 
-    @Transactional
+    /**
+     * Claims -> fetches -> writes one chunk. Intentionally not transactional: the broker call runs
+     * outside any transaction, the write is atomic in {@link BackfillChunkWriter}, and failure
+     * marking runs in its own transaction so a bad chunk ends FAILED instead of stuck RUNNING.
+     */
     public void processChunk(ClaimedChunk chunk) {
         try {
             if (isBlank(chunk.brokerSymbol()) || isBlank(chunk.segment())) {
                 throw new HistoryException(
                         HistoryException.INVALID, "No broker mapping for instrument " + chunk.instrumentId());
             }
-            BrokerCandleInterval interval = CanonicalInstrumentService.intervalForTimeframeCode(chunk.timeframeCode());
             HistoricalCandleRequest request = new HistoricalCandleRequest(
                     BrokerExchange.valueOf(chunk.exchange()),
                     BrokerSegment.valueOf(chunk.segment()),
                     chunk.brokerSymbol(),
                     chunk.start(),
                     chunk.end(),
-                    interval);
+                    BrokerCandleInterval.ONE_MINUTE);
             BrokerCandleSeries series = historicalDataBroker.candles(request);
-            int inserted = repository.insertCandles(
-                    chunk.instrumentId(), chunk.timeframeId(), series.candles(), properties.getInsertBatchSize());
-            repository.markCoverageCompleted(chunk.coverageId(), inserted);
+            chunkWriter.apply(chunk, series.candles());
         } catch (RuntimeException exception) {
             repository.markCoverageFailed(chunk.coverageId(), exception.getMessage());
         } finally {

@@ -42,7 +42,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -63,6 +63,12 @@ public class GrowwMapper {
 
     private static final DateTimeFormatter DATE_TIME_SPACE =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * Groww returns zone-less timestamps as exchange-local wall time (IST). Interpreting them as UTC
+     * shifts every candle by +05:30, so zone-less values are resolved in {@code Asia/Kolkata}.
+     */
+    private static final ZoneId EXCHANGE_ZONE = ZoneId.of("Asia/Kolkata");
 
     private final JsonMapper mapper;
 
@@ -556,12 +562,12 @@ public class GrowwMapper {
             // try the next documented format
         }
         try {
-            return LocalDateTime.parse(value, DATE_TIME_SPACE).toInstant(ZoneOffset.UTC);
+            return LocalDateTime.parse(value, DATE_TIME_SPACE).atZone(EXCHANGE_ZONE).toInstant();
         } catch (RuntimeException ignored) {
             // try the next documented format
         }
         try {
-            return LocalDateTime.parse(value).toInstant(ZoneOffset.UTC);
+            return LocalDateTime.parse(value).atZone(EXCHANGE_ZONE).toInstant();
         } catch (RuntimeException ignored) {
             return null;
         }

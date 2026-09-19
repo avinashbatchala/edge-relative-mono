@@ -1,7 +1,20 @@
 import { apiGet, apiPost } from './http'
-import type { BrokerCandleInterval } from './types'
 
 const BASE = '/api/v1/history'
+
+/** Registered timeframes (DD-05 §96). M1 is stored; the rest are derived on read. */
+export const HISTORY_TIMEFRAMES = [
+  { value: 'M1', label: '1m' },
+  { value: 'M3', label: '3m' },
+  { value: 'M5', label: '5m' },
+  { value: 'M15', label: '15m' },
+  { value: 'M30', label: '30m' },
+  { value: 'H1', label: '1h' },
+  { value: 'H2', label: '2h' },
+  { value: 'H4', label: '4h' },
+  { value: 'D1', label: '1D' },
+  { value: 'W1', label: '1W' },
+] as const
 
 export interface CoverageResponse {
   instrumentId: number
@@ -35,31 +48,37 @@ export interface BackfillRunResponse {
 
 export interface StartBackfillRequest {
   instrumentId: number
-  timeframe: BrokerCandleInterval
+  timeframe: string
   from: string
   to: string
 }
 
 /**
  * A canonical candle. M1 is read from the database; higher timeframes are derived from it.
- * `partial` marks a bar truncated by the session boundary; `definitionVersion` records how
- * the bar was constructed.
+ * `partial` marks a bar truncated by the session boundary; `complete` marks a finalized bar;
+ * `qualityState` is `INCOMPLETE` when a required minute is missing; `definitionVersion` records
+ * how the bar was constructed.
  */
 export interface HistoryCandle {
   openTime: string
+  closeTime: string
   open: number | null
   high: number
   low: number
   close: number
   volume: number
   openInterest: number | null
+  tradeCount: number | null
+  vwap: number | null
   partial: boolean
+  complete: boolean
+  qualityState: string
   definitionVersion: string
 }
 
 export function getCoverage(
   instrumentId: number,
-  timeframe: BrokerCandleInterval,
+  timeframe: string,
   signal?: AbortSignal,
 ): Promise<CoverageResponse> {
   return apiGet<CoverageResponse>(`${BASE}/coverage`, {
@@ -74,24 +93,9 @@ export function startBackfill(
   return apiPost<BackfillRunResponse>(`${BASE}/backfill`, request)
 }
 
-export function getRuns(
-  instrumentId: number,
-  limit = 20,
-  signal?: AbortSignal,
-): Promise<BackfillRunResponse[]> {
-  return apiGet<BackfillRunResponse[]>(`${BASE}/backfill`, {
-    signal,
-    params: { instrumentId, limit },
-  })
-}
-
-export function retryRun(runKey: string): Promise<BackfillRunResponse> {
-  return apiPost<BackfillRunResponse>(`${BASE}/backfill/${runKey}/retry`)
-}
-
 export function getCandles(
   instrumentId: number,
-  timeframe: BrokerCandleInterval,
+  timeframe: string,
   from: string,
   to: string,
   limit = 5000,
@@ -107,8 +111,6 @@ export const historyKeys = {
   all: ['history'] as const,
   coverage: (instrumentId: number, timeframe: string) =>
     [...historyKeys.all, 'coverage', instrumentId, timeframe] as const,
-  runs: (instrumentId: number) =>
-    [...historyKeys.all, 'runs', instrumentId] as const,
   candles: (
     instrumentId: number,
     timeframe: string,
