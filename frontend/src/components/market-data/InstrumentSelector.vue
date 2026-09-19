@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
+import { instrumentKey } from '@/lib/instrument'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -39,15 +40,6 @@ const open = computed({
   get: () => props.open,
   set: (value: boolean) => emit('update:open', value),
 })
-
-function instrumentKey(instrument: BrokerInstrument): string {
-  return [
-    instrument.exchange,
-    instrument.segment ?? '',
-    instrument.tradingSymbol,
-    instrument.brokerSymbol ?? '',
-  ].join('|')
-}
 
 const metaLine = computed(() =>
   props.modelValue

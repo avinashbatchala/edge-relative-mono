@@ -14,7 +14,7 @@ const toggleDark = useToggle(isDark)
       class="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-6 px-4 lg:px-6"
     >
       <RouterLink
-        to="/market-data"
+        to="/market"
         class="flex items-center gap-2 text-sm font-semibold tracking-tight"
       >
         <span
@@ -32,7 +32,7 @@ const toggleDark = useToggle(isDark)
           size="sm"
           class="text-muted-foreground"
         >
-          <RouterLink to="/market-data">
+          <RouterLink to="/market">
             <Activity class="size-4" aria-hidden="true" />
             Market Data
           </RouterLink>

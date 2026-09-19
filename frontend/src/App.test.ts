@@ -12,24 +12,32 @@ vi.mock('@/api/market-data', async (importOriginal) => {
     listInstruments: vi.fn().mockResolvedValue([]),
     getQuote: vi.fn(),
     getHistoricalCandles: vi.fn(),
+    listExpiries: vi.fn(),
+    listContracts: vi.fn(),
+    getOptionChain: vi.fn(),
   }
 })
 
 afterEach(cleanup)
 
-test('renders the market-data workstation shell with navigation', async () => {
+test('renders the market-data shell with navigation and the search landing page', async () => {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', redirect: '/market-data' },
+      { path: '/', redirect: '/market' },
       {
-        path: '/market-data',
-        name: 'market-data',
-        component: () => import('@/views/MarketDataView.vue'),
+        path: '/market',
+        name: 'market-search',
+        component: () => import('@/views/MarketSearchView.vue'),
+      },
+      {
+        path: '/market/:symbol',
+        name: 'market-ticker',
+        component: () => import('@/views/TickerView.vue'),
       },
     ],
   })
-  await router.push('/market-data')
+  await router.push('/market')
   await router.isReady()
 
   render(App, {
@@ -56,6 +64,6 @@ test('renders the market-data workstation shell with navigation', async () => {
     'textContent',
     'Market Data',
   )
-  expect(await screen.findByText('No instrument selected')).toBeTruthy()
+  expect(await screen.findByText('Start with an underlying')).toBeTruthy()
   expect(screen.queryByRole('button', { name: /BUY|SELL/i })).toBeNull()
 })

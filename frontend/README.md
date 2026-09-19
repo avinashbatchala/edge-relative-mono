@@ -39,14 +39,24 @@ pnpm build
 
 ## Market Data
 
-The Market Data screen (`/market-data`) is an instrument workstation: select an
-instrument, then inspect live quote, session statistics, bid/ask and depth, a
-candlestick chart, a dense historical table, instrument reference details, and the
-raw normalized API payloads.
+Market Data is underlying-first:
 
-- Server state lives in TanStack Query, keyed per instrument/interval/range, so a late
+- `/market` is the search landing page. The search is ticker/company-first: the
+  backend ranks an exact ticker or company name on the cash equity above its
+  futures/options, so searching `RELIANCE` or `Reliance Industries` selects the
+  equity.
+- `/market/:symbol` is the ticker workspace for one underlying (e.g.
+  `/market/RELIANCE`). Selecting a derivative in search routes to its underlying.
+
+The ticker workspace shows live quote/OHLC, bid/ask and depth, a candlestick chart, a
+dense historical table, instrument reference details, and the raw normalized API
+payloads — plus **Futures** and **Options** tabs as secondary data for that
+underlying.
+
+- Server state lives in TanStack Query, keyed per symbol/interval/range, so a late
   response for a previous instrument can never overwrite the current one.
-- Only client-side preferences (selected instrument, interval, range) live in Pinia.
+- Only client-side preferences (interval, range) live in Pinia; the instrument is
+  derived from the route and the instrument master.
 - The API layer is `src/api/`; components never call `fetch` directly.
 - Broker-side mutations are intentionally absent; this screen only observes market data.
 

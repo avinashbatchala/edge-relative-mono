@@ -3,10 +3,13 @@ import type {
   BrokerCandleInterval,
   BrokerCandleSeries,
   BrokerCapabilities,
+  BrokerContract,
   BrokerExchange,
+  BrokerExpiry,
   BrokerInstrument,
   BrokerLtp,
   BrokerOhlc,
+  BrokerOptionChain,
   BrokerQuote,
   BrokerSegment,
 } from './types'
@@ -112,11 +115,68 @@ export function getHistoricalCandles(
   })
 }
 
+export function listExpiries(
+  exchange: BrokerExchange,
+  underlying: string,
+  signal?: AbortSignal,
+): Promise<BrokerExpiry[]> {
+  return apiGet<BrokerExpiry[]>(`${BASE}/historical/expiries`, {
+    signal,
+    params: { exchange, underlying },
+  })
+}
+
+export function listContracts(
+  exchange: BrokerExchange,
+  underlying: string,
+  expiryDate: string,
+  signal?: AbortSignal,
+): Promise<BrokerContract[]> {
+  return apiGet<BrokerContract[]>(`${BASE}/historical/contracts`, {
+    signal,
+    params: { exchange, underlying, expiryDate },
+  })
+}
+
+export function getOptionChain(
+  exchange: BrokerExchange,
+  underlying: string,
+  expiry: string,
+  signal?: AbortSignal,
+): Promise<BrokerOptionChain> {
+  return apiGet<BrokerOptionChain>(`${BASE}/market-data/option-chain`, {
+    signal,
+    params: { exchange, underlying, expiry },
+  })
+}
+
 /** Query-key factory: one source of truth for cache identity and invalidation. */
 export const marketDataKeys = {
   all: ['market-data'] as const,
   instruments: () => [...marketDataKeys.all, 'instruments'] as const,
   capabilities: () => [...marketDataKeys.all, 'capabilities'] as const,
+  expiries: (exchange: BrokerExchange, underlying: string) =>
+    [...marketDataKeys.all, 'expiries', exchange, underlying] as const,
+  contracts: (
+    exchange: BrokerExchange,
+    underlying: string,
+    expiryDate: string,
+  ) =>
+    [
+      ...marketDataKeys.all,
+      'contracts',
+      exchange,
+      underlying,
+      expiryDate,
+    ] as const,
+  optionChain: (exchange: BrokerExchange, underlying: string, expiry: string) =>
+    [
+      ...marketDataKeys.all,
+      'option-chain',
+      exchange,
+      underlying,
+      expiry,
+    ] as const,
   quote: (request: QuoteRequest) =>
     [
       ...marketDataKeys.all,

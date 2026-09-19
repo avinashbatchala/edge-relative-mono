@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { refDebounced } from '@vueuse/core'
+import { useRouter } from 'vue-router'
 import { BarChart3, Inbox, Search } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import {
@@ -12,13 +12,15 @@ import {
   type HistoricalCandlesRequest,
   type QuoteRequest,
 } from '@/api/market-data'
-import type { BrokerCandleInterval } from '@/api/types'
+import type { BrokerCandleInterval, BrokerInstrument } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
+  BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,45 +28,67 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChartToolbar from '@/components/market-data/ChartToolbar.vue'
 import DataFreshness from '@/components/market-data/DataFreshness.vue'
+import FuturesPanel from '@/components/market-data/FuturesPanel.vue'
 import HistoricalTable from '@/components/market-data/HistoricalTable.vue'
 import InstrumentDetails from '@/components/market-data/InstrumentDetails.vue'
 import InstrumentHeader from '@/components/market-data/InstrumentHeader.vue'
 import InstrumentSelector from '@/components/market-data/InstrumentSelector.vue'
 import MarketDepthTable from '@/components/market-data/MarketDepthTable.vue'
+import OptionChainPanel from '@/components/market-data/OptionChainPanel.vue'
 import PriceChart from '@/components/market-data/PriceChart.vue'
 import QuoteSummary from '@/components/market-data/QuoteSummary.vue'
 import RawMarketData from '@/components/market-data/RawMarketData.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
+import { useInstrumentSearch } from '@/composables/useInstrumentSearch'
+import { pickUnderlying, routeSymbolFor } from '@/lib/instrument'
 import { resolveRange } from '@/lib/market-time'
 import { useMarketDataStore, type RangeKey } from '@/stores/market-data'
 
+const props = defineProps<{ symbol: string }>()
 const store = useMarketDataStore()
+const router = useRouter()
 
+// --- Instrument search (to switch underlying) -------------------------------
 const instrumentSearch = ref('')
 const instrumentSearchOpen = ref(false)
-const debouncedInstrumentSearch = refDebounced(instrumentSearch, 250)
+const { query: instrumentsQuery } = useInstrumentSearch(
+  instrumentSearch,
+  instrumentSearchOpen,
+)
 
 function onInstrumentSearch(value: string) {
   instrumentSearch.value = value
 }
 
-const instrumentsQuery = useQuery(() => {
-  const term = debouncedInstrumentSearch.value.trim()
-  const searching = term.length >= 2
-  return {
-    queryKey: [...marketDataKeys.instruments(), term] as const,
-    // When the selector is opened with no query, load the first page so there is something to show.
-    queryFn: ({ signal }) =>
-      listInstruments(searching ? term : undefined, 50, signal),
-    enabled: instrumentSearchOpen.value || searching,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    retry: 1,
+function openInstrument(instrument: BrokerInstrument) {
+  const next = routeSymbolFor(instrument)
+  if (next.toUpperCase() === props.symbol.toUpperCase()) {
+    return
   }
-})
+  router.push({ name: 'market-ticker', params: { symbol: next } })
+}
 
+// --- Resolve the underlying for the route -----------------------------------
+const underlyingQuery = useQuery(() => ({
+  queryKey: [...marketDataKeys.instruments(), props.symbol] as const,
+  queryFn: ({ signal }) => listInstruments(props.symbol, 50, signal),
+  enabled: props.symbol.length > 0,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  retry: 1,
+}))
+
+const underlying = computed(() =>
+  pickUnderlying(underlyingQuery.data.value ?? [], props.symbol),
+)
+
+const unresolved = computed(
+  () => underlyingQuery.isSuccess.value && underlying.value === null,
+)
+
+// --- Quote ------------------------------------------------------------------
 const quoteRequest = computed<QuoteRequest | null>(() => {
-  const instrument = store.selectedInstrument
+  const instrument = underlying.value
   if (!instrument || !instrument.segment) {
     return null
   }
@@ -94,12 +118,13 @@ const quoteQuery = useQuery(() => ({
   },
 }))
 
+// --- Historical candles -----------------------------------------------------
 const resolvedRange = computed(() =>
   resolveRange(store.range, store.customStart, store.customEnd),
 )
 
 const historyRequest = computed<HistoricalCandlesRequest | null>(() => {
-  const instrument = store.selectedInstrument
+  const instrument = underlying.value
   const range = resolvedRange.value
   if (
     !instrument ||
@@ -188,14 +213,21 @@ function focusSearch() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbPage>Market Data</BreadcrumbPage>
+              <BreadcrumbLink as-child>
+                <RouterLink :to="{ name: 'market-search' }"
+                  >Market Data</RouterLink
+                >
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{{ symbol.toUpperCase() }}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <h1 class="text-2xl font-semibold tracking-tight">Market Data</h1>
         <p class="text-sm text-muted-foreground">
-          Search and inspect live and historical market information from
-          connected brokers.
+          Live and historical market information for the selected underlying.
         </p>
       </div>
 
@@ -217,30 +249,23 @@ function focusSearch() {
           v-model:open="instrumentSearchOpen"
           :instruments="instrumentsQuery.data.value ?? []"
           :loading="instrumentsQuery.isFetching.value"
-          :model-value="store.selectedInstrument"
+          :model-value="underlying"
           :search="instrumentSearch"
-          @update:model-value="store.selectInstrument"
+          @update:model-value="openInstrument"
           @update:search="onInstrumentSearch"
         />
-        <p
-          v-if="instrumentsQuery.isError.value"
-          class="mt-2 text-xs text-destructive"
-        >
-          Instrument master unavailable. Search may be incomplete.
-        </p>
       </CardContent>
     </Card>
 
-    <Card v-if="!store.selectedInstrument">
+    <Card v-if="unresolved">
       <CardContent class="flex flex-col items-center gap-3 py-16 text-center">
         <div class="grid size-10 place-items-center rounded-full bg-muted">
           <Search class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <div class="space-y-1">
-          <p class="text-sm font-medium">No instrument selected</p>
+          <p class="text-sm font-medium">Instrument not found</p>
           <p class="mx-auto max-w-md text-sm text-muted-foreground">
-            Search for an instrument to inspect live price, session statistics,
-            depth and historical candles.
+            No listed instrument matches “{{ symbol }}”.
           </p>
         </div>
         <Button size="sm" @click="focusSearch">
@@ -250,11 +275,21 @@ function focusSearch() {
       </CardContent>
     </Card>
 
+    <Card v-else-if="!underlying">
+      <CardContent class="space-y-4 pt-6">
+        <Skeleton class="h-6 w-48" />
+        <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+          <Skeleton class="h-[420px] w-full" />
+          <Skeleton class="h-[320px] w-full" />
+        </div>
+      </CardContent>
+    </Card>
+
     <template v-else>
       <Card>
         <CardContent class="pt-6">
           <InstrumentHeader
-            :instrument="store.selectedInstrument"
+            :instrument="underlying"
             :quote="quote"
             :loading="quoteQuery.isPending.value"
             :updated-at="quoteQuery.dataUpdatedAt.value || null"
@@ -330,6 +365,8 @@ function focusSearch() {
         <TabsList>
           <TabsTrigger value="depth">Depth</TabsTrigger>
           <TabsTrigger value="historical">Historical</TabsTrigger>
+          <TabsTrigger value="futures">Futures</TabsTrigger>
+          <TabsTrigger value="options">Options</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="raw">Raw</TabsTrigger>
         </TabsList>
@@ -388,15 +425,29 @@ function focusSearch() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="futures">
+          <FuturesPanel
+            :exchange="underlying.exchange"
+            :underlying="underlying.tradingSymbol"
+          />
+        </TabsContent>
+
+        <TabsContent value="options">
+          <OptionChainPanel
+            :exchange="underlying.exchange"
+            :underlying="underlying.tradingSymbol"
+          />
+        </TabsContent>
+
         <TabsContent value="details">
-          <InstrumentDetails :instrument="store.selectedInstrument" />
+          <InstrumentDetails :instrument="underlying" />
         </TabsContent>
 
         <TabsContent value="raw">
           <Card>
             <CardContent class="pt-6">
               <RawMarketData
-                :instrument="store.selectedInstrument"
+                :instrument="underlying"
                 :quote="quote"
                 :history="history"
               />

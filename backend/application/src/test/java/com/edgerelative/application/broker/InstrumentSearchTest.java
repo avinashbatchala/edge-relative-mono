@@ -75,9 +75,59 @@ class InstrumentSearchTest {
     }
 
     @Test
-    void blankQueryReturnsTheFirstBoundedSlice() {
-        assertThat(InstrumentSearch.filter(MASTER, "  ", 2))
+    void blankQueryReturnsTheFirstBoundedSliceOfCashInstruments() {
+        List<BrokerInstrument> page = InstrumentSearch.filter(MASTER, "  ", 2);
+        assertThat(page).hasSize(2);
+        assertThat(page).allSatisfy(instrument -> assertThat(instrument.instrumentType())
+                .isEqualTo(BrokerInstrumentType.EQ));
+    }
+
+    @Test
+    void exactTickerReturnsTheEquityBeforeItsDerivatives() {
+        List<BrokerInstrument> withDerivatives = List.of(
+                instrument(
+                        "RELIANCE26NOV3000CE",
+                        null,
+                        null,
+                        "RELIANCE",
+                        BrokerInstrumentType.CE),
+                instrument("RELIANCE26NOV-FUT", null, null, "RELIANCE", BrokerInstrumentType.FUT),
+                instrument(
+                        "RELIANCE",
+                        "Reliance Industries Ltd",
+                        "INE002A01018",
+                        null,
+                        BrokerInstrumentType.EQ),
+                instrument(
+                        "RELIANCE26NOV3000PE",
+                        null,
+                        null,
+                        "RELIANCE",
+                        BrokerInstrumentType.PE));
+
+        assertThat(InstrumentSearch.filter(withDerivatives, "RELIANCE", 10))
                 .extracting(BrokerInstrument::tradingSymbol)
-                .containsExactly("RELIANCE", "TCS");
+                .startsWith("RELIANCE");
+    }
+
+    @Test
+    void companyNameSearchReturnsTheEquityFirst() {
+        List<BrokerInstrument> withDerivatives = List.of(
+                instrument(
+                        "RELIANCE26NOV3000CE",
+                        null,
+                        null,
+                        "RELIANCE",
+                        BrokerInstrumentType.CE),
+                instrument(
+                        "RELIANCE",
+                        "Reliance Industries Ltd",
+                        "INE002A01018",
+                        null,
+                        BrokerInstrumentType.EQ));
+
+        assertThat(InstrumentSearch.filter(withDerivatives, "Reliance Industries", 10))
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactly("RELIANCE");
     }
 }
