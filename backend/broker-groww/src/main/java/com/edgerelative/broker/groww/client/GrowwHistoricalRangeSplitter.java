@@ -30,7 +30,7 @@ public class GrowwHistoricalRangeSplitter {
         return ranges;
     }
 
-    static Duration maxDuration(BrokerCandleInterval interval) {
+    public static Duration maxDuration(BrokerCandleInterval interval) {
         return switch (interval) {
             case ONE_MINUTE, TWO_MINUTE, THREE_MINUTE, FIVE_MINUTE -> Duration.ofDays(30);
             case TEN_MINUTE, FIFTEEN_MINUTE, THIRTY_MINUTE -> Duration.ofDays(90);

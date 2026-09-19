@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   Activity,
+  Database,
   LayoutDashboard,
   LineChart,
   ListChecks,
@@ -31,6 +32,7 @@ const tools = [
   { title: 'Overview', to: '/overview', icon: LayoutDashboard },
   { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
   { title: 'Market Data', to: '/market', icon: Activity },
+  { title: 'Research Data', to: '/research', icon: Database },
 ] as const
 
 const upcoming = [

@@ -101,6 +101,7 @@ test('sidebar exposes tools and highlights the active route', async () => {
   expect(overviewLink.getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: 'Watchlist' })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Market Data' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Research Data' })).toBeTruthy()
   expect(
     await screen.findByRole('heading', { name: 'Overview', level: 1 }),
   ).toBeTruthy()

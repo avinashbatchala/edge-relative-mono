@@ -21,6 +21,7 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.mapper.GrowwMapper;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -70,6 +71,11 @@ public class GrowwHistoricalDataClient implements HistoricalDataBroker {
         this.splitter = splitter;
         this.bulkExecutor = bulkExecutor;
         this.bulkGate = new Semaphore(bulkMaxConcurrency, true);
+    }
+
+    @Override
+    public Duration maxWindow(BrokerCandleInterval interval) {
+        return GrowwHistoricalRangeSplitter.maxDuration(interval);
     }
 
     @Override

@@ -30,6 +30,12 @@ const router = createRouter({
       props: true,
       meta: { title: 'Market Data' },
     },
+    {
+      path: '/research',
+      name: 'research-data',
+      component: () => import('@/views/ResearchDataView.vue'),
+      meta: { title: 'Research Data' },
+    },
   ],
 })
 
