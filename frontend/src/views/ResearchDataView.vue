@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -186,6 +187,14 @@ const plannedChunks = computed(() =>
       coverage.value.failedChunks
     : 0,
 )
+const coverageProgress = computed(() => {
+  if (!coverage.value || plannedChunks.value <= 0) {
+    return coverage.value?.status === 'COMPLETE' ? 100 : 0
+  }
+  return Math.round(
+    (coverage.value.completedChunks / plannedChunks.value) * 100,
+  )
+})
 
 const startMutation = useMutation({
   mutationFn: () =>
@@ -204,6 +213,23 @@ const retryMutation = useMutation({
   mutationFn: (runKey: string) => retryRun(runKey),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: historyKeys.all }),
 })
+
+function runProgress(run: BackfillRunResponse): number {
+  if (run.totalChunks <= 0) {
+    return run.status === 'COMPLETED' ? 100 : 0
+  }
+  return Math.round((run.completedChunks / run.totalChunks) * 100)
+}
+
+function progressClass(status: string): string {
+  if (status === 'COMPLETE' || status === 'COMPLETED') {
+    return '[&>[data-slot=progress-indicator]]:bg-emerald-500'
+  }
+  if (status === 'PARTIAL' || status === 'FAILED') {
+    return '[&>[data-slot=progress-indicator]]:bg-destructive'
+  }
+  return ''
+}
 
 function statusVariant(
   status: string,
@@ -337,6 +363,12 @@ function statusVariant(
                 {{ formatCompact(coverage.candleCount) }} candles
               </span>
             </div>
+            <Progress
+              :model-value="coverageProgress"
+              :class="progressClass(coverage.status)"
+              :aria-label="`${coverage.completedChunks} of ${plannedChunks} chunks`"
+              :title="`${coverage.completedChunks} of ${plannedChunks} chunks`"
+            />
             <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               <div>
                 <dt class="text-xs text-muted-foreground">Earliest</dt>
@@ -348,19 +380,6 @@ function statusVariant(
                 <dt class="text-xs text-muted-foreground">Latest</dt>
                 <dd class="tabular-nums">
                   {{ formatIstDateTime(coverage.latest) }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-xs text-muted-foreground">
-                  Chunks (done / pending / failed)
-                </dt>
-                <dd class="tabular-nums">
-                  {{ coverage.completedChunks }} /
-                  {{ coverage.pendingChunks }} /
-                  {{ coverage.failedChunks }}
-                  <span class="text-muted-foreground">
-                    ({{ plannedChunks }} planned)
-                  </span>
                 </dd>
               </div>
               <div>
@@ -402,7 +421,7 @@ function statusVariant(
                 <TableRow>
                   <TableHead>Range</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead class="text-right">Progress</TableHead>
+                  <TableHead>Progress</TableHead>
                   <TableHead class="text-right">Candles</TableHead>
                   <TableHead class="text-right">Updated</TableHead>
                   <TableHead />
@@ -419,8 +438,13 @@ function statusVariant(
                       run.status
                     }}</Badge>
                   </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {{ run.completedChunks }} / {{ run.totalChunks }}
+                  <TableCell>
+                    <Progress
+                      :model-value="runProgress(run)"
+                      :class="progressClass(run.status)"
+                      :aria-label="`${run.completedChunks} of ${run.totalChunks} chunks`"
+                      :title="`${run.completedChunks} of ${run.totalChunks} chunks`"
+                    />
                   </TableCell>
                   <TableCell class="text-right tabular-nums">
                     {{ formatCompact(run.candlesWritten) }}
