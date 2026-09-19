@@ -7,10 +7,12 @@ equity derivatives, initially focused on NSE and a single operator.
 
 The repository contains an initial engineering scaffold: `backend/` has a Java 25
 Maven reactor with an empty framework-free `domain` module and a Spring Boot
-`application` exposing local Actuator health; `frontend/` has a static Vue workstation;
+`application` with jOOQ/PostgreSQL connectivity and local Actuator health;
+`frontend/` has a static Vue workstation;
 `research/` has a Python package and import smoke test. GitHub Actions runs checks
 for all three projects. See `README.md` for setup. No trading logic, broker integration,
-database, or frontend/backend integration exists yet.
+trading persistence, or frontend/backend integration exists yet. Root `compose.yaml`
+provides local PostgreSQL; backend integration tests use Testcontainers PostgreSQL.
 
 ## Design Documents
 
@@ -78,8 +80,10 @@ Available verification commands:
 - Frontend: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` from `frontend/`.
 
 Use JDK 25, Node 24 LTS (at least 24.15.0), pnpm 10.34.5, uv 0.12.10, and Python
-3.13. The backend rejects other major JDKs. Tests currently cover scaffold smoke
-checks and the domain dependency boundary, not trading correctness. Favor
+3.13. The backend rejects other major JDKs. Backend integration tests require a
+running Docker daemon and use an isolated PostgreSQL container. Tests currently
+cover database connectivity, UTC sessions, scaffold smoke checks, and the domain
+dependency boundary, not trading correctness. Favor
 deterministic unit/replay tests, architecture-boundary tests, shared cross-language
 fixtures, and integration tests for persistence and broker failure behavior.
 Report what was verified and what could not run. For documentation-only changes,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/R__grants_template.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V001__extensions_and_schemas.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V002__reference.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V003__control.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V004__market_catalog.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V006__research.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/backend/application/src/main/resources/db/migration/V007__audit_and_cross_schema_constraints.sql" dialect="PostgreSQL" />
+  </component>
+</project>
