@@ -9,6 +9,11 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+export interface SendOptions extends RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  body?: unknown
+}
+
 /** Normalized backend failure. Never contains credentials or stack traces. */
 export class ApiError extends Error {
   readonly status: number
@@ -72,15 +77,25 @@ function parseRetryAfter(header: string | null): number | null {
   return Number.isFinite(seconds) ? seconds : null
 }
 
-/** Single entry point for broker calls. Components never call fetch directly. */
-export async function apiGet<T>(
+/** Single entry point for broker/application calls. Components never call fetch directly. */
+export async function apiSend<T>(
   path: string,
-  options: RequestOptions = {},
+  options: SendOptions = {},
 ): Promise<T> {
+  const method = options.method ?? 'GET'
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  let bodyInit: BodyInit | undefined
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    bodyInit = JSON.stringify(options.body)
+  }
+
   let response: Response
   try {
     response = await fetch(buildUrl(path, options.params), {
-      headers: { Accept: 'application/json' },
+      method,
+      headers,
+      body: bodyInit,
       signal: options.signal,
     })
   } catch (error) {
@@ -104,11 +119,44 @@ export async function apiGet<T>(
     throw new ApiError({
       message: body.message ?? `Request failed with status ${response.status}`,
       status: response.status,
-      code: body.code ?? 'BROKER_ERROR',
+      code: body.code ?? 'APPLICATION_ERROR',
       operation: body.operation,
       retryAfterSeconds: parseRetryAfter(response.headers.get('Retry-After')),
     })
   }
 
+  if (response.status === 204) {
+    return undefined as T
+  }
   return (await response.json()) as T
+}
+
+export function apiGet<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  return apiSend<T>(path, { ...options, method: 'GET' })
+}
+
+export function apiPost<T>(
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
+  return apiSend<T>(path, { ...options, method: 'POST', body })
+}
+
+export function apiPut<T>(
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
+  return apiSend<T>(path, { ...options, method: 'PUT', body })
+}
+
+export function apiDelete<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  return apiSend<T>(path, { ...options, method: 'DELETE' })
 }

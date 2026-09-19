@@ -3,8 +3,20 @@ import { createRouter, createWebHistory } from 'vue-router'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/market' },
+    { path: '/', redirect: '/overview' },
     { path: '/market-data', redirect: '/market' },
+    {
+      path: '/overview',
+      name: 'overview',
+      component: () => import('@/views/OverviewView.vue'),
+      meta: { title: 'Overview' },
+    },
+    {
+      path: '/watchlist',
+      name: 'watchlist',
+      component: () => import('@/views/WatchlistView.vue'),
+      meta: { title: 'Watchlist' },
+    },
     {
       path: '/market',
       name: 'market-search',

@@ -37,6 +37,30 @@ pnpm build
 `typecheck` runs `vue-tsc`; `test` runs Vitest component tests without watch mode.
 `build` type-checks before creating the static bundle in `dist/`.
 
+## Application shell
+
+The left sidebar (native shadcn-vue `Sidebar`) is the navigation shell:
+
+- `/overview` — compact dashboard: watchlist count, live-data count, broker status.
+- `/watchlist` — the active watchlist (up to 20 canonical instruments).
+- `/market` and `/market/:symbol` — the market-data tools.
+
+`Setups`, `Trades` and `System / Settings` are shown disabled as coming later; they
+do not navigate anywhere.
+
+## Watchlist
+
+The Watchlist tool persists canonical instrument identity via the broker-neutral
+`/api/v1/watchlist` API (backed by the existing `operational.watchlist` /
+`reference.instrument` schema). Broker tokens are stored only as a mapping detail and
+never as identity.
+
+- Add via search (underlying-first), remove, and reorder; capacity is enforced at 20
+  and duplicates are rejected server-side.
+- Every row renders current market state from the existing market-data quote API with
+  its own query, so one failing instrument does not break the table.
+- Clicking a row opens the instrument's ticker page.
+
 ## Market Data
 
 Market Data is underlying-first:

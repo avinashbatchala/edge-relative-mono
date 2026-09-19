@@ -5,6 +5,38 @@ import type {
   BrokerOptionChain,
   BrokerQuote,
 } from '@/api/types'
+import type { WatchlistEntry, WatchlistResponse } from '@/api/watchlist'
+
+export function watchlistEntry(
+  overrides: Partial<WatchlistEntry> = {},
+): WatchlistEntry {
+  return {
+    instrumentId: 1,
+    instrumentKey: '00000000-0000-0000-0000-000000000001',
+    exchange: 'NSE',
+    segment: 'CASH',
+    instrumentType: 'EQUITY',
+    symbol: 'RELIANCE',
+    name: 'Reliance Industries Ltd',
+    brokerSymbol: 'NSE-RELIANCE',
+    tickSize: 0.05,
+    lotSize: 1,
+    slot: 1,
+    ...overrides,
+  }
+}
+
+export function watchlistResponse(
+  entries: WatchlistEntry[],
+  capacity = 20,
+): WatchlistResponse {
+  return {
+    name: 'Active',
+    capacity,
+    count: entries.length,
+    entries,
+  }
+}
 
 export function instrument(
   overrides: Partial<BrokerInstrument> = {},

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import AppSidebar from '@/components/layout/AppSidebar.vue'
+import AppTopbar from '@/components/layout/AppTopbar.vue'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="150">
-    <div class="flex min-h-svh flex-col bg-background text-foreground">
-      <AppHeader />
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset>
+      <AppTopbar />
       <RouterView />
-    </div>
-  </TooltipProvider>
+    </SidebarInset>
+  </SidebarProvider>
 </template>
