@@ -73,6 +73,13 @@ class GrowwMapperTest {
     }
 
     @Test
+    void mapsKnownExchangesIncludingCommodity() {
+        assertThat(mapper.exchange("NSE").name()).isEqualTo("NSE");
+        assertThat(mapper.exchange("BSE").name()).isEqualTo("BSE");
+        assertThat(mapper.exchange("MCX").name()).isEqualTo("MCX");
+    }
+
+    @Test
     void unknownExchangeFailsObservably() {
         assertThatThrownBy(() -> mapper.exchange("NYSE"))
                 .isInstanceOf(BrokerProtocolException.class)

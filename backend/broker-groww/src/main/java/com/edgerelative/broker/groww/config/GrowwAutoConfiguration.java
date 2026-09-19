@@ -267,8 +267,9 @@ public class GrowwAutoConfiguration {
             GrowwCallExecutor callExecutor,
             GrowwHttpClient http,
             GrowwRequestFactory requests,
-            GrowwInstrumentCsvParser parser) {
-        return new GrowwInstrumentClient(properties, callExecutor, http, requests, parser);
+            GrowwInstrumentCsvParser parser,
+            Clock clock) {
+        return new GrowwInstrumentClient(properties, callExecutor, http, requests, parser, clock);
     }
 
     @Bean

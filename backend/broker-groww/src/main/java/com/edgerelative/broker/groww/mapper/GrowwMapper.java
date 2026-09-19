@@ -355,6 +355,7 @@ public class GrowwMapper {
         return switch (raw.toUpperCase()) {
             case "NSE" -> BrokerExchange.NSE;
             case "BSE" -> BrokerExchange.BSE;
+            case "MCX" -> BrokerExchange.MCX;
             default -> throw new BrokerProtocolException(
                     "Unknown Groww exchange: " + raw, "groww", null, null, null);
         };

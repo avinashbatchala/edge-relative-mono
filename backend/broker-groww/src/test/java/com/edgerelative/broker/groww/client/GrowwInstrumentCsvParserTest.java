@@ -52,12 +52,45 @@ class GrowwInstrumentCsvParserTest {
     }
 
     @Test
-    void malformedRowFailsWithLineNumber() {
+    void skipsRowsWithMissingIdentityAndKeepsValidRows() {
+        // A single blank trading_symbol must not fail an otherwise healthy master.
         String csv = HEADER + "\n"
-                + "NYSE,2885,RELIANCE,NSE-RELIANCE,Reliance,EQ,CASH,EQ,INE002A01018,,,,1,,,0.05,,false,true,true";
-        assertThatThrownBy(() -> parser.parse(csv))
-                .isInstanceOf(BrokerProtocolException.class)
-                .hasMessageContaining("row 2");
+                + "NSE,2885,RELIANCE,NSE-RELIANCE,Reliance,EQ,CASH,EQ,INE002A01018,,,1,,,0.05,,false,true,true\n"
+                + "NSE,9999,,,,,,,,,,1,,,0.05,,false,true,true\n"
+                + "NSE,1111,TCS,NSE-TCS,Tata Consultancy,EQ,CASH,EQ,INE467B01029,,,1,,,0.05,,false,true,true";
+
+        List<BrokerInstrument> instruments = parser.parse(csv);
+
+        assertThat(instruments).hasSize(2);
+        assertThat(instruments)
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactly("RELIANCE", "TCS");
+    }
+
+    @Test
+    void skipsRowsWithUnparseableValues() {
+        String csv = HEADER + "\n"
+                + "NSE,2885,RELIANCE,NSE-RELIANCE,Reliance,EQ,CASH,EQ,INE002A01018,,,not-a-number,,,0.05,,false,true,true\n"
+                + "NSE,1111,TCS,NSE-TCS,Tata Consultancy,EQ,CASH,EQ,INE467B01029,,,1,,,0.05,,false,true,true";
+
+        List<BrokerInstrument> instruments = parser.parse(csv);
+
+        assertThat(instruments)
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactly("TCS");
+    }
+
+    @Test
+    void skipsRowsWithUnknownExchange() {
+        String csv = HEADER + "\n"
+                + "NYSE,2885,RELIANCE,NSE-RELIANCE,Reliance,EQ,CASH,EQ,INE002A01018,,,,1,,,0.05,,false,true,true\n"
+                + "NSE,1111,TCS,NSE-TCS,Tata Consultancy,EQ,CASH,EQ,INE467B01029,,,1,,,0.05,,false,true,true";
+
+        List<BrokerInstrument> instruments = parser.parse(csv);
+
+        assertThat(instruments)
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactly("TCS");
     }
 
     @Test

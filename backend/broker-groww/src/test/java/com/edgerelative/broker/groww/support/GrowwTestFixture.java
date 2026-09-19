@@ -119,7 +119,7 @@ public final class GrowwTestFixture implements AutoCloseable {
         this.margin = new GrowwMarginClient(authorizedExecutor, http, requests, mapper);
         this.smartOrders = new GrowwSmartOrderQueryClient(authorizedExecutor, http, requests, mapper);
         this.instruments = new GrowwInstrumentClient(
-                properties, callExecutor, http, requests, new GrowwInstrumentCsvParser(mapper));
+                properties, callExecutor, http, requests, new GrowwInstrumentCsvParser(mapper), clock);
     }
 
     public WireMockServer server() {

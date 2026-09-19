@@ -23,6 +23,7 @@ public class GrowwProperties {
     private Duration operationTimeout = Duration.ofSeconds(20);
     private int maxInFlight = 64;
     private int bulkMaxConcurrency = 8;
+    private Duration instrumentMasterCacheTtl = Duration.ofMinutes(30);
 
     private final RateLimits rateLimits = new RateLimits();
     private final Retry retry = new Retry();
@@ -100,6 +101,14 @@ public class GrowwProperties {
 
     public void setBulkMaxConcurrency(int bulkMaxConcurrency) {
         this.bulkMaxConcurrency = bulkMaxConcurrency;
+    }
+
+    public Duration getInstrumentMasterCacheTtl() {
+        return instrumentMasterCacheTtl;
+    }
+
+    public void setInstrumentMasterCacheTtl(Duration instrumentMasterCacheTtl) {
+        this.instrumentMasterCacheTtl = instrumentMasterCacheTtl;
     }
 
     public RateLimits getRateLimits() {
@@ -414,6 +423,7 @@ public class GrowwProperties {
         requirePositive(connectTimeout, "connect-timeout");
         requirePositive(requestTimeout, "request-timeout");
         requirePositive(operationTimeout, "operation-timeout");
+        requirePositive(instrumentMasterCacheTtl, "instrument-master-cache-ttl");
         if (maxInFlight < 1) {
             throw new IllegalStateException("broker.groww.max-in-flight must be >= 1");
         }

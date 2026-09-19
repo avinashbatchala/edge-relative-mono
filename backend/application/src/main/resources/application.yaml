@@ -39,6 +39,8 @@ broker:
     operation-timeout: 20s
     max-in-flight: 64
     bulk-max-concurrency: 8
+    # The ~140k-row instrument master is cached; avoids re-downloading it on every lookup.
+    instrument-master-cache-ttl: 30m
     credentials:
       # Never commit real credentials. Bind from environment or a secret reference.
       # AUTO uses whichever credentials are set; explicit mode overrides when usable.
@@ -86,6 +88,8 @@ broker:
 
 server:
   address: 127.0.0.1
+  compression:
+    enabled: true
 
 springdoc:
   api-docs:
