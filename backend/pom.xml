@@ -15,11 +15,15 @@
     <packaging>pom</packaging>
     <modules>
         <module>domain</module>
+        <module>broker-api</module>
+        <module>broker-groww</module>
         <module>application</module>
     </modules>
     <properties>
         <java.version>25</java.version>
         <archunit.version>1.5.0</archunit.version>
+        <wiremock.version>3.13.1</wiremock.version>
+        <springdoc.version>3.1.1</springdoc.version>
     </properties>
     <build>
         <plugins>

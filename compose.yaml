@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-edge_relative}
       POSTGRES_USER: ${POSTGRES_USER:-edge_relative}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in secrets.properties and run with --env-file secrets.properties}
       TZ: UTC
     command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]
     ports:

@@ -6,13 +6,20 @@ Edge Relative is a planned algorithmic trading platform for Indian equities and
 equity derivatives, initially focused on NSE and a single operator.
 
 The repository contains an initial engineering scaffold: `backend/` has a Java 25
-Maven reactor with an empty framework-free `domain` module and a Spring Boot
+Maven reactor with an empty framework-free `domain` module, a framework-free
+`broker-api` module, a Spring Boot `broker-groww` adapter, and a Spring Boot
 `application` with jOOQ/PostgreSQL connectivity and local Actuator health;
 `frontend/` has a static Vue workstation;
 `research/` has a Python package and import smoke test. GitHub Actions runs checks
-for all three projects. See `README.md` for setup. No trading logic, broker integration,
-trading persistence, or frontend/backend integration exists yet. Root `compose.yaml`
+for all three projects. See `README.md` for setup. No strategy, feature or risk logic,
+broker execution, or frontend/backend integration exists yet. Root `compose.yaml`
 provides local PostgreSQL; backend integration tests use Testcontainers PostgreSQL.
+
+Broker integration has two modules: `broker-api` (framework-free, broker-neutral ports and models)
+and `broker-groww` (the Groww adapter). Groww read-only capabilities are implemented; every
+broker-side mutation is exposed through an Edge Relative contract but refused with
+`BROKER_OPERATION_NOT_ENABLED` and emits zero downstream HTTP. See
+`docs/design-docs/dev/groww-endpoint-matrix.md`.
 
 ## Design Documents
 

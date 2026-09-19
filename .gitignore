@@ -1,5 +1,8 @@
 .DS_Store
+# Legacy .env files remain ignored in case they linger; secrets live in
+# secrets.properties, which Spring imports and Compose reads via --env-file.
 .env
 .env.*
-!.env.example
+secrets.properties
+!secrets.properties.example
 *.log

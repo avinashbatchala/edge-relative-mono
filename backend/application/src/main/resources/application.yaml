@@ -1,6 +1,17 @@
 spring:
   application:
     name: edge-relative
+  # Import the git-ignored local secrets file. Optional, and searched from the
+  # working directory upwards, so it works from the repo root, backend/, or the
+  # module directory. Exported environment variables still take precedence.
+  config:
+    import:
+      - optional:file:./secrets.properties
+      - optional:file:../secrets.properties
+      - optional:file:../../secrets.properties
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
     username: ${POSTGRES_USER}
@@ -17,8 +28,73 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
 
+broker:
+  groww:
+    enabled: true
+    base-url: ${GROWW_BASE_URL:https://api.groww.in}
+    instrument-master-url: ${GROWW_INSTRUMENT_MASTER_URL:https://growwapi-assets.groww.in/instruments/instrument.csv}
+    api-version: "1.0"
+    connect-timeout: 5s
+    request-timeout: 15s
+    operation-timeout: 20s
+    max-in-flight: 64
+    bulk-max-concurrency: 8
+    credentials:
+      # Never commit real credentials. Bind from environment or a secret reference.
+      # AUTO uses whichever credentials are set; explicit mode overrides when usable.
+      mode: ${GROWW_AUTH_MODE:AUTO}
+      access-token: ${GROWW_ACCESS_TOKEN:}
+      api-key: ${GROWW_API_KEY:}
+      api-secret: ${GROWW_API_SECRET:}
+      totp-code: ${GROWW_TOTP_CODE:}
+    rate-limits:
+      authentication:
+        - window: 1s
+          limit: 5
+        - window: 1m
+          limit: 30
+        - window: 24h
+          limit: 150
+      orders:
+        - window: 1s
+          limit: 10
+        - window: 1m
+          limit: 250
+      live-data:
+        - window: 1s
+          limit: 10
+        - window: 1m
+          limit: 300
+      non-trading:
+        - window: 1s
+          limit: 20
+        - window: 1m
+          limit: 500
+    retry:
+      max-attempts: 3
+      initial-backoff: 200ms
+      multiplier: 2.0
+      max-backoff: 2s
+      budget: 20s
+      jitter: 0.5
+    circuit-breaker:
+      failure-threshold: 5
+      open-duration: 30s
+      half-open-probes: 1
+    cooldown:
+      default-duration: 5s
+
 server:
   address: 127.0.0.1
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
 
 management:
   endpoints:

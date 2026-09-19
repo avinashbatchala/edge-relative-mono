@@ -2,14 +2,17 @@
 
 An algorithmic trading platform for Indian equities, initially focused on NSE and
 a single operator. This repository is an engineering scaffold, not a trading system.
-It has no market feed, strategy implementation, risk engine, broker integration,
-trading persistence, or live order capability.
+It has no market feed, strategy implementation, risk engine, or live order capability.
 
 ## Structure
 
-- `backend/`: Java 25 Maven reactor with a framework-free `domain` module and a
-  Spring Boot `application` module with PostgreSQL connectivity through jOOQ. The
-  domain is intentionally empty.
+- `backend/`: Java 25 Maven reactor with a framework-free `domain` module, a
+  framework-free `broker-api` module (broker-neutral ports and models), a Spring Boot
+  `broker-groww` adapter, and a Spring Boot `application` module with PostgreSQL
+  connectivity through jOOQ. The domain is intentionally empty.
+- `broker-groww`: implements Groww read-only capabilities. All broker-side mutations are
+  exposed as Edge Relative contracts but return `BROKER_OPERATION_NOT_ENABLED` and make
+  zero downstream requests. See `docs/design-docs/dev/groww-endpoint-matrix.md`.
 - `frontend/`: Vue 3 / TypeScript / Vite operator-workstation placeholder.
 - `research/`: Python src-layout package managed with uv, without trading logic.
 - `compose.yaml`: local PostgreSQL with persistent storage.
@@ -30,29 +33,29 @@ directory tree in DD-04A is conceptual, not a requirement to create empty module
 Maven 3.9.11 is downloaded by the checked-in Maven Wrapper. First-time dependency
 installation requires network access. Backend integration tests use Testcontainers
 with a temporary PostgreSQL database; Docker must be running, but the Compose
-service and a local `.env` file are not required for tests.
+service and a local `secrets.properties` file are not required for tests.
 
 ## Local PostgreSQL
 
 Run from the repository root:
 
 ```sh
-cp .env.example .env
-# Set POSTGRES_PASSWORD in .env before starting.
-docker compose up -d --wait postgres
-docker compose ps
+cp secrets.properties.example secrets.properties
+# Set POSTGRES_PASSWORD (and Groww credentials) in secrets.properties.
+docker compose --env-file secrets.properties up -d --wait postgres
+docker compose --env-file secrets.properties ps
 ```
 
-Compose reads the root `.env` file automatically; it is ignored by Git. The
-password is required and has no default. PostgreSQL 18.4 listens only on
-`127.0.0.1:5432`, with database and local administrator user `edge_relative` by
-default. Set `POSTGRES_PORT` in `.env` if port 5432 is already in use. Database
-sessions and logs default to UTC.
+Compose loads the git-ignored `secrets.properties` via `--env-file`; Spring imports
+the same file. The password is required and has no default. PostgreSQL 18.4 listens
+only on `127.0.0.1:5432`, with database and local administrator user `edge_relative`
+by default. Set `POSTGRES_PORT` in `secrets.properties` if port 5432 is already in
+use. Database sessions and logs default to UTC.
 
 The default JDBC URL is `jdbc:postgresql://127.0.0.1:5432/edge_relative`. Spring Boot
 uses `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and
 `POSTGRES_PASSWORD` from its environment. With the `local` profile, host, port,
-database, and user have the same defaults as `.env.example`; the backend also
+database, and user have the same defaults as `secrets.properties.example`; the backend also
 retains the development password fallback `edge_relative` when the password
 variable is absent. Compose still requires an explicit password, which must match
 the backend's value. Without the `local` profile, all five variables are required.
@@ -63,15 +66,17 @@ The Compose user is a local development administrator, not a production app role
 Open a SQL shell or stop the service:
 
 ```sh
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
-docker compose down
+docker compose --env-file secrets.properties exec postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose --env-file secrets.properties down
 ```
 
 Data survives container recreation and `docker compose down` in the named
 `postgres_data` volume. Initialization variables (database, user, and password)
-only take effect on an empty volume; editing `.env` does not change an existing
-database's credentials. `docker compose down --volumes` deletes the local database
-and should only be used when deliberately resetting disposable development data.
+only take effect on an empty volume; editing `secrets.properties` does not change an
+existing database's credentials. `docker compose --env-file secrets.properties down
+--volumes` deletes the local database and should only be used when deliberately
+resetting disposable development data.
 
 ## Backend
 
@@ -82,25 +87,52 @@ Run from `backend/`:
 ```
 
 Start PostgreSQL using the root Compose instructions above, then launch the backend
-from `backend/`, exporting your local configuration in a subshell:
+from `backend/`:
 
 ```sh
-(
-  set -a
-  . ../.env
-  set +a
-  java -jar application/target/application-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
-)
+java -jar application/target/application-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-Keep `.env` values shell-compatible; single-quote passwords containing special
-characters. When launching `EdgeRelativeApplication` from IntelliJ, supply these
-same environment variables and set the active profile to `local` in the run
-configuration (or set `SPRING_PROFILES_ACTIVE=local`). Spring Boot does not load
-`.env` automatically. Shared settings live in `application.yaml`; local database
-defaults live in `application-local.yaml`.
+Spring Boot imports the git-ignored `secrets.properties` directly through
+`spring.config.import`, searching the working directory and its parents, so no shell
+`source` is required. Exported environment variables override it, which is useful for
+CI and containers. An optional import means the app still starts without the file.
+When launching `EdgeRelativeApplication` from IntelliJ, set the active profile to
+`local` (or set `SPRING_PROFILES_ACTIVE=local`); the repo-root `secrets.properties`
+is found in a parent directory. Shared settings live in `application.yaml`; local
+database defaults live in `application-local.yaml`.
 
-The application binds to `127.0.0.1:8080`. Its only exposed Actuator endpoint is
+## Groww credentials
+
+Put Groww credentials in a git-ignored `secrets.properties` at the repository root
+(copy `secrets.properties.example`). The adapter boots without credentials; read-only
+Groww endpoints remain unavailable until valid ones are supplied, but no secret is
+required to start the application. `GROWW_AUTH_MODE` defaults to `AUTO`, which uses
+whichever credentials are set, so the key/secret flow needs only two lines:
+
+```properties
+GROWW_AUTH_MODE=AUTO
+GROWW_API_KEY=...
+GROWW_API_SECRET=...
+```
+
+Other flows: `GROWW_ACCESS_TOKEN` for a static token (expires 06:00 IST), or
+`GROWW_API_KEY` plus `GROWW_TOTP_CODE` for TOTP. Setting `GROWW_AUTH_MODE`
+explicitly overrides `AUTO` when its credential is present; a stale `ACCESS_TOKEN`
+mode is ignored if only an API key/secret are configured.
+
+Never commit real credentials. `secrets.properties` is git-ignored and holds both
+local database and Groww secrets; Spring imports it and Compose reads it via
+`--env-file`. `application.yaml` uses empty placeholders so a missing secret cannot
+leak or block startup. Broker-side mutations return `BROKER_OPERATION_NOT_ENABLED`
+and never call Groww.
+
+The application binds to `127.0.0.1:8080`. Interactive API docs are available at
+`http://127.0.0.1:8080/swagger-ui/index.html` and the raw spec at
+`http://127.0.0.1:8080/v3/api-docs`. The Swagger UI lets you exercise the read-only
+Groww endpoints directly; mutation endpoints are listed but return
+`501 BROKER_OPERATION_NOT_ENABLED`. Credentials come from the environment (see
+below), so a page refresh cannot leak them. Its only exposed Actuator endpoint is
 `http://127.0.0.1:8080/actuator/health`. Health includes database connectivity and
 returns HTTP 503 / `DOWN` when the database is unavailable; connection details
 remain hidden. `UP` does not mean trading is permitted. Tests cover PostgreSQL
@@ -148,6 +180,6 @@ authoritative production trading state.
 Read `AGENTS.md` and the relevant design sections before implementing features.
 Preserve measurement, strategy, ML, risk, and execution boundaries. Research
 examples are not production defaults; no scaffold setting grants trading authority.
-Keep secrets out of Git. Local `.env` files are ignored and loaded by Docker
-Compose, but are not automatically loaded by the backend, frontend, or research
-application.
+Keep secrets out of Git. Local `secrets.properties` is git-ignored, imported by the
+backend at startup, and used by Docker Compose via `--env-file`; it is not read by
+the frontend or research application.

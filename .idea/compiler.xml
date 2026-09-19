@@ -6,14 +6,18 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="broker-groww" />
         <module name="application" />
         <module name="domain" />
+        <module name="broker-api" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="application" options="-parameters" />
+      <module name="broker-api" options="-parameters" />
+      <module name="broker-groww" options="-parameters" />
       <module name="domain" options="-parameters" />
     </option>
   </component>
