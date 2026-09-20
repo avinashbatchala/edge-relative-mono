@@ -62,7 +62,6 @@ public class WatchlistService {
                 request.name(),
                 request.tickSize(),
                 request.lotSize());
-        canonical.ensureBrokerMapping(instrumentId, request.brokerSymbol());
         long watchlistId = ensureWatchlist(tenantId);
         int count = countItems(watchlistId);
         if (count >= CAPACITY) {
@@ -75,6 +74,9 @@ public class WatchlistService {
             throw new WatchlistException(
                     WatchlistException.DUPLICATE, "%s is already on the active watchlist".formatted(request.symbol()));
         }
+        // Reference mutation happens only after the watchlist guards pass: a duplicate/full rejection
+        // must not roll back (or pretend to apply) a broker-token change.
+        canonical.ensureBrokerMapping(instrumentId, request.brokerSymbol());
         int slot = nextSlot(watchlistId);
         dsl.execute(
                 "INSERT INTO operational.watchlist_item (watchlist_id, instrument_id, slot) VALUES (?, ?, ?)",
@@ -246,10 +248,19 @@ public class WatchlistService {
     private static void validate(AddWatchlistItemRequest request) {
         if (request == null
                 || isBlank(request.exchange())
+                || isBlank(request.segment())
                 || isBlank(request.symbol())
                 || isBlank(request.instrumentType())) {
             throw new WatchlistException(
-                    WatchlistException.INVALID, "exchange, instrumentType and symbol are required");
+                    WatchlistException.INVALID, "exchange, segment, instrumentType and symbol are required");
+        }
+        // Reference constraints require tick_size > 0 and lot_size > 0; reject at the boundary rather
+        // than coercing a caller mistake into a different instrument definition.
+        if (request.tickSize() != null && request.tickSize().signum() <= 0) {
+            throw new WatchlistException(WatchlistException.INVALID, "tickSize must be > 0");
+        }
+        if (request.lotSize() != null && request.lotSize() <= 0) {
+            throw new WatchlistException(WatchlistException.INVALID, "lotSize must be > 0");
         }
     }
 

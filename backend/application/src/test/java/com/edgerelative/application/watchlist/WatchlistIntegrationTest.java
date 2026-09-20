@@ -87,6 +87,45 @@ class WatchlistIntegrationTest {
     }
 
     @Test
+    void rejectsMissingSegmentAndNonPositiveTickOrLot() throws Exception {
+        // The reference schema requires segment/tick_size/lot_size; the API must reject at the
+        // boundary with 400 rather than NPE, 500 or silent coercion.
+        JsonNode missingSegment = responseJson(addInstrumentRaw("ERREF_NOSEG", null, 0.05, 1), 400);
+        assertThat(missingSegment.path("code").asString()).isEqualTo("WATCHLIST_INVALID");
+
+        JsonNode zeroTick = responseJson(addInstrumentRaw("ERREF_ZEROTICK", "CASH", 0, 1), 400);
+        assertThat(zeroTick.path("code").asString()).isEqualTo("WATCHLIST_INVALID");
+
+        JsonNode zeroLot = responseJson(addInstrumentRaw("ERREF_ZEROLOT", "CASH", 0.05, 0), 400);
+        assertThat(zeroLot.path("code").asString()).isEqualTo("WATCHLIST_INVALID");
+    }
+
+    private HttpResponse<String> addInstrumentRaw(String symbol, String segment, Object tick, Object lot)
+            throws Exception {
+        var map = new java.util.LinkedHashMap<String, Object>();
+        map.put("exchange", "NSE");
+        if (segment != null) {
+            map.put("segment", segment);
+        }
+        map.put("instrumentType", "EQ");
+        map.put("symbol", symbol);
+        map.put("name", symbol);
+        map.put("brokerSymbol", "NSE-" + symbol);
+        if (tick != null) {
+            map.put("tickSize", tick);
+        }
+        if (lot != null) {
+            map.put("lotSize", lot);
+        }
+        return post("/api/v1/watchlist/items", JSON.writeValueAsString(map));
+    }
+
+    private JsonNode responseJson(HttpResponse<String> response, int expectedStatus) {
+        assertThat(response.statusCode()).isEqualTo(expectedStatus);
+        return JSON.readTree(response.body());
+    }
+
+    @Test
     void removesAnInstrument() throws Exception {
         JsonNode added = JSON.readTree(addInstrument("INFY", "Infosys", "NSE-INFY").body());
         long instrumentId = added.path("instrumentId").asLong();
