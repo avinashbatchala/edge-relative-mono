@@ -274,7 +274,12 @@ public final class FeatureEngine {
 
     private static Metric rrsRaw(RrsFeature.Result result, int index) {
         if (result.rawAvailability()[index] == FeatureAvailability.VALID) {
-            return Metric.numeric(result.raw()[index], result.rawQuality()[index]);
+            if (Double.isFinite(result.raw()[index])) {
+                return Metric.numeric(result.raw()[index], result.rawQuality()[index]);
+            }
+            // Defensive: a non-finite value is never a valid measurement.
+            return Metric.unavailable(
+                    FeatureAvailability.INVALID, FeatureQuality.UNAVAILABLE, "non-finite relative strength");
         }
         return Metric.unavailable(
                 result.rawAvailability()[index],

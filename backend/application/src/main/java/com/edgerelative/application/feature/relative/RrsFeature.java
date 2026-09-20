@@ -89,7 +89,15 @@ public final class RrsFeature {
                 quality[i] = FeatureQuality.INCOMPLETE;
                 continue;
             }
-            raw[i] = subjectChange / atrSubject[i] - benchmarkChange / atrBenchmark[benchmarkIndex];
+            double value = subjectChange / atrSubject[i] - benchmarkChange / atrBenchmark[benchmarkIndex];
+            if (!Double.isFinite(value)) {
+                // A finite-but-zero ATR makes the normalized move undefined (0/0 or x/0). A
+                // degenerate volatility baseline is not a measurement: never emit it as VALID.
+                availability[i] = FeatureAvailability.INVALID;
+                quality[i] = FeatureQuality.UNAVAILABLE;
+                continue;
+            }
+            raw[i] = value;
             availability[i] = FeatureAvailability.VALID;
             quality[i] = FeatureQuality.worst(subjectQuality, benchmarkQuality);
         }

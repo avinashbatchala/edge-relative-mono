@@ -115,6 +115,23 @@ class FeatureEngineTest {
     }
 
     @Test
+    void zeroAtrYieldsNoValidRrsValueInTheSnapshot() {
+        List<AggregatedCandle> zeroRange = new ArrayList<>();
+        java.time.Instant base = java.time.Instant.parse("2026-09-01T03:45:00Z");
+        for (int i = 0; i < 6; i++) {
+            String open = base.plusSeconds(300L * i).toString();
+            String close = base.plusSeconds(300L * (i + 1)).toString();
+            // open = high = low = close: true range and ATR are identically zero.
+            zeroRange.add(FeatureTestSupport.bar(open, close, 100, 100, 100, 100, 100));
+        }
+        FeatureSnapshot snapshot = ENGINE.snapshot(FeatureTestSupport.context(
+                1, zeroRange, zeroRange, List.of(), FeatureTestSupport.policy(), "M5"));
+
+        assertThat(snapshot.feature(FeatureKeys.RRS_RAW).availability()).isNotEqualTo(FeatureAvailability.VALID);
+        assertThat(snapshot.feature(FeatureKeys.RRS_RAW).value()).isNull();
+    }
+
+    @Test
     void directionalVolumeRatiosSeparateUpAndDownVolume() {
         List<AggregatedCandle> bars = new ArrayList<>();
         bars.add(FeatureTestSupport.bar("2026-09-01T03:45:00Z", "2026-09-01T03:50:00Z", 100, 101, 99, 101, 30));

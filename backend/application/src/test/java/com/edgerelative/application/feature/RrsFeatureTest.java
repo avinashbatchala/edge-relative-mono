@@ -117,6 +117,25 @@ class RrsFeatureTest {
         assertThat(shortRaw).isGreaterThan(longRaw);
     }
 
+    /**
+     * Bars with no range at all (open = high = low = close): true range and therefore ATR are zero.
+     */
+    private static BarSeries zeroRange(double level, int count) {
+        List<AggregatedCandle> bars = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            bars.add(bar(i, level, level, level, level, 0, true, "GOOD"));
+        }
+        return BarSeries.of(bars);
+    }
+
+    @Test
+    void zeroAtrYieldsAnUnavailableRrsRatherThanAValidNonFiniteValue() {
+        RrsFeature.Result result = new RrsFeature().compute(zeroRange(100, 3), zeroRange(200, 3), parameters());
+
+        assertThat(result.raw()[2]).isNaN();
+        assertThat(result.rawAvailability()[2]).isNotEqualTo(FeatureAvailability.VALID);
+    }
+
     private static BarSeries flatWithQuality(double level, int count, String quality) {
         List<AggregatedCandle> bars = new ArrayList<>();
         for (int i = 0; i < count; i++) {
