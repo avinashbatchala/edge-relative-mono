@@ -25,6 +25,9 @@ public final class BarQuality {
             case "STALE" -> FeatureQuality.STALE;
             case "INCOMPLETE" -> FeatureQuality.INCOMPLETE;
             case "UNAVAILABLE" -> FeatureQuality.UNAVAILABLE;
+            // A covered no-trade interval (DD-05 §103): there is no volume to measure, so volume-
+            // derived features are unavailable rather than silently zero.
+            case "NO_TRADES" -> FeatureQuality.UNAVAILABLE;
             default -> series.complete(index) ? FeatureQuality.SUSPECT : FeatureQuality.INCOMPLETE;
         };
     }

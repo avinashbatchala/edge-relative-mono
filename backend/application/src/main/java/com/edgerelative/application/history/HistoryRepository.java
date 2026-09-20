@@ -49,6 +49,24 @@ public class HistoryRepository {
     }
 
     /**
+     * Records a market-data incident for malformed source observations (DD-05 §117). Ingestion flags
+     * the bad row instead of inventing a replacement value.
+     */
+    public void recordIncident(
+            long instrumentId, String incidentType, String severity, Instant detectedAt, String detailsJson) {
+        dsl.execute(
+                "INSERT INTO market.market_data_incident "
+                        + "(incident_key, instrument_id, incident_type, severity, detected_at, details) "
+                        + "VALUES (?::uuid, ?, ?, ?, ?::timestamptz, ?::jsonb)",
+                UUID.randomUUID(),
+                instrumentId,
+                incidentType,
+                severity,
+                utc(detectedAt),
+                detailsJson);
+    }
+
+    /**
      * Writes M1 candles idempotently and append-only. An identical existing current bar is left
      * untouched; a changed bar becomes a new revision and the previous one is marked non-current
      * (DD-05 §105/§106). Returns the number of rows written.

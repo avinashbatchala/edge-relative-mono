@@ -192,6 +192,14 @@ market:
       - 2026-11-10 # Diwali-Balipratipada
       - 2026-11-24 # Prakash Gurpurb Sri Guru Nanak Dev
       - 2026-12-25 # Christmas
+    # Special/shortened sessions (DD-05 §116): a date plus an explicit IST window. Dates listed
+    # here are trading days with that window even on a weekend or holiday (e.g. Muhurat trading).
+    # Add the official window when the annual NSE circular specifies it.
+    special-sessions: []
+    # special-sessions:
+    #   - date: 2026-11-08
+    #     open: "18:00"
+    #     close: "19:00"
 
 server:
   address: 127.0.0.1

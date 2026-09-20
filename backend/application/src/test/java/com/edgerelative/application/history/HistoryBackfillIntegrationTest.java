@@ -78,6 +78,32 @@ class HistoryBackfillIntegrationTest {
               ["2026-09-01T09:19:00", 104, 104.5, 103.5, 104.4, 10, null]
             ]}}""";
 
+    /**
+     * Pre-open (09:08/09:14 IST), in-session (09:15–09:17) and post-close (15:30/15:35) minutes. Only
+     * the three in-session minutes belong to the {@code er-m1-base-v1} definition (DD-05 §§99/115).
+     */
+    private static final String MINUTES_WITH_OFF_SESSION = """
+            {"status":"SUCCESS","payload":{"candles":[
+              ["2026-09-01T09:08:00", 90, 90, 89, 89, 5, null],
+              ["2026-09-01T09:14:00", 91, 91, 90, 90, 5, null],
+              ["2026-09-01T09:15:00", 100, 100.5, 99.5, 100.25, 10, null],
+              ["2026-09-01T09:16:00", 101, 101.5, 100.5, 101.25, 10, null],
+              ["2026-09-01T09:17:00", 102, 102.5, 101.5, 102.25, 10, null],
+              ["2026-09-01T15:30:00", 200, 200, 199, 199, 7, null],
+              ["2026-09-01T15:35:00", 201, 201, 200, 200, 7, null]
+            ]}}""";
+
+    /**
+     * One valid minute plus two malformed rows: {@code high < low} and a negative volume
+     * (DD-05 §117). Neither malformed row may be persisted.
+     */
+    private static final String MALFORMED_MINUTES = """
+            {"status":"SUCCESS","payload":{"candles":[
+              ["2026-09-01T09:15:00", 100, 101, 99, 100.5, 10, null],
+              ["2026-09-01T09:16:00", 100, 98, 99, 99, 10, null],
+              ["2026-09-01T09:17:00", 100, 101, 99, 100, -5, null]
+            ]}}""";
+
     private static final WireMockServer WIREMOCK = startWireMock();
 
     private static WireMockServer startWireMock() {
@@ -174,6 +200,96 @@ class HistoryBackfillIntegrationTest {
         awaitStatus(rerun.path("runKey").asString(), "COMPLETED");
         JsonNode after = getJson("/api/v1/history/coverage?instrumentId=" + instrumentId + "&timeframe=M1");
         assertThat(after.path("candleCount").asLong()).isEqualTo(1);
+    }
+
+    @Test
+    void persistsOnlyCanonicalSessionMinutesFromTheVendorPayload() throws Exception {
+        WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles"))
+                .willReturn(okJson(MINUTES_WITH_OFF_SESSION)));
+
+        long instrumentId = watchInstrument("HISTOFF");
+        JsonNode run = startBackfill(instrumentId, "M1", "2026-09-01T03:30:00Z", "2026-09-01T10:10:00Z");
+        awaitStatus(run.path("runKey").asString(), "COMPLETED");
+
+        // Pre-open and post-close prints must not enter the canonical M1 base at all: the store, not
+        // just the session-filtering read path, must hold exactly the three in-session minutes.
+        Integer stored = jdbc.queryForObject(
+                "SELECT count(*) FROM market.candle WHERE instrument_id = ? AND is_current",
+                Integer.class,
+                instrumentId);
+        assertThat(stored).isEqualTo(3);
+        Instant earliest = jdbc.queryForObject(
+                "SELECT min(open_time) FROM market.candle WHERE instrument_id = ? AND is_current",
+                java.time.OffsetDateTime.class,
+                instrumentId)
+                .toInstant();
+        Instant latest = jdbc.queryForObject(
+                "SELECT max(open_time) FROM market.candle WHERE instrument_id = ? AND is_current",
+                java.time.OffsetDateTime.class,
+                instrumentId)
+                .toInstant();
+        assertThat(earliest).isEqualTo(Instant.parse("2026-09-01T03:45:00Z"));
+        assertThat(latest).isEqualTo(Instant.parse("2026-09-01T03:47:00Z"));
+
+        JsonNode coverage = getJson("/api/v1/history/coverage?instrumentId=" + instrumentId + "&timeframe=M1");
+        assertThat(coverage.path("candleCount").asLong()).isEqualTo(3);
+        JsonNode rows = getJson("/api/v1/history/candles?instrumentId=" + instrumentId
+                + "&timeframe=M1&from=2026-09-01T00:00:00Z&to=2026-09-02T00:00:00Z&limit=100");
+        assertThat(rows.size()).isEqualTo(3);
+        assertThat(rows.get(0).path("openTime").asString()).isEqualTo("2026-09-01T03:45:00Z");
+    }
+
+    @Test
+    void malformedCandlesAreNotPersistedAndRaiseAnIncident() throws Exception {
+        WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(MALFORMED_MINUTES)));
+
+        long instrumentId = watchInstrument("HISTBAD");
+        JsonNode run = startBackfill(instrumentId, "M1", "2026-09-01T03:30:00Z", "2026-09-01T03:50:00Z");
+        awaitStatus(run.path("runKey").asString(), "COMPLETED");
+
+        Integer stored = jdbc.queryForObject(
+                "SELECT count(*) FROM market.candle WHERE instrument_id = ? AND is_current",
+                Integer.class,
+                instrumentId);
+        assertThat(stored).isEqualTo(1);
+        Integer incidents = jdbc.queryForObject(
+                "SELECT count(*) FROM market.market_data_incident WHERE instrument_id = ? AND incident_type = 'CORRUPT_DATA'",
+                Integer.class,
+                instrumentId);
+        assertThat(incidents).isEqualTo(1);
+    }
+
+    @Test
+    void barsClosingAfterTheRequestedEndAreMarkedIncomplete() throws Exception {
+        WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(MINUTES)));
+        long instrumentId = watchInstrument("HISTIP");
+        JsonNode run = startBackfill(instrumentId, "M1", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z");
+        awaitStatus(run.path("runKey").asString(), "COMPLETED");
+
+        // The M5 bucket 03:45-03:50 closes after `to`, so it is in progress at that decision time.
+        JsonNode inProgress = getJson("/api/v1/history/candles?instrumentId=" + instrumentId
+                + "&timeframe=M5&from=2026-09-01T03:45:00Z&to=2026-09-01T03:48:00Z&limit=100");
+        assertThat(inProgress.size()).isEqualTo(1);
+        assertThat(inProgress.get(0).path("complete").asBoolean()).isFalse();
+        assertThat(inProgress.get(0).path("closeTime").asString()).isEqualTo("2026-09-01T03:50:00Z");
+
+        JsonNode closed = getJson("/api/v1/history/candles?instrumentId=" + instrumentId
+                + "&timeframe=M5&from=2026-09-01T03:45:00Z&to=2026-09-01T03:50:00Z&limit=100");
+        assertThat(closed.size()).isEqualTo(1);
+        assertThat(closed.get(0).path("complete").asBoolean()).isTrue();
+    }
+
+    @Test
+    void malformedQueryParameterUsesTheStableErrorEnvelope() throws Exception {
+        HttpResponse<String> response = send(HttpRequest.newBuilder(uri(
+                        "/api/v1/history/candles?instrumentId=1&timeframe=M5&from=notadate&to=2026-09-01T00:00:00Z"))
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build());
+        assertThat(response.statusCode()).isEqualTo(400);
+        JsonNode body = JSON.readTree(response.body());
+        assertThat(body.path("code").asString()).isEqualTo("REQUEST_INVALID");
+        assertThat(body.has("timestamp")).isFalse();
     }
 
     @Test

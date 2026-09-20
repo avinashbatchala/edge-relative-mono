@@ -28,6 +28,11 @@ public final class CandleAggregator {
     public static final String AGGREGATE_DEFINITION_VERSION = "er-aggregate-v1";
     public static final String QUALITY_GOOD = "GOOD";
     public static final String QUALITY_INCOMPLETE = "INCOMPLETE";
+    /**
+     * A fully-covered interval whose source bars all carry zero volume: a real no-trade interval,
+     * which must not be encoded the same as a missing feed interval (DD-05 §§103/104).
+     */
+    public static final String QUALITY_NO_TRADES = "NO_TRADES";
 
     private final NseTradingCalendar calendar;
 
@@ -64,19 +69,14 @@ public final class CandleAggregator {
     }
 
     /**
-     * Canonical NSE session membership (DD-05 §95): a minute at or after the session close (vendor
-     * post-close data) or before the open is not part of the session bar. Without this a vendor
-     * minute after 15:30 IST creates an extra bucket, so every derived session looks incomplete and
-     * volume baselines cannot form.
+     * Canonical NSE session membership (DD-05 §§93/99/115): a minute at or after the session close
+     * (vendor post-close data), before the open, or on a non-trading day is not part of the session
+     * bar. Without this a vendor minute after 15:30 IST creates an extra bucket, so every derived
+     * session looks incomplete and volume baselines cannot form. The rule is shared with the
+     * ingestion boundary via {@link NseTradingCalendar#isSessionMinute(Instant)}.
      */
     private boolean inSession(HistoricalCandle candle) {
-        LocalDate session = calendar.sessionDate(candle.openTime());
-        if (!calendar.isTradingDay(session)) {
-            return false;
-        }
-        Instant open = calendar.sessionOpen(session);
-        Instant close = calendar.sessionClose(session);
-        return !candle.openTime().isBefore(open) && candle.openTime().isBefore(close);
+        return calendar.isSessionMinute(candle.openTime());
     }
 
     private static AggregatedCandle passthrough(HistoricalCandle candle) {
@@ -101,7 +101,9 @@ public final class CandleAggregator {
         LocalDate session = calendar.sessionDate(candle.openTime());
         if (spec.calendarBased() && spec.code().equals("W1")) {
             LocalDate weekStart = calendar.weekStart(session);
-            return new Bucket(weekStart, candle.openTime(), weekStart, weekStart.plusDays(6), false);
+            // Session-anchored like D1 (DD-05 §§93/99/100): the week opens at the canonical open of
+            // its first contributing session, not at whatever minute happened to arrive first.
+            return new Bucket(weekStart, calendar.sessionOpen(session), weekStart, weekStart.plusDays(6), false);
         }
         if (spec.calendarBased()) {
             return new Bucket(session, calendar.sessionOpen(session), session, session, false);
@@ -132,6 +134,7 @@ public final class CandleAggregator {
         private BigDecimal low;
         private BigDecimal close;
         private Instant closeTime;
+        private Instant lastOpenTime;
         private long volume;
         private BigDecimal openInterest;
         private boolean seeded;
@@ -155,6 +158,7 @@ public final class CandleAggregator {
             }
             close = candle.close();
             closeTime = candle.closeTime();
+            lastOpenTime = candle.openTime();
             volume += candle.volume();
             if (candle.openInterest() != null) {
                 openInterest = candle.openInterest();
@@ -192,7 +196,10 @@ public final class CandleAggregator {
             if (spec.code().equals("D1")) {
                 return calendar.sessionClose(startDate);
             }
-            return closeTime != null ? closeTime : openTime;
+            // W1 closes at the canonical close of its last contributing session (DD-05 §§93/100),
+            // not at the last minute that happened to arrive.
+            LocalDate lastSession = lastOpenTime == null ? startDate : calendar.sessionDate(lastOpenTime);
+            return calendar.sessionClose(lastSession);
         }
 
         private String completeness(Spec spec) {
@@ -201,20 +208,29 @@ public final class CandleAggregator {
                 Instant nominalEnd = openTime.plusSeconds(spec.duration().getSeconds());
                 Instant bucketEnd = nominalEnd.isAfter(sessionClose) ? sessionClose : nominalEnd;
                 long expectedMinutes = Duration.between(openTime, bucketEnd).toMinutes();
-                return receivedBySession.getOrDefault(startDate, 0) >= expectedMinutes
-                        ? QUALITY_GOOD
-                        : QUALITY_INCOMPLETE;
+                return quality(receivedBySession.getOrDefault(startDate, 0) >= expectedMinutes);
             }
-            long expected = calendar.sessionMinutes();
             for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
                 if (!calendar.isTradingDay(date)) {
                     continue;
                 }
-                if (receivedBySession.getOrDefault(date, 0) < expected) {
+                if (receivedBySession.getOrDefault(date, 0) < calendar.sessionMinutes(date)) {
                     return QUALITY_INCOMPLETE;
                 }
             }
-            return QUALITY_GOOD;
+            return quality(true);
+        }
+
+        /**
+         * Distinguishes a fully-covered interval with no trades from a missing feed interval
+         * (DD-05 §§103/104): missing minutes are {@code INCOMPLETE}; a covered zero-volume interval is
+         * {@code NO_TRADES}; otherwise {@code GOOD}.
+         */
+        private String quality(boolean covered) {
+            if (!covered) {
+                return QUALITY_INCOMPLETE;
+            }
+            return volume == 0 ? QUALITY_NO_TRADES : QUALITY_GOOD;
         }
 
         private static BigDecimal max(BigDecimal left, BigDecimal right) {

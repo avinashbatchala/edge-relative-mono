@@ -41,6 +41,25 @@ class NseTradingCalendarTest {
         assertThat(calendar.sessionMinutes()).isEqualTo(375);
     }
 
+    @Test
+    void specialSessionOverridesMakeAWeekendTradingDayWithItsOwnWindow() {
+        LocalDate muhurat = LocalDate.of(2026, 11, 8); // a Sunday
+        NseTradingCalendar special = new NseTradingCalendar(
+                Set.of(),
+                java.util.Map.of(
+                        muhurat, new NseTradingCalendar.Session(java.time.LocalTime.of(18, 0), java.time.LocalTime.of(19, 0))));
+
+        assertThat(special.isTradingDay(muhurat)).isTrue();
+        assertThat(special.sessionOpen(muhurat)).isEqualTo(Instant.parse("2026-11-08T12:30:00Z"));
+        assertThat(special.sessionClose(muhurat)).isEqualTo(Instant.parse("2026-11-08T13:30:00Z"));
+        assertThat(special.sessionMinutes(muhurat)).isEqualTo(60);
+        assertThat(special.sessionMinutes()).isEqualTo(375);
+        assertThat(special.isSessionMinute(Instant.parse("2026-11-08T12:30:00Z"))).isTrue();
+        assertThat(special.isSessionMinute(Instant.parse("2026-11-08T13:30:00Z"))).isFalse();
+        // A normal date is unaffected.
+        assertThat(special.sessionMinutes(LocalDate.of(2026, 11, 9))).isEqualTo(375);
+    }
+
     /**
      * DD01 §131 / DD05 §115: the host default timezone must not change session semantics. These
      * instants are absolute; the test passes under any JVM default zone.

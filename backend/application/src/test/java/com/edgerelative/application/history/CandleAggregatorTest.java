@@ -136,6 +136,74 @@ class CandleAggregatorTest {
         assertThat(aggregator.aggregate(source, "M1")).hasSize(375);
     }
 
+    @Test
+    void w1AnchorsToCanonicalSessionBoundariesNotToTheFirstOrLastMinute() {
+        LocalDate monday = LocalDate.of(2026, 9, 14);
+        LocalDate friday = monday.plusDays(4);
+        List<HistoricalCandle> source = new ArrayList<>();
+        // Monday's first minute is missing: the weekly open must still be the session open.
+        source.addAll(minutes(calendar.sessionOpen(monday).plusSeconds(60), 3, new BigDecimal("10")));
+        // Friday's last minute is missing: the weekly close must still be the session close.
+        source.addAll(minutes(calendar.sessionOpen(friday), 374, new BigDecimal("20")));
+
+        List<AggregatedCandle> bars = aggregator.aggregate(source, "W1");
+
+        assertThat(bars).hasSize(1);
+        assertThat(bars.get(0).openTime()).isEqualTo(calendar.sessionOpen(monday));
+        assertThat(bars.get(0).closeTime()).isEqualTo(calendar.sessionClose(friday));
+    }
+
+    @Test
+    void fullyCoveredZeroVolumeIntervalIsNoTradesNotMissingData() {
+        List<HistoricalCandle> source = new ArrayList<>();
+        Instant start = calendar.sessionOpen(SESSION);
+        for (int i = 0; i < 5; i++) {
+            Instant open = start.plusSeconds(i * 60L);
+            source.add(new HistoricalCandle(
+                    open,
+                    open.plusSeconds(60),
+                    new BigDecimal("100"),
+                    new BigDecimal("100"),
+                    new BigDecimal("100"),
+                    new BigDecimal("100"),
+                    0,
+                    null,
+                    null,
+                    null,
+                    true,
+                    CandleAggregator.QUALITY_GOOD));
+        }
+
+        List<AggregatedCandle> bars = aggregator.aggregate(source, "M5");
+
+        assertThat(bars).hasSize(1);
+        assertThat(bars.get(0).volume()).isZero();
+        assertThat(bars.get(0).qualityState()).isEqualTo(CandleAggregator.QUALITY_NO_TRADES);
+    }
+
+    @Test
+    void specialSessionShiftsBucketBoundariesAndD1Close() {
+        LocalDate muhurat = LocalDate.of(2026, 11, 8); // Sunday special session 18:00-19:00 IST
+        NseTradingCalendar special = new NseTradingCalendar(
+                java.util.Set.of(),
+                java.util.Map.of(
+                        muhurat, new NseTradingCalendar.Session(java.time.LocalTime.of(18, 0), java.time.LocalTime.of(19, 0))));
+        CandleAggregator specialAggregator = new CandleAggregator(special);
+        List<HistoricalCandle> source =
+                minutes(special.sessionOpen(muhurat), 60, new BigDecimal("100"));
+
+        List<AggregatedCandle> m30 = specialAggregator.aggregate(source, "M30");
+        assertThat(m30).hasSize(2);
+        assertThat(m30.get(0).openTime()).isEqualTo(special.sessionOpen(muhurat));
+        assertThat(m30.get(1).closeTime()).isEqualTo(special.sessionClose(muhurat));
+        assertThat(m30.get(0).qualityState()).isEqualTo(CandleAggregator.QUALITY_GOOD);
+
+        List<AggregatedCandle> d1 = specialAggregator.aggregate(source, "D1");
+        assertThat(d1).hasSize(1);
+        assertThat(d1.get(0).openTime()).isEqualTo(special.sessionOpen(muhurat));
+        assertThat(d1.get(0).closeTime()).isEqualTo(special.sessionClose(muhurat));
+    }
+
     private static List<HistoricalCandle> minutes(Instant start, int count, BigDecimal base) {
         List<HistoricalCandle> candles = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {

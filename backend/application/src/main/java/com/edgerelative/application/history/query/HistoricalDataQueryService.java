@@ -11,6 +11,7 @@ import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.TimeframeCatalog;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -53,18 +54,50 @@ public class HistoricalDataQueryService implements HistoricalDataReader {
         long m1TimeframeId = timeframeId(TimeframeCatalog.M1);
         int requested = Math.min(Math.max(limit, 1), MAX_LIMIT);
         if (TimeframeCatalog.M1.equals(spec.code())) {
-            return aggregator.aggregate(
+            List<AggregatedCandle> bars = aggregator.aggregate(
                     repository.candles(instrumentId, m1TimeframeId, from, to, requested), spec.code());
+            return markInProgressIncomplete(bars, to);
         }
         List<HistoricalCandle> source =
                 repository.candles(instrumentId, m1TimeframeId, from, to, properties.getMaxSourceCandles());
-        List<AggregatedCandle> derived = aggregator.aggregate(source, spec.code());
+        List<AggregatedCandle> derived = markInProgressIncomplete(aggregator.aggregate(source, spec.code()), to);
         // Keep the most recent `requested` bars; taking the first N would drop the window ending at
         // `to` and silently move every anchor backwards (DD-05 §128/§151).
         if (derived.size() <= requested) {
             return derived;
         }
         return List.copyOf(derived.subList(derived.size() - requested, derived.size()));
+    }
+
+    /**
+     * A bar whose close boundary is after the requested end is still in progress at that decision
+     * time and must not be treated as a confirmed close (DD-05 §§101/102, DD-02 §17). Confirmed-close
+     * consumers therefore see {@code complete=false} rather than a finalized-looking bar.
+     */
+    private static List<AggregatedCandle> markInProgressIncomplete(List<AggregatedCandle> bars, Instant to) {
+        List<AggregatedCandle> result = new ArrayList<>(bars.size());
+        for (AggregatedCandle bar : bars) {
+            if (bar.complete() && bar.closeTime() != null && bar.closeTime().isAfter(to)) {
+                result.add(new AggregatedCandle(
+                        bar.openTime(),
+                        bar.closeTime(),
+                        bar.open(),
+                        bar.high(),
+                        bar.low(),
+                        bar.close(),
+                        bar.volume(),
+                        bar.openInterest(),
+                        bar.tradeCount(),
+                        bar.vwap(),
+                        bar.partial(),
+                        false,
+                        bar.qualityState(),
+                        bar.definitionVersion()));
+            } else {
+                result.add(bar);
+            }
+        }
+        return result;
     }
 
     @Override
