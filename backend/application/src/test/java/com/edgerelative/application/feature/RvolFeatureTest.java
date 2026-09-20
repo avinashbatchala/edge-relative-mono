@@ -11,6 +11,7 @@ import com.edgerelative.application.feature.volume.SessionModel;
 import com.edgerelative.application.feature.volume.VolumeBaselineEstimators;
 import com.edgerelative.application.history.AggregatedCandle;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +144,62 @@ class RvolFeatureTest {
         int anchor = 150 + 10;
         assertThat(shortResult.cumulative()[anchor].value()).isEqualTo(longResult.cumulative()[anchor].value());
         assertThat(shortResult.interval()[anchor].value()).isEqualTo(longResult.interval()[anchor].value());
+    }
+
+    /**
+     * Six full H1 bars plus the truncated 15-minute final bar, all with the same volume.
+     */
+    private static List<AggregatedCandle> h1Session(LocalDate date, long volumePerBar) {
+        Instant open = FeatureTestSupport.CALENDAR.sessionOpen(date);
+        List<AggregatedCandle> bars = new ArrayList<>();
+        for (int hour = 0; hour < 6; hour++) {
+            Instant start = open.plusSeconds(3600L * hour);
+            bars.add(FeatureTestSupport.bar(
+                    start.toString(), start.plusSeconds(3600).toString(), 100, 100.5, 99.5, 100, volumePerBar));
+        }
+        Instant partial = open.plusSeconds(3600L * 6);
+        bars.add(FeatureTestSupport.bar(
+                partial.toString(),
+                FeatureTestSupport.CALENDAR.sessionClose(date).toString(),
+                100, 100.5, 99.5, 100, volumePerBar));
+        return bars;
+    }
+
+    @Test
+    void partialFinalBucketDoesNotInvalidateASessionBaseline() {
+        List<AggregatedCandle> bars = new ArrayList<>();
+        bars.addAll(h1Session(D1, 10));
+        bars.addAll(h1Session(D2, 10));
+        bars.addAll(h1Session(D3, 10));
+        FeaturePolicy policy = FeatureTestSupport.policy(
+                3, new FeaturePolicy.Rvol(BaselineEstimatorType.MEAN, 50, 50, 50, 2, 0.1, 20));
+
+        RvolFeature.Result result = compute(bars, policy, 60);
+
+        // Each prior H1 session total is 7 x 10 = 70; D3's first bar is 10 -> 10/70.
+        int firstBarOfD3 = 14;
+        assertThat(result.daily()[firstBarOfD3].availability()).isEqualTo(FeatureAvailability.VALID);
+        assertThat(result.daily()[firstBarOfD3].value()).isCloseTo(10.0 / 70.0, org.assertj.core.data.Offset.offset(1e-9));
+    }
+
+    @Test
+    void truncatedPriorSessionIsExcludedFromTheDailyBaseline() {
+        long[] full = new long[75];
+        java.util.Arrays.fill(full, 10);
+        long[] padded = new long[75];
+        java.util.Arrays.fill(padded, 1000);
+        List<AggregatedCandle> bars = new ArrayList<>();
+        bars.addAll(FeatureTestSupport.session(D1, full));
+        bars.addAll(FeatureTestSupport.session(D2, full));
+        // D3 is truncated to 74 of 75 bars but otherwise well-formed: it must not enter the baseline.
+        bars.addAll(FeatureTestSupport.session(D3, padded).subList(0, 74));
+        bars.addAll(FeatureTestSupport.session(D4, full));
+
+        RvolFeature.Result result = computeIntraday(bars, 2);
+
+        int lastBar = bars.size() - 1;
+        // D4 cumulative 750 / mean(D1 750, D2 750); the truncated D3 is excluded, so the ratio is 1.
+        assertThat(result.daily()[lastBar].value()).isEqualTo(1.0);
     }
 
     @Test

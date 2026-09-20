@@ -213,12 +213,21 @@ public final class RvolFeature {
             return totalVolume;
         }
 
+        /**
+         * A prior session contributes to a baseline only if it was fully observed: all expected bars
+         * present, every bar finalized/trustworthy, and no overflow. A truncated or holiday-shortened
+         * session is excluded rather than understating the baseline (DD-02 §161, DD-05 §152/§153).
+         */
+        private boolean valid() {
+            return complete && cumulativeByBar.size() == expectedBars;
+        }
+
         Double totalVolumeIfComplete() {
-            return complete ? (double) totalVolume : null;
+            return valid() ? (double) totalVolume : null;
         }
 
         Double volumeAtSlot(int slot) {
-            if (!complete) {
+            if (!valid()) {
                 return null;
             }
             Long volume = slotVolume.get(slot);
@@ -226,7 +235,7 @@ public final class RvolFeature {
         }
 
         Double cumulativeUpTo(int targetTau) {
-            if (!complete || maxTau < targetTau) {
+            if (!valid() || maxTau < targetTau) {
                 return null;
             }
             long cumulative = 0L;

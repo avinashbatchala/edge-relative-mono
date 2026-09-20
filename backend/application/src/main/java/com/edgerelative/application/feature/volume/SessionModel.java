@@ -40,8 +40,13 @@ public final class SessionModel {
         return (int) calendar.sessionMinutes();
     }
 
+    /**
+     * Number of bars a fully-observed session should contain, including the truncated final bar.
+     * For timeframes that do not divide the 375-minute session evenly (M30, H1, H2, H4) the last bar
+     * is partial, so the count is the ceiling, not the floor (DD-05 §98/§153).
+     */
     public int expectedBars() {
-        return sessionMinutes() / timeframeMinutes;
+        return (sessionMinutes() + timeframeMinutes - 1) / timeframeMinutes;
     }
 
     public int timeframeMinutes() {
