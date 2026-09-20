@@ -2,12 +2,16 @@ package com.edgerelative.application.feature.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.TextMessage;
@@ -58,5 +62,43 @@ class FeatureStreamPublisherTest {
 
         verify(session, times(0)).sendMessage(any());
         assertThat(publisher.sessionCount()).isZero();
+    }
+
+    @Test
+    void concurrentBroadcastsDeliverSequencesInOrderToASession() throws Exception {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.isOpen()).thenReturn(true);
+        when(session.getId()).thenReturn("s-ordered");
+        List<Long> delivered = new CopyOnWriteArrayList<>();
+        CountDownLatch firstSendEntered = new CountDownLatch(1);
+        CountDownLatch secondSendCompleted = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            TextMessage message = invocation.getArgument(0);
+            long sequence = JSON.readTree(message.getPayload()).path("sequence").asLong();
+            if (sequence == 1) {
+                // Let the second broadcast allocate and send first; a correct publisher must not
+                // expose sequence 2 before sequence 1 on the same session.
+                firstSendEntered.countDown();
+                secondSendCompleted.await(5, TimeUnit.SECONDS);
+            }
+            delivered.add(sequence);
+            if (sequence == 2) {
+                secondSendCompleted.countDown();
+            }
+            return null;
+        }).when(session).sendMessage(any());
+
+        FeatureStreamPublisher publisher = new FeatureStreamPublisher(JSON);
+        publisher.register(session);
+
+        Thread first = new Thread(() -> publisher.broadcastUpdate(List.of("first")));
+        first.start();
+        assertThat(firstSendEntered.await(5, TimeUnit.SECONDS)).isTrue();
+        Thread second = new Thread(() -> publisher.broadcastUpdate(List.of("second")));
+        second.start();
+        first.join(5000);
+        second.join(5000);
+
+        assertThat(delivered).containsExactly(1L, 2L);
     }
 }

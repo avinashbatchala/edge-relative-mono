@@ -3,12 +3,14 @@ package com.edgerelative.application.feature.engine;
 import com.edgerelative.application.feature.domain.FeatureSnapshot;
 import com.edgerelative.application.history.AggregatedCandle;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -79,10 +81,35 @@ public final class LiveFeatureStore {
     }
 
     /**
-     * Visible for tests: stale/duplicate events rejected by a series.
+     * Visible for tests: events rejected by a series for any reason (duplicate, late, or a
+     * same-timestamp bar whose values disagree with the accepted one).
      */
     public long rejectedEvents(long instrumentId, String timeframe) {
         return buffer(instrumentId, timeframe).rejected();
+    }
+
+    /**
+     * Visible for tests: identical bars replayed at an already-accepted close time. Detected before
+     * any state change so volume is never double-counted (DD-05 §63).
+     */
+    public long duplicateEvents(long instrumentId, String timeframe) {
+        return buffer(instrumentId, timeframe).duplicates();
+    }
+
+    /**
+     * Visible for tests: events strictly before the last accepted close time (DD-05 §62).
+     */
+    public long lateEvents(long instrumentId, String timeframe) {
+        return buffer(instrumentId, timeframe).late();
+    }
+
+    /**
+     * Visible for tests: a bar at an already-accepted close time whose values differ from the
+     * accepted bar. This is a candidate correction or a conflicting source and is never averaged in
+     * (DD-05 §37/§64); corrections/revisions are not yet modelled.
+     */
+    public long conflictingEvents(long instrumentId, String timeframe) {
+        return buffer(instrumentId, timeframe).conflicting();
     }
 
     public int seriesCount() {
@@ -102,19 +129,52 @@ public final class LiveFeatureStore {
         private final Deque<AggregatedCandle> candles = new ArrayDeque<>();
         private Instant lastClose = Instant.MIN;
         private long rejected;
+        private long duplicates;
+        private long late;
+        private long conflicting;
 
         SeriesBuffer(int maxBars) {
             this.maxBars = maxBars;
         }
 
         synchronized void accept(AggregatedCandle candle) {
-            if (!candle.closeTime().isAfter(lastClose)) {
+            int position = candle.closeTime().compareTo(lastClose);
+            if (position < 0) {
+                late++;
+                rejected++;
+                return;
+            }
+            if (position == 0) {
+                AggregatedCandle last = candles.peekLast();
+                if (last != null && sameValues(last, candle)) {
+                    duplicates++;
+                } else {
+                    conflicting++;
+                }
                 rejected++;
                 return;
             }
             candles.addLast(candle);
             lastClose = candle.closeTime();
             trim();
+        }
+
+        private static boolean sameValues(AggregatedCandle left, AggregatedCandle right) {
+            return left.volume() == right.volume()
+                    && sameDecimal(left.open(), right.open())
+                    && sameDecimal(left.high(), right.high())
+                    && sameDecimal(left.low(), right.low())
+                    && sameDecimal(left.close(), right.close())
+                    && sameDecimal(left.openInterest(), right.openInterest())
+                    && left.complete() == right.complete()
+                    && Objects.equals(left.qualityState(), right.qualityState());
+        }
+
+        private static boolean sameDecimal(BigDecimal left, BigDecimal right) {
+            if (left == null || right == null) {
+                return left == right;
+            }
+            return left.compareTo(right) == 0;
         }
 
         synchronized void seed(AggregatedCandle candle) {
@@ -137,6 +197,18 @@ public final class LiveFeatureStore {
 
         synchronized long rejected() {
             return rejected;
+        }
+
+        synchronized long duplicates() {
+            return duplicates;
+        }
+
+        synchronized long late() {
+            return late;
+        }
+
+        synchronized long conflicting() {
+            return conflicting;
         }
 
         private void trim() {

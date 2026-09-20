@@ -25,6 +25,12 @@ public class FeatureStreamPublisher {
     private final JsonMapper jsonMapper;
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicLong sequence = new AtomicLong();
+    /**
+     * Serialises sequence allocation with the write, so a session can never observe a higher
+     * sequence before a lower one and concurrent broadcasts never write a session at the same time
+     * (Spring's {@link WebSocketSession} is not safe for concurrent sends).
+     */
+    private final Object sendLock = new Object();
 
     public FeatureStreamPublisher(JsonMapper jsonMapper) {
         this.jsonMapper = jsonMapper;
@@ -51,16 +57,20 @@ public class FeatureStreamPublisher {
      * does not advance the counter so a snapshot cannot create a perceived gap for other clients.
      */
     public void sendSnapshot(WebSocketSession session, Object payload) {
-        send(session, FeatureStreamEnvelope.of(
-                FeatureStreamEnvelope.FEATURE_SNAPSHOT, sequence.get(), payload));
+        synchronized (sendLock) {
+            send(session, FeatureStreamEnvelope.of(
+                    FeatureStreamEnvelope.FEATURE_SNAPSHOT, sequence.get(), payload));
+        }
     }
 
     /** Broadcasts an incremental update to every connected session. */
     public void broadcastUpdate(Object payload) {
-        FeatureStreamEnvelope envelope = FeatureStreamEnvelope.of(
-                FeatureStreamEnvelope.FEATURE_UPDATE, sequence.incrementAndGet(), payload);
-        for (WebSocketSession session : sessions) {
-            send(session, envelope);
+        synchronized (sendLock) {
+            FeatureStreamEnvelope envelope = FeatureStreamEnvelope.of(
+                    FeatureStreamEnvelope.FEATURE_UPDATE, sequence.incrementAndGet(), payload);
+            for (WebSocketSession session : sessions) {
+                send(session, envelope);
+            }
         }
     }
 
