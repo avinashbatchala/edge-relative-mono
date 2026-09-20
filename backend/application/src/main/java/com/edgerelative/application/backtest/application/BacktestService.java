@@ -204,10 +204,13 @@ public class BacktestService {
         canonical.put("strategyFamilies", parameters.enabledFamilies().stream().map(Enum::name).sorted().toList());
         canonical.put("riskPolicy", policy.code() + "/" + policy.version());
         canonical.put("riskBaseFraction", policy.trade() == null ? null : policy.trade().baseRiskFraction());
+        boolean strictProducers = request.strictProducers() != null && request.strictProducers();
+        int warmupBars = request.warmupBars() == null ? 0 : request.warmupBars();
+        long seedValue = request.seed() == null ? 0L : request.seed();
         canonical.put("contextSource", contextSource(request));
-        canonical.put("strict", request.strictProducers());
-        canonical.put("warmup", request.warmupBars());
-        canonical.put("seed", request.seed());
+        canonical.put("strict", strictProducers);
+        canonical.put("warmup", warmupBars);
+        canonical.put("seed", seedValue);
         String canonicalJson = json.writeValueAsString(canonical);
         // Retries of a FAILED/CANCELLED run create a new linked run; in-flight and succeeded runs are
         // idempotent. Historical results are never overwritten.
@@ -216,12 +219,12 @@ public class BacktestService {
         BacktestSpec spec = new BacktestSpec(
                 runKey, instrumentIds, request.symbols(), request.startDate(), request.endDate(),
                 request.timeframe(), request.dailyTimeframe(), request.startingCapital(), request.currency(),
-                request.strictProducers(), parameters, policy, featureProperties.toPolicy(),
+                strictProducers, parameters, policy, featureProperties.toPolicy(),
                 execution(request.execution()), costs(request.costs()),
                 request.endOfRun() == null || request.endOfRun().isBlank()
                         ? BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET
                         : BacktestSpec.EndOfRunPolicy.valueOf(request.endOfRun()),
-                request.warmupBars(), request.seed(),
+                warmupBars, seedValue,
                 BacktestEngine.ENGINE_REVISION, marketInstrumentId, sectorInstrumentId, "CANONICAL_M5",
                 datasetChecksum(request, instrumentIds), contextSource(request));
         canonical.put("runKey", runKey);

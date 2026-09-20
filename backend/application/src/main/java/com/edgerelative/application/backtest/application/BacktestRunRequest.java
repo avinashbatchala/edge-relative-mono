@@ -21,9 +21,11 @@ public record BacktestRunRequest(
         Long strategyVersionId,
         Long riskPolicyVersionId,
         String contextSource,
-        boolean strictProducers,
-        int warmupBars,
-        long seed,
+        // Boxed so an omitted optional field is accepted rather than rejected by Jackson's
+        // FAIL_ON_NULL_FOR_PRIMITIVES; defaults are applied in the service.
+        Boolean strictProducers,
+        Integer warmupBars,
+        Long seed,
         String endOfRun,
         ExecutionRequest execution,
         CostRequest costs) {
