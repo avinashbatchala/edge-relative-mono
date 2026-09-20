@@ -104,14 +104,22 @@ export interface FeatureSnapshotResponse {
 
 export function getFeatureDashboard(
   signal?: AbortSignal,
+  refresh = false,
 ): Promise<FeatureDashboardRow[]> {
-  return apiGet<FeatureDashboardRow[]>(`${BASE}/dashboard`, { signal })
+  return apiGet<FeatureDashboardRow[]>(`${BASE}/dashboard`, {
+    signal,
+    params: { refresh: refresh ? 'true' : undefined },
+  })
 }
 
 export function getFeatureDiagnostics(
   signal?: AbortSignal,
+  refresh = false,
 ): Promise<FeatureDiagnosticsResponse> {
-  return apiGet<FeatureDiagnosticsResponse>(`${BASE}/diagnostics`, { signal })
+  return apiGet<FeatureDiagnosticsResponse>(`${BASE}/diagnostics`, {
+    signal,
+    params: { refresh: refresh ? 'true' : undefined },
+  })
 }
 
 export function getFeatureSeries(

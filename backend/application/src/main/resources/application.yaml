@@ -100,8 +100,9 @@ feature:
   # Every value below is a RESEARCH CANDIDATE, not a validated production constant, and is folded
   # into each feature version's parameter hash. Changing a value changes the parameter hash, so an
   # existing RRS_V1 row can never be silently reinterpreted. See docs/design-docs/dev/ADR-002.
-  # Longer than the deepest mandatory warmup (50 sessions) so M5 and D1 both warm up from canonical M1.
-  history-days: 120
+  # Longer than the deepest mandatory warmup (50-session RVOL baseline) so M5 and D1 both warm up
+  # from canonical M1 without loading more than necessary (~62 NSE sessions).
+  history-days: 90
   benchmark:
     # DD-02 selects NIFTY 50 for Strategy V1; NIFTY 500 remains the documented research challenger.
     market-code: NIFTY50
@@ -147,6 +148,10 @@ feature:
   live:
     # Bounded in-memory buffer per series; enough for ATR/RVOL warmup without loading history.
     max-bars: 4000
+  dashboard:
+    # On-demand dashboard/diagnostics/stream computations are shared for this window. Canonical
+    # candles change only on ingestion, so a few seconds is a cheap observability trade.
+    cache-ttl: 8s
   persistence:
     enabled: true
     # Bounded queue; a full queue drops rebuildable persistence and increments a counter.

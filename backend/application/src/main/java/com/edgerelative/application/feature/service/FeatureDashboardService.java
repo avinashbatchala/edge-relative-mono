@@ -12,8 +12,9 @@ import com.edgerelative.application.feature.domain.FeatureValue;
 import com.edgerelative.application.feature.engine.FeatureMetrics;
 import com.edgerelative.application.feature.persistence.FeatureSnapshotWriter;
 import com.edgerelative.application.feature.policy.CalculationVersions;
+import com.edgerelative.application.feature.policy.FeatureDashboardExecutor;
+import com.edgerelative.application.feature.policy.FeatureProperties;
 import com.edgerelative.application.history.AggregatedCandle;
-import com.edgerelative.application.history.query.HistoricalDataReader;
 import com.edgerelative.application.watchlist.WatchlistService;
 import com.edgerelative.application.watchlist.api.WatchlistEntry;
 
@@ -24,6 +25,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.stereotype.Service;
 
@@ -40,41 +46,119 @@ public class FeatureDashboardService {
 
     public static final String DEFAULT_TIMEFRAME = FeatureSnapshotService.DEFAULT_TIMEFRAME;
     private static final String DAILY = "D1";
+    /** Caps concurrent per-instrument DB work; bounded far below the watchlist capacity. */
+    private static final int DASHBOARD_CONCURRENCY = 8;
 
     private final WatchlistService watchlist;
     private final FeatureSnapshotService snapshots;
-    private final HistoricalDataReader reader;
     private final FeatureMetrics metrics;
     private final FeatureSnapshotWriter writer;
     private final Clock clock;
+    private final FeatureDashboardExecutor featureDashboardExecutor;
+    private final Duration cacheTtl;
+    private final ReentrantLock cacheLock = new ReentrantLock();
+    private volatile List<FeatureDashboardRow> cachedRows;
+    private volatile Instant cachedAt;
 
     public FeatureDashboardService(
             WatchlistService watchlist,
             FeatureSnapshotService snapshots,
-            HistoricalDataReader reader,
             FeatureMetrics metrics,
             FeatureSnapshotWriter writer,
-            Clock clock) {
+            Clock clock,
+            FeatureDashboardExecutor featureDashboardExecutor,
+            FeatureProperties properties) {
         this.watchlist = watchlist;
         this.snapshots = snapshots;
-        this.reader = reader;
         this.metrics = metrics;
         this.writer = writer;
         this.clock = clock;
+        this.featureDashboardExecutor = featureDashboardExecutor;
+        this.cacheTtl = properties.getDashboard().getCacheTtl();
     }
 
     public List<FeatureDashboardRow> rows() {
-        Instant now = clock.instant();
-        List<FeatureDashboardRow> rows = new ArrayList<>();
-        for (WatchlistEntry entry : watchlist.list().entries()) {
-            rows.add(row(entry, now));
+        return rows(false);
+    }
+
+    /**
+     * Single-flight, short-TTL cache: dashboard, diagnostics and the stream snapshot share one
+     * on-demand computation instead of each recomputing the whole watchlist. {@code refresh} forces a
+     * fresh computation (and repopulates the cache).
+     */
+    public List<FeatureDashboardRow> rows(boolean refresh) {
+        if (!refresh) {
+            List<FeatureDashboardRow> cached = freshCache();
+            if (cached != null) {
+                return cached;
+            }
         }
-        return rows;
+        cacheLock.lock();
+        try {
+            if (!refresh) {
+                List<FeatureDashboardRow> cached = freshCache();
+                if (cached != null) {
+                    return cached;
+                }
+            }
+            List<FeatureDashboardRow> computed = computeRows(clock.instant());
+            cachedRows = computed;
+            cachedAt = clock.instant();
+            return computed;
+        } finally {
+            cacheLock.unlock();
+        }
+    }
+
+    private List<FeatureDashboardRow> freshCache() {
+        List<FeatureDashboardRow> cached = cachedRows;
+        Instant at = cachedAt;
+        if (cached == null || at == null) {
+            return null;
+        }
+        return Duration.between(at, clock.instant()).compareTo(cacheTtl) < 0 ? cached : null;
+    }
+
+    /**
+     * Each instrument is an independent set of blocking reads, so they run concurrently on virtual
+     * threads (bounded) while sharing one per-request candle cache. Previously this was a serial
+     * fan-out and dominated dashboard latency.
+     */
+    private List<FeatureDashboardRow> computeRows(Instant now) {
+        List<WatchlistEntry> entries = watchlist.list().entries();
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        ConcurrentMap<String, List<AggregatedCandle>> seriesCache = new ConcurrentHashMap<>();
+        Semaphore permits = new Semaphore(Math.min(entries.size(), DASHBOARD_CONCURRENCY), true);
+        List<CompletableFuture<FeatureDashboardRow>> futures = new ArrayList<>(entries.size());
+        for (WatchlistEntry entry : entries) {
+            futures.add(CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            permits.acquire();
+                        } catch (InterruptedException exception) {
+                            Thread.currentThread().interrupt();
+                            return unavailableRow(entry, now, "interrupted");
+                        }
+                        try {
+                            return row(entry, now, seriesCache);
+                        } finally {
+                            permits.release();
+                        }
+                    },
+                    featureDashboardExecutor.executor()));
+        }
+        return futures.stream().map(CompletableFuture::join).toList();
     }
 
     public FeatureDiagnosticsResponse diagnostics() {
+        return diagnostics(false);
+    }
+
+    public FeatureDiagnosticsResponse diagnostics(boolean refresh) {
         Instant now = clock.instant();
-        List<FeatureDashboardRow> rows = rows();
+        List<FeatureDashboardRow> rows = rows(refresh);
         Map<String, Integer> stateCounts = new LinkedHashMap<>();
         List<FeatureDiagnosticsResponse.InstrumentState> states = new ArrayList<>();
         long latestSeconds = Long.MAX_VALUE;
@@ -132,22 +216,32 @@ public class FeatureDashboardService {
      * One instrument's failure (for example no canonical candles yet) must not blank the whole
      * dashboard: it becomes an explicit UNAVAILABLE row with a reason.
      */
-    private FeatureDashboardRow row(WatchlistEntry entry, Instant now) {
+    private FeatureDashboardRow row(
+            WatchlistEntry entry,
+            Instant now,
+            ConcurrentMap<String, List<AggregatedCandle>> seriesCache) {
         try {
-            return computedRow(entry, now);
+            return computedRow(entry, now, seriesCache);
         } catch (RuntimeException failure) {
             return unavailableRow(entry, now, failure.getMessage());
         }
     }
 
-    private FeatureDashboardRow computedRow(WatchlistEntry entry, Instant now) {
-        FeatureSnapshot snapshot = snapshots.snapshot(entry.instrumentId(), DEFAULT_TIMEFRAME, now, false);
-        FeatureSnapshot daily = snapshots.snapshot(entry.instrumentId(), DAILY, now, false);
+    private FeatureDashboardRow computedRow(
+            WatchlistEntry entry,
+            Instant now,
+            ConcurrentMap<String, List<AggregatedCandle>> seriesCache) {
+        FeatureSnapshot snapshot =
+                snapshots.snapshot(entry.instrumentId(), DEFAULT_TIMEFRAME, now, false, seriesCache);
+        FeatureSnapshot daily = snapshots.snapshot(entry.instrumentId(), DAILY, now, false, seriesCache);
 
         Map<String, String> unavailable = new LinkedHashMap<>();
         Double atr = metric(snapshot, FeatureKeys.ATR, unavailable);
-        Double lastPrice = lastClose(entry.instrumentId(), DEFAULT_TIMEFRAME, now);
-        Double previousClose = previousClose(entry.instrumentId(), now);
+        // Reuse the series already loaded for the snapshots rather than re-reading the price.
+        Double lastPrice = lastClose(
+                snapshots.subjectCandles(entry.instrumentId(), DEFAULT_TIMEFRAME, now, seriesCache));
+        Double previousClose = previousClose(
+                snapshots.subjectCandles(entry.instrumentId(), DAILY, now, seriesCache));
         Double priceChange = lastPrice != null && previousClose != null ? lastPrice - previousClose : null;
         Double priceChangePercent =
                 priceChange != null && previousClose != null && previousClose != 0.0
@@ -350,9 +444,7 @@ public class FeatureDashboardService {
         return "NEUTRAL";
     }
 
-    private Double lastClose(long instrumentId, String timeframe, Instant now) {
-        List<AggregatedCandle> candles =
-                reader.candles(instrumentId, timeframe, now.minus(Duration.ofDays(7)), now, 2);
+    private static Double lastClose(List<AggregatedCandle> candles) {
         if (candles.isEmpty()) {
             return null;
         }
@@ -360,9 +452,7 @@ public class FeatureDashboardService {
         return last.close() == null ? null : last.close().doubleValue();
     }
 
-    private Double previousClose(long instrumentId, Instant now) {
-        List<AggregatedCandle> daily =
-                reader.candles(instrumentId, DAILY, now.minus(Duration.ofDays(20)), now, 3);
+    private static Double previousClose(List<AggregatedCandle> daily) {
         if (daily.size() < 2) {
             return null;
         }

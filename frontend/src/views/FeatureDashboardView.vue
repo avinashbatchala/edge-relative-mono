@@ -274,16 +274,24 @@ const router = useRouter()
 const store = useFeatureStreamStore()
 useFeatureStream()
 
+// A manual Refresh bypasses the server's short dashboard cache once; automatic polling uses it.
+const bypassCache = ref(false)
+function consumeBypass(): boolean {
+  const value = bypassCache.value
+  bypassCache.value = false
+  return value
+}
+
 const dashboardQuery = useQuery(() => ({
   queryKey: featureKeys.dashboard(),
-  queryFn: ({ signal }) => getFeatureDashboard(signal),
+  queryFn: ({ signal }) => getFeatureDashboard(signal, consumeBypass()),
   staleTime: 15_000,
   refetchInterval: 60_000,
 }))
 
 const diagnosticsQuery = useQuery(() => ({
   queryKey: featureKeys.diagnostics(),
-  queryFn: ({ signal }) => getFeatureDiagnostics(signal),
+  queryFn: ({ signal }) => getFeatureDiagnostics(signal, consumeBypass()),
   staleTime: 15_000,
 }))
 
@@ -659,8 +667,9 @@ function metricLabels(row: FeatureDashboardRow): string[] {
 
 function resync() {
   store.setAuthoritative(store.rowList)
-  diagnosticsQuery.refetch()
+  bypassCache.value = true
   dashboardQuery.refetch()
+  diagnosticsQuery.refetch()
 }
 
 const hasRows = computed(() => store.rowList.length > 0)

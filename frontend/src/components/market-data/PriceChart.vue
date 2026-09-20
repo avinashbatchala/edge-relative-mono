@@ -9,13 +9,20 @@ import {
   type HistogramData,
   type IChartApi,
   type ISeriesApi,
+  type LogicalRange,
   type MouseEventParams,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { BrokerCandle } from '@/api/types'
 import { formatCompact, formatPrice } from '@/lib/format'
+import {
+  broadcastCrosshair,
+  broadcastLogicalRange,
+  createChartSyncMemberId,
+  joinChartSync,
+} from '@/lib/chart-sync'
 
-const props = defineProps<{ candles: BrokerCandle[] }>()
+const props = defineProps<{ candles: BrokerCandle[]; syncKey?: string }>()
 
 const container = ref<HTMLDivElement | null>(null)
 const legend = ref<BrokerCandle | null>(null)
@@ -25,6 +32,9 @@ const chart = shallowRef<IChartApi | null>(null)
 const candleSeries = shallowRef<ISeriesApi<'Candlestick'> | null>(null)
 const volumeSeries = shallowRef<ISeriesApi<'Histogram'> | null>(null)
 let resizeObserver: ResizeObserver | null = null
+const memberId = createChartSyncMemberId()
+let leaveSync: (() => void) | null = null
+let applyingRange = false
 
 // NSE bar boundaries are exchange sessions; shifting the UTC axis by the IST offset keeps the
 // displayed clock aligned with Asia/Kolkata without changing the underlying epoch.
@@ -116,17 +126,50 @@ function updateData() {
 }
 
 function handleCrosshair(param: MouseEventParams) {
-  if (!param.time) {
+  const time = (param.time as UTCTimestamp | undefined) ?? null
+  if (time === null) {
     legend.value = props.candles.at(-1) ?? null
+  } else {
+    const match = props.candles.find(
+      (candle) => toTime(candle.openTime) === time,
+    )
+    if (match) {
+      legend.value = match
+    }
+  }
+  if (props.syncKey) {
+    broadcastCrosshair(props.syncKey, memberId, time)
+  }
+}
+
+function broadcastRange() {
+  const range = chart.value?.timeScale().getVisibleLogicalRange()
+  if (props.syncKey && range) {
+    broadcastLogicalRange(props.syncKey, memberId, range)
+  }
+}
+
+function applyRange(range: LogicalRange) {
+  applyingRange = true
+  chart.value?.timeScale().setVisibleLogicalRange(range)
+  applyingRange = false
+}
+
+function applyCrosshair(time: UTCTimestamp | null) {
+  const instance = chart.value
+  const series = candleSeries.value
+  if (!instance || !series) {
     return
   }
-  const time = param.time as number
-  const match = props.candles.find((candle) => {
-    const converted = toTime(candle.openTime)
-    return converted !== null && converted === time
-  })
+  if (time === null) {
+    instance.clearCrosshairPosition()
+    return
+  }
+  const match = props.candles.find((candle) => toTime(candle.openTime) === time)
   if (match) {
-    legend.value = match
+    instance.setCrosshairPosition(match.close, time, series)
+  } else {
+    instance.clearCrosshairPosition()
   }
 }
 
@@ -172,8 +215,21 @@ onMounted(() => {
   volumeSeries.value = volume
 
   instance.subscribeCrosshairMove(handleCrosshair)
+  instance.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    if (!range || applyingRange || !props.syncKey) {
+      return
+    }
+    broadcastLogicalRange(props.syncKey, memberId, range)
+  })
+  if (props.syncKey) {
+    leaveSync = joinChartSync(props.syncKey, memberId, {
+      applyRange,
+      applyCrosshair,
+    })
+  }
   updateData()
   instance.timeScale().fitContent()
+  broadcastRange()
 
   resizeObserver = new ResizeObserver(() => instance.timeScale().fitContent())
   resizeObserver.observe(container.value)
@@ -182,13 +238,24 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
+  leaveSync?.()
+  leaveSync = null
   chart.value?.remove()
   chart.value = null
   candleSeries.value = null
   volumeSeries.value = null
 })
 
-watch(() => props.candles, updateData)
+watch(
+  () => props.candles,
+  () => {
+    updateData()
+    if (props.syncKey) {
+      chart.value?.timeScale().fitContent()
+      broadcastRange()
+    }
+  },
+)
 watch(isDark, () => {
   applyTheme()
 })

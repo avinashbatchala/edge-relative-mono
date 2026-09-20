@@ -29,16 +29,21 @@ public class FeatureQueryController {
         this.dashboard = dashboard;
     }
 
-    /** Consolidated latest feature rows for the active watchlist (observational dashboard). */
+    /**
+     * Consolidated latest feature rows for the active watchlist (observational dashboard).
+     * {@code refresh=true} bypasses the short cache for an explicit operator refresh.
+     */
     @GetMapping("/dashboard")
-    public List<FeatureDashboardRow> dashboard() {
-        return dashboard.rows();
+    public List<FeatureDashboardRow> dashboard(
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        return dashboard.rows(refresh);
     }
 
     /** Trust diagnostics for the displayed feature state. */
     @GetMapping("/diagnostics")
-    public FeatureDiagnosticsResponse diagnostics() {
-        return dashboard.diagnostics();
+    public FeatureDiagnosticsResponse diagnostics(
+            @RequestParam(defaultValue = "false") boolean refresh) {
+        return dashboard.diagnostics(refresh);
     }
 
     @GetMapping("/snapshot")

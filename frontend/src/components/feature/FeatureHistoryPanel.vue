@@ -19,7 +19,7 @@ import {
   featureVersionTitle,
   presentationState,
 } from '@/lib/feature-presentation'
-import FeatureLineChart from './FeatureLineChart.vue'
+import FeatureOverlayChart from './FeatureOverlayChart.vue'
 import FeatureStateBadge from './FeatureStateBadge.vue'
 
 const props = defineProps<{ instrumentId: number; symbol: string }>()
@@ -96,27 +96,51 @@ function epochSeconds(iso: string): number {
   return Math.floor(Date.parse(iso) / 1000)
 }
 
+// Every anchor is emitted; a missing observation becomes whitespace so the line visibly breaks
+// instead of bridging a gap (no smoothing or interpolation).
 function points(
   series: FeatureSnapshotResponse[],
   key: string,
-): { time: number; value: number }[] {
-  const result: { time: number; value: number }[] = []
-  for (const snapshot of series) {
+): { time: number; value: number | null }[] {
+  return series.map((snapshot) => {
     const value = snapshot.features[key]
-    if (value && value.availability === 'VALID' && value.value !== null) {
-      result.push({
-        time: epochSeconds(snapshot.anchorTimestamp),
-        value: value.value,
-      })
+    const valid =
+      value && value.availability === 'VALID' && value.value !== null
+    return {
+      time: epochSeconds(snapshot.anchorTimestamp),
+      value: valid ? value.value : null,
     }
-  }
-  return result
+  })
 }
 
 const series = computed(() => seriesQuery.data.value ?? [])
 const rrsPoints = computed(() => points(series.value, 'RRS_RAW'))
 const rvolPoints = computed(() => points(series.value, 'RVOL_INTERVAL'))
 const rvePoints = computed(() => points(series.value, 'RVE'))
+
+const featureOverlays = computed(() => [
+  {
+    key: 'RRS',
+    title: 'RRS',
+    color: '#2563eb',
+    baseline: 0,
+    points: rrsPoints.value,
+  },
+  {
+    key: 'RVOL',
+    title: 'RVOL',
+    color: '#7c3aed',
+    baseline: 1,
+    points: rvolPoints.value,
+  },
+  {
+    key: 'RVE',
+    title: 'RVE',
+    color: '#0891b2',
+    baseline: 0,
+    points: rvePoints.value,
+  },
+])
 
 const latest = computed(() =>
   series.value.length ? series.value[series.value.length - 1] : null,
@@ -202,28 +226,16 @@ const failed = computed(
     </div>
 
     <template v-else>
-      <PriceChart v-if="candles.length" :candles="candles" />
+      <PriceChart
+        v-if="candles.length"
+        :candles="candles"
+        sync-key="feature-history"
+      />
 
-      <div class="grid gap-3 lg:grid-cols-3">
-        <FeatureLineChart
-          title="RRS raw"
-          :points="rrsPoints"
-          :baseline="0"
-          color="#2563eb"
-        />
-        <FeatureLineChart
-          title="RVOL interval"
-          :points="rvolPoints"
-          :baseline="1"
-          color="#7c3aed"
-        />
-        <FeatureLineChart
-          title="RVE"
-          :points="rvePoints"
-          :baseline="0"
-          color="#0891b2"
-        />
-      </div>
+      <FeatureOverlayChart
+        :series="featureOverlays"
+        sync-key="feature-history"
+      />
 
       <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
         <div>

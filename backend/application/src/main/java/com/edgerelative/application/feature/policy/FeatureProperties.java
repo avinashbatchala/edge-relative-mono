@@ -29,6 +29,7 @@ public class FeatureProperties {
     private final DirectionalVolume directionalVolume = new DirectionalVolume();
     private final Persistence persistence = new Persistence();
     private final Live live = new Live();
+    private final Dashboard dashboard = new Dashboard();
 
     public FeaturePolicy toPolicy() {
         return new FeaturePolicy(
@@ -82,6 +83,9 @@ public class FeatureProperties {
         positive(directionalVolume.getWindow(), "feature.directional-volume.window");
         positive(persistence.getQueueCapacity(), "feature.persistence.queue-capacity");
         positive(live.getMaxBars(), "feature.live.max-bars");
+        if (dashboard.getCacheTtl() == null || dashboard.getCacheTtl().isNegative()) {
+            throw new IllegalStateException("feature.dashboard.cache-ttl must not be negative");
+        }
     }
 
     private static void positive(int value, String name) {
@@ -138,6 +142,10 @@ public class FeatureProperties {
 
     public Live getLive() {
         return live;
+    }
+
+    public Dashboard getDashboard() {
+        return dashboard;
     }
 
     public static class Benchmark {
@@ -356,6 +364,23 @@ public class FeatureProperties {
 
         public void setWindow(int window) {
             this.window = window;
+        }
+    }
+
+    public static class Dashboard {
+        /**
+         * Short cache so the dashboard, diagnostics and the stream snapshot share one on-demand
+         * computation. Canonical candles change only on ingestion, so a few seconds is a harmless
+         * observability trade for a large latency win. Zero disables caching.
+         */
+        private java.time.Duration cacheTtl = java.time.Duration.ofSeconds(8);
+
+        public java.time.Duration getCacheTtl() {
+            return cacheTtl;
+        }
+
+        public void setCacheTtl(java.time.Duration cacheTtl) {
+            this.cacheTtl = cacheTtl;
         }
     }
 

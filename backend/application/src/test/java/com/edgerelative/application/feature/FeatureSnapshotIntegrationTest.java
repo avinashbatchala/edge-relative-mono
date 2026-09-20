@@ -91,6 +91,7 @@ class FeatureSnapshotIntegrationTest {
         registry.add("feature.rve.fast-length", () -> "1");
         registry.add("feature.rve.slow-length", () -> "2");
         registry.add("feature.live.max-bars", () -> "2000");
+        registry.add("feature.dashboard.cache-ttl", () -> "0s");
     }
 
     @AfterAll

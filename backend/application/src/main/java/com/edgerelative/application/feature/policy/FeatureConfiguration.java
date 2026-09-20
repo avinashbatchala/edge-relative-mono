@@ -51,4 +51,14 @@ public class FeatureConfiguration {
     public Clock featureClock() {
         return Clock.systemUTC();
     }
+
+    /**
+     * Virtual-thread executor for the observational dashboard fan-out: each watchlist instrument is
+     * an independent set of blocking JDBC reads, which is exactly the natural-blocking workload
+     * virtual threads are for. Concurrency is bounded by the caller.
+     */
+    @Bean(destroyMethod = "close")
+    public FeatureDashboardExecutor featureDashboardExecutor() {
+        return new FeatureDashboardExecutor();
+    }
 }

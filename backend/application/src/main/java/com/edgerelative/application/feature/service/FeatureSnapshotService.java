@@ -8,6 +8,7 @@ import com.edgerelative.application.feature.engine.FeatureMetrics;
 import com.edgerelative.application.feature.persistence.FeatureSnapshotWriter;
 import com.edgerelative.application.feature.policy.FeaturePolicy;
 import com.edgerelative.application.feature.policy.FeatureVersions;
+import com.edgerelative.application.history.AggregatedCandle;
 import com.edgerelative.application.history.query.HistoricalDataReader;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.NseTradingCalendar;
@@ -19,6 +20,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.springframework.stereotype.Service;
 
@@ -86,8 +89,22 @@ public class FeatureSnapshotService {
      * append forty derived rows. Persistence remains for live/backfill computation.
      */
     public FeatureSnapshot snapshot(long instrumentId, String timeframe, Instant anchor, boolean persist) {
+        return snapshot(instrumentId, timeframe, anchor, persist, new ConcurrentHashMap<>());
+    }
+
+    /**
+     * Same as {@link #snapshot(long, String, Instant, boolean)} but shares a per-request candle
+     * cache. A dashboard computes many instruments against the same benchmark; the cache collapses
+     * those repeated reads into one without changing any calculation.
+     */
+    public FeatureSnapshot snapshot(
+            long instrumentId,
+            String timeframe,
+            Instant anchor,
+            boolean persist,
+            ConcurrentMap<String, List<AggregatedCandle>> cache) {
         Instant effectiveAnchor = anchor == null ? clock.instant() : anchor;
-        FeatureContext context = context(instrumentId, timeframe, effectiveAnchor);
+        FeatureContext context = context(instrumentId, timeframe, effectiveAnchor, cache);
         long started = System.nanoTime();
         FeatureSnapshot snapshot = engine.snapshot(context);
         metrics.recordSnapshot(Duration.ofNanos(System.nanoTime() - started));
@@ -104,7 +121,12 @@ public class FeatureSnapshotService {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new FeatureException(FeatureException.INVALID, "'from' must be before 'to'");
         }
-        FeatureContext context = context(instrumentId, timeframe, to, from.minus(Duration.ofDays(policy.historyDays())));
+        FeatureContext context = context(
+                instrumentId,
+                timeframe,
+                to,
+                from.minus(Duration.ofDays(policy.historyDays())),
+                new ConcurrentHashMap<>());
         List<FeatureSnapshot> all = engine.snapshots(context);
         List<FeatureSnapshot> result = new ArrayList<>();
         for (FeatureSnapshot snapshot : all) {
@@ -132,20 +154,34 @@ public class FeatureSnapshotService {
         return snapshots;
     }
 
-    private FeatureContext context(long instrumentId, String timeframe, Instant to) {
-        return context(instrumentId, timeframe, to, to.minus(Duration.ofDays(policy.historyDays())));
+    private FeatureContext context(
+            long instrumentId,
+            String timeframe,
+            Instant to,
+            ConcurrentMap<String, List<AggregatedCandle>> cache) {
+        return context(
+                instrumentId,
+                timeframe,
+                to,
+                to.minus(Duration.ofDays(policy.historyDays())),
+                cache);
     }
 
-    private FeatureContext context(long instrumentId, String timeframe, Instant to, Instant from) {
+    private FeatureContext context(
+            long instrumentId,
+            String timeframe,
+            Instant to,
+            Instant from,
+            ConcurrentMap<String, List<AggregatedCandle>> cache) {
         BenchmarkIdentity benchmark =
                 referenceResolver.resolve(instrumentId, to, policy.benchmark().marketCode());
-        List<com.edgerelative.application.history.AggregatedCandle> subject =
-                reader.candles(instrumentId, timeframe, from, to, HISTORY_LIMIT);
-        List<com.edgerelative.application.history.AggregatedCandle> market = benchmark.hasMarket()
-                ? reader.candles(benchmark.marketInstrumentId(), timeframe, from, to, HISTORY_LIMIT)
+        List<AggregatedCandle> subject =
+                load(cache, instrumentId, timeframe, from, to, HISTORY_LIMIT);
+        List<AggregatedCandle> market = benchmark.hasMarket()
+                ? load(cache, benchmark.marketInstrumentId(), timeframe, from, to, HISTORY_LIMIT)
                 : List.of();
-        List<com.edgerelative.application.history.AggregatedCandle> sector = benchmark.hasSector()
-                ? reader.candles(benchmark.sectorInstrumentId(), timeframe, from, to, HISTORY_LIMIT)
+        List<AggregatedCandle> sector = benchmark.hasSector()
+                ? load(cache, benchmark.sectorInstrumentId(), timeframe, from, to, HISTORY_LIMIT)
                 : List.of();
         return new FeatureContext(
                 instrumentId,
@@ -159,5 +195,34 @@ public class FeatureSnapshotService {
                 calendar,
                 benchmark.marketCode(),
                 benchmark.sectorCode());
+    }
+
+    /**
+     * Subject candles for the same window a snapshot uses, served from the shared per-request cache.
+     * Callers can derive display values (e.g. last close) without re-reading the series.
+     */
+    public List<AggregatedCandle> subjectCandles(
+            long instrumentId,
+            String timeframe,
+            Instant to,
+            ConcurrentMap<String, List<AggregatedCandle>> cache) {
+        Instant from = to.minus(Duration.ofDays(policy.historyDays()));
+        return load(cache, instrumentId, timeframe, from, to, HISTORY_LIMIT);
+    }
+
+    /**
+     * De-duplicates identical canonical reads within one request. A dashboard computes every
+     * instrument against the same benchmark for the same window, so without this the benchmark is
+     * re-read once per instrument.
+     */
+    private List<AggregatedCandle> load(
+            ConcurrentMap<String, List<AggregatedCandle>> cache,
+            long instrumentId,
+            String timeframe,
+            Instant from,
+            Instant to,
+            int limit) {
+        String key = instrumentId + "|" + timeframe + "|" + from + "|" + to + "|" + limit;
+        return cache.computeIfAbsent(key, ignored -> reader.candles(instrumentId, timeframe, from, to, limit));
     }
 }
