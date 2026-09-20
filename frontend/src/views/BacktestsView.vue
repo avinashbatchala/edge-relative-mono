@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { Play, RefreshCw, Square } from '@lucide/vue'
@@ -15,6 +15,7 @@ import {
 } from '@/api/backtests'
 import { ApiError } from '@/api/http'
 import { getRiskPolicies, getStrategies } from '@/api/catalog'
+import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,7 +47,7 @@ const symbolFilter = ref('')
 const formError = ref<string | null>(null)
 
 const form = reactive({
-  symbols: 'SBIN, RELIANCE, TCS',
+  symbols: [] as string[],
   startDate: '2026-08-01',
   endDate: '2026-09-18',
   timeframe: 'M5',
@@ -77,6 +78,40 @@ const catalogRiskQuery = useQuery(() => ({
 
 const strategyOptions = computed(() => catalogStrategiesQuery.data.value ?? [])
 const riskOptions = computed(() => catalogRiskQuery.data.value ?? [])
+
+const watchlistQuery = useQuery(() => ({
+  queryKey: watchlistKeys.all,
+  queryFn: ({ signal }) => getWatchlist(signal),
+  staleTime: 60_000,
+}))
+
+const universe = computed(
+  () => watchlistQuery.data.value?.entries.map((entry) => entry.symbol) ?? [],
+)
+
+// The watched universe is finite: preselect it and default the benchmark to NIFTY.
+watch(
+  universe,
+  (symbols) => {
+    if (form.symbols.length === 0 && symbols.length > 0) {
+      form.symbols = [...symbols]
+    }
+    if (
+      symbols.length > 0 &&
+      !symbols.includes(form.marketSymbol) &&
+      symbols.includes('NIFTY')
+    ) {
+      form.marketSymbol = 'NIFTY'
+    }
+  },
+  { immediate: true },
+)
+
+function toggleSymbol(symbol: string) {
+  form.symbols = form.symbols.includes(symbol)
+    ? form.symbols.filter((value) => value !== symbol)
+    : [...form.symbols, symbol]
+}
 
 const runsQuery = useQuery(() => ({
   queryKey: backtestKeys.list(),
@@ -112,10 +147,7 @@ const equity = computed(() => equityQuery.data.value ?? [])
 const startMutation = useMutation({
   mutationFn: () =>
     startBacktest({
-      symbols: form.symbols
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean),
+      symbols: form.symbols,
       startDate: form.startDate,
       endDate: form.endDate,
       timeframe: form.timeframe,
@@ -278,7 +310,7 @@ function cloneRun(item: BacktestRun) {
     ? (parameters.symbols as string[])
     : []
   if (symbols.length > 0) {
-    form.symbols = symbols.join(', ')
+    form.symbols = [...symbols]
   }
   if (typeof parameters.start === 'string') {
     form.startDate = parameters.start
@@ -360,14 +392,36 @@ function parameter(key: string): string {
       <CardContent
         class="grid gap-3 border-t p-5 sm:grid-cols-2 lg:grid-cols-4"
       >
-        <label class="space-y-1 text-sm">
-          <span class="text-muted-foreground">Symbols</span>
-          <input
-            v-model="form.symbols"
-            aria-label="Symbols"
-            class="w-full rounded-md border bg-transparent px-2 py-1"
-          />
-        </label>
+        <fieldset class="space-y-1 text-sm sm:col-span-2 lg:col-span-4">
+          <legend class="text-muted-foreground">
+            Symbols (active watchlist)
+            <span class="text-xs">· {{ form.symbols.length }} selected</span>
+          </legend>
+          <div
+            v-if="universe.length"
+            class="flex flex-wrap gap-x-4 gap-y-1 rounded-md border p-2"
+          >
+            <label
+              v-for="symbol in universe"
+              :key="symbol"
+              class="flex items-center gap-1.5 text-sm"
+            >
+              <input
+                type="checkbox"
+                :checked="form.symbols.includes(symbol)"
+                :aria-label="`Include ${symbol}`"
+                @change="toggleSymbol(symbol)"
+              />
+              <span>{{ symbol }}</span>
+            </label>
+          </div>
+          <p v-else class="text-xs text-muted-foreground">
+            No watched instruments. Add symbols on the Watchlist page first.
+          </p>
+          <p v-if="form.symbols.length === 0" class="text-xs text-amber-600">
+            Select at least one symbol.
+          </p>
+        </fieldset>
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">Start</span>
           <input
@@ -492,11 +546,15 @@ function parameter(key: string): string {
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">Market symbol (benchmark)</span>
-          <input
+          <select
             v-model="form.marketSymbol"
             aria-label="Market symbol"
             class="w-full rounded-md border bg-transparent px-2 py-1"
-          />
+          >
+            <option v-for="symbol in universe" :key="symbol" :value="symbol">
+              {{ symbol }}
+            </option>
+          </select>
         </label>
         <label class="flex items-center gap-2 pt-5 text-sm">
           <input v-model="form.strictProducers" type="checkbox" />

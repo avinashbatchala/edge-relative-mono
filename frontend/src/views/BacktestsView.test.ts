@@ -13,6 +13,19 @@ import * as backtestsApi from '@/api/backtests'
 import type { BacktestRun } from '@/api/backtests'
 import BacktestsView from './BacktestsView.vue'
 
+vi.mock('@/api/watchlist', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/watchlist')>()
+  return {
+    ...actual,
+    getWatchlist: vi.fn().mockResolvedValue({
+      name: 'Watchlist',
+      capacity: 20,
+      count: 2,
+      entries: [{ symbol: 'SBIN' }, { symbol: 'NIFTY' }],
+    }),
+  }
+})
+
 vi.mock('@/api/catalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/catalog')>()
   return {
@@ -117,6 +130,18 @@ beforeEach(() => {
 })
 
 afterEach(cleanup)
+
+test('selects symbols from the finite watchlist universe', async () => {
+  setup([run()])
+  const sbin = (await screen.findByLabelText(
+    'Include SBIN',
+  )) as HTMLInputElement
+  expect(sbin.checked).toBe(true)
+  await fireEvent.click(sbin)
+  expect(sbin.checked).toBe(false)
+  await fireEvent.click(sbin)
+  expect(sbin.checked).toBe(true)
+})
 
 test('lists runs with status and completed metrics', async () => {
   setup([run()])
