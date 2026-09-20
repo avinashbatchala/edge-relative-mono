@@ -1,7 +1,6 @@
 package com.edgerelative.application.history;
 
 import com.edgerelative.application.history.api.BackfillRunResponse;
-import com.edgerelative.application.history.api.CoverageResponse;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.broker.api.model.BrokerCandle;
 import java.math.BigDecimal;
@@ -212,7 +211,7 @@ public class HistoryRepository {
                 utc(end));
     }
 
-    public CoverageResponse coverage(long instrumentId, long timeframeId, String timeframeCode) {
+    public HistoricalCoverage coverage(long instrumentId, long timeframeId, String timeframeCode) {
         Record totals = dsl.fetchOne(
                 "SELECT min(open_time) AS earliest, max(open_time) AS latest, count(*) AS candle_count "
                         + "FROM market.candle WHERE instrument_id = ? AND timeframe_id = ? AND is_current",
@@ -243,7 +242,7 @@ public class HistoryRepository {
         OffsetDateTime earliest = totals == null ? null : totals.get("earliest", OffsetDateTime.class);
         OffsetDateTime latest = totals == null ? null : totals.get("latest", OffsetDateTime.class);
         OffsetDateTime lastSynced = chunks == null ? null : chunks.get("last_synced", OffsetDateTime.class);
-        return new CoverageResponse(
+        return new HistoricalCoverage(
                 instrumentId,
                 timeframeCode,
                 earliest == null ? null : earliest.toInstant(),

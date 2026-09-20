@@ -13,7 +13,9 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import TickerView from './TickerView.vue'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApiError } from '@/api/http'
+import * as historyApi from '@/api/history'
 import * as marketDataApi from '@/api/market-data'
+import * as watchlistApi from '@/api/watchlist'
 import {
   CANDLES,
   RELIANCE,
@@ -37,6 +39,16 @@ vi.mock('@/api/market-data', async (importOriginal) => {
   }
 })
 
+vi.mock('@/api/watchlist', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/watchlist')>()
+  return { ...actual, getWatchlist: vi.fn() }
+})
+
+vi.mock('@/api/history', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/history')>()
+  return { ...actual, getCandles: vi.fn() }
+})
+
 vi.mock('@/components/market-data/PriceChart.vue', () => ({
   default: {
     name: 'PriceChart',
@@ -51,6 +63,8 @@ const getHistoricalCandles = vi.mocked(marketDataApi.getHistoricalCandles)
 const listExpiries = vi.mocked(marketDataApi.listExpiries)
 const listContracts = vi.mocked(marketDataApi.listContracts)
 const getOptionChain = vi.mocked(marketDataApi.getOptionChain)
+const getWatchlist = vi.mocked(watchlistApi.getWatchlist)
+const getCandles = vi.mocked(historyApi.getCandles)
 
 let router: Router
 
@@ -105,6 +119,14 @@ beforeEach(async () => {
       { brokerSymbol: 'NSE-RELIANCE-26Nov26-3000-CE' },
     ])
   getOptionChain.mockReset().mockResolvedValue(optionChain())
+  // Canonical history is opt-in per test; default to the live broker fallback.
+  getWatchlist.mockReset().mockResolvedValue({
+    name: 'Active',
+    capacity: 20,
+    count: 0,
+    entries: [],
+  })
+  getCandles.mockReset().mockResolvedValue([])
 })
 
 afterEach(cleanup)
@@ -148,6 +170,51 @@ test('changing the interval issues the matching historical request', async () =>
     const last = getHistoricalCandles.mock.calls.at(-1)?.[0]
     expect(last?.interval).toBe('FIFTEEN_MINUTE')
   })
+})
+
+test('prefers canonical history when the instrument is on the watchlist', async () => {
+  getWatchlist.mockResolvedValue({
+    name: 'Active',
+    capacity: 20,
+    count: 1,
+    entries: [
+      {
+        instrumentId: 7,
+        instrumentKey: 'key-7',
+        exchange: 'NSE',
+        segment: 'CASH',
+        instrumentType: 'EQ',
+        symbol: 'RELIANCE',
+        name: 'Reliance Industries Ltd',
+        brokerSymbol: 'NSE-RELIANCE',
+        tickSize: 0.05,
+        lotSize: 1,
+        slot: 1,
+      },
+    ],
+  })
+  getCandles.mockResolvedValue([
+    {
+      openTime: '2026-09-18T03:45:00Z',
+      closeTime: '2026-09-18T03:46:00Z',
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100.5,
+      volume: 10,
+      openInterest: null,
+      tradeCount: null,
+      vwap: null,
+      partial: false,
+      complete: true,
+      qualityState: 'GOOD',
+      definitionVersion: 'er-m1-base-v1',
+    },
+  ])
+  setup()
+
+  await waitFor(() => expect(getCandles).toHaveBeenCalled())
+  expect(await screen.findByText('Canonical')).toBeTruthy()
 })
 
 test('handles missing depth without rendering NaN', async () => {

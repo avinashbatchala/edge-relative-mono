@@ -3,8 +3,6 @@ package com.edgerelative.application.history;
 import com.edgerelative.application.history.HistoricalBackfillPlanner.Chunk;
 import com.edgerelative.application.history.HistoryRepository.ClaimedChunk;
 import com.edgerelative.application.history.api.BackfillRunResponse;
-import com.edgerelative.application.history.api.CoverageResponse;
-import com.edgerelative.application.history.api.HistoryCandleResponse;
 import com.edgerelative.application.history.api.StartBackfillRequest;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.TimeframeCatalog;
@@ -16,7 +14,6 @@ import com.edgerelative.broker.api.model.BrokerSegment;
 import com.edgerelative.broker.api.model.HistoricalCandleRequest;
 import com.edgerelative.broker.api.port.HistoricalDataBroker;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,11 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Plans and executes historical backfills.
+ * Plans and executes historical backfills (obtaining/populating canonical data).
  *
  * <p>Coverage is inspected first so only missing chunks are fetched; a chunk is the resumable unit,
  * and every candle write is idempotent. All broker calls go through the existing resiliency layer at
- * BULK priority.
+ * BULK priority. This is the write/ingestion side only — canonical reads live in
+ * {@code HistoricalDataQueryService} (DD-05 §94/§97).
  */
 @Service
 public class HistoricalBackfillService {
@@ -36,25 +34,19 @@ public class HistoricalBackfillService {
     private final CanonicalInstrumentService canonical;
     private final HistoricalDataBroker historicalDataBroker;
     private final HistoryRepository repository;
-    private final HistoryProperties properties;
     private final WatchlistService watchlist;
-    private final CandleAggregator aggregator;
     private final BackfillChunkWriter chunkWriter;
 
     public HistoricalBackfillService(
             CanonicalInstrumentService canonical,
             HistoricalDataBroker historicalDataBroker,
             HistoryRepository repository,
-            HistoryProperties properties,
             WatchlistService watchlist,
-            CandleAggregator aggregator,
             BackfillChunkWriter chunkWriter) {
         this.canonical = canonical;
         this.historicalDataBroker = historicalDataBroker;
         this.repository = repository;
-        this.properties = properties;
         this.watchlist = watchlist;
-        this.aggregator = aggregator;
         this.chunkWriter = chunkWriter;
     }
 
@@ -92,12 +84,6 @@ public class HistoricalBackfillService {
                 .orElseThrow(() -> new HistoryException(HistoryException.NOT_FOUND, "Run not found"));
     }
 
-    public CoverageResponse coverage(long instrumentId, String timeframeCode) {
-        TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
-        long timeframeId = canonical.ensureTimeframe(spec.code());
-        return repository.coverage(instrumentId, timeframeId, spec.code());
-    }
-
     public List<BackfillRunResponse> runs(long instrumentId, int limit) {
         return repository.runsForInstrument(instrumentId, Math.min(Math.max(limit, 1), 100));
     }
@@ -111,54 +97,6 @@ public class HistoricalBackfillService {
         run(runKey);
         repository.requeueFailed(runKey);
         return run(runKey);
-    }
-
-    /**
-     * Canonical series for a timeframe. M1 is read directly; higher timeframes are derived
-     * deterministically from the persisted M1 base with the same aggregator used everywhere.
-     */
-    public List<HistoryCandleResponse> candles(
-            long instrumentId, String timeframeCode, Instant from, Instant to, int limit) {
-        TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
-        long m1TimeframeId = canonical.ensureTimeframe(TimeframeCatalog.M1);
-        int requested = Math.min(Math.max(limit, 1), 10_000);
-        if (TimeframeCatalog.M1.equals(spec.code())) {
-            return aggregator
-                    .aggregate(repository.candles(instrumentId, m1TimeframeId, from, to, requested), spec.code())
-                    .stream()
-                    .map(HistoricalBackfillService::toResponse)
-                    .toList();
-        }
-        List<HistoricalCandle> source =
-                repository.candles(instrumentId, m1TimeframeId, from, to, properties.getMaxSourceCandles());
-        return aggregator.aggregate(source, spec.code()).stream()
-                .limit(requested)
-                .map(HistoricalBackfillService::toResponse)
-                .toList();
-    }
-
-    private static TimeframeCatalog.Spec requireTimeframe(String timeframeCode) {
-        return TimeframeCatalog.find(timeframeCode)
-                .orElseThrow(() -> new HistoryException(
-                        HistoryException.INVALID, "Unsupported timeframe: " + timeframeCode));
-    }
-
-    private static HistoryCandleResponse toResponse(AggregatedCandle candle) {
-        return new HistoryCandleResponse(
-                candle.openTime(),
-                candle.closeTime(),
-                candle.open(),
-                candle.high(),
-                candle.low(),
-                candle.close(),
-                candle.volume(),
-                candle.openInterest(),
-                candle.tradeCount(),
-                candle.vwap(),
-                candle.partial(),
-                candle.complete(),
-                candle.qualityState(),
-                candle.definitionVersion());
     }
 
     // --- worker-facing ------------------------------------------------------------

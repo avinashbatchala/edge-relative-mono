@@ -360,6 +360,48 @@ class HistoryBackfillIntegrationTest {
         assertThat(current).isEqualTo(1);
     }
 
+    @Test
+    void candleReadsRejectInvalidRange() throws Exception {
+        long instrumentId = watchInstrument("HISTA");
+
+        HttpResponse<String> response = send(HttpRequest.newBuilder(uri("/api/v1/history/candles?instrumentId="
+                        + instrumentId
+                        + "&timeframe=M1&from=2026-09-02T00:00:00Z&to=2026-09-01T00:00:00Z&limit=10"))
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(response.body()).path("code").asString()).isEqualTo("HISTORY_INVALID");
+    }
+
+    @Test
+    void candleReadsNeverCallTheBroker() throws Exception {
+        long instrumentId = watchInstrument("HISTB");
+
+        JsonNode candles = getJson("/api/v1/history/candles?instrumentId=" + instrumentId
+                + "&timeframe=M1&from=2026-09-01T00:00:00Z&to=2026-09-02T00:00:00Z&limit=10");
+        assertThat(candles.isArray()).isTrue();
+        getJson("/api/v1/history/coverage?instrumentId=" + instrumentId + "&timeframe=M1");
+
+        WIREMOCK.verify(0, getRequestedFor(urlPathEqualTo("/v1/historical/candles")));
+    }
+
+    @Test
+    void candleReadsRespectTheRequestedLimit() throws Exception {
+        WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(MINUTES)));
+        long instrumentId = watchInstrument("HISTC");
+        awaitStatus(
+                startBackfill(instrumentId, "M1", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z")
+                        .path("runKey")
+                        .asString(),
+                "COMPLETED");
+
+        JsonNode limited = getJson("/api/v1/history/candles?instrumentId=" + instrumentId
+                + "&timeframe=M1&from=2026-09-01T00:00:00Z&to=2026-09-02T00:00:00Z&limit=2");
+        assertThat(limited.size()).isEqualTo(2);
+    }
+
     // --- helpers ------------------------------------------------------------------
 
     /** Persistence is limited to the active watchlist, so the instrument must be watched first. */

@@ -1,10 +1,7 @@
 package com.edgerelative.application.history;
 
 import com.edgerelative.application.history.api.BackfillRunResponse;
-import com.edgerelative.application.history.api.CoverageResponse;
-import com.edgerelative.application.history.api.HistoryCandleResponse;
 import com.edgerelative.application.history.api.StartBackfillRequest;
-import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,21 +13,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Broker-neutral historical data and research-dataset API. */
+/** Ingestion API: start/resume M1 downloads and inspect or retry ingestion runs. */
 @RestController
 @RequestMapping("/api/v1/history")
-public class HistoryController {
+public class HistoryBackfillController {
 
     private final HistoricalBackfillService service;
 
-    public HistoryController(HistoricalBackfillService service) {
+    public HistoryBackfillController(HistoricalBackfillService service) {
         this.service = service;
-    }
-
-    @GetMapping("/coverage")
-    public CoverageResponse coverage(
-            @RequestParam long instrumentId, @RequestParam String timeframe) {
-        return service.coverage(instrumentId, timeframe);
     }
 
     @PostMapping("/backfill")
@@ -52,16 +43,5 @@ public class HistoryController {
     @PostMapping("/backfill/{runKey}/retry")
     public BackfillRunResponse retry(@PathVariable String runKey) {
         return service.retry(runKey);
-    }
-
-    /** Persisted canonical candles for charts/backtests; never calls the broker. */
-    @GetMapping("/candles")
-    public List<HistoryCandleResponse> candles(
-            @RequestParam long instrumentId,
-            @RequestParam String timeframe,
-            @RequestParam Instant from,
-            @RequestParam Instant to,
-            @RequestParam(defaultValue = "5000") int limit) {
-        return service.candles(instrumentId, timeframe, from, to, limit);
     }
 }

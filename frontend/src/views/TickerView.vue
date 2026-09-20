@@ -3,7 +3,9 @@ import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { BarChart3, Inbox, Search } from '@lucide/vue'
+import { getCandles, historyKeys } from '@/api/history'
 import { ApiError } from '@/api/http'
+import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import {
   getHistoricalCandles,
   getQuote,
@@ -168,7 +170,81 @@ const historyQuery = useQuery(() => ({
 
 const quote = computed(() => quoteQuery.data.value ?? null)
 const history = computed(() => historyQuery.data.value ?? null)
-const candles = computed(() => history.value?.candles ?? [])
+
+// --- Canonical history (preferred) vs live broker fallback ------------------
+const watchlistQuery = useQuery(() => ({
+  queryKey: watchlistKeys.all,
+  queryFn: ({ signal }) => getWatchlist(signal),
+  staleTime: 30_000,
+  retry: 1,
+}))
+
+// Only registered canonical timeframes can be served from the store.
+const INTERVAL_TO_TIMEFRAME: Partial<Record<BrokerCandleInterval, string>> = {
+  ONE_MINUTE: 'M1',
+  THREE_MINUTE: 'M3',
+  FIVE_MINUTE: 'M5',
+  FIFTEEN_MINUTE: 'M15',
+  THIRTY_MINUTE: 'M30',
+  ONE_HOUR: 'H1',
+  FOUR_HOUR: 'H4',
+  ONE_DAY: 'D1',
+  ONE_WEEK: 'W1',
+}
+
+const canonicalInstrumentId = computed(() => {
+  const instrument = underlying.value
+  if (!instrument) {
+    return null
+  }
+  const entry = (watchlistQuery.data.value?.entries ?? []).find(
+    (candidate) =>
+      candidate.exchange === instrument.exchange &&
+      candidate.symbol.toUpperCase() === instrument.tradingSymbol.toUpperCase(),
+  )
+  return entry?.instrumentId ?? null
+})
+
+const canonicalTimeframe = computed(
+  () => INTERVAL_TO_TIMEFRAME[store.interval] ?? null,
+)
+
+const canonicalHistoryQuery = useQuery(() => {
+  const instrumentId = canonicalInstrumentId.value
+  const timeframe = canonicalTimeframe.value
+  const range = resolvedRange.value
+  const ready = instrumentId !== null && timeframe !== null && range !== null
+  return {
+    queryKey: ready
+      ? historyKeys.candles(
+          instrumentId as number,
+          timeframe as string,
+          (range as { start: string }).start,
+          (range as { end: string }).end,
+        )
+      : [...historyKeys.all, 'candles', 'none'],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      getCandles(
+        instrumentId as number,
+        timeframe as string,
+        (range as { start: string }).start,
+        (range as { end: string }).end,
+        5000,
+        signal,
+      ),
+    enabled: ready,
+    staleTime: 60_000,
+    retry: 1,
+  }
+})
+
+const canonicalCandles = computed(() => canonicalHistoryQuery.data.value ?? [])
+const usingCanonicalHistory = computed(() => canonicalCandles.value.length > 0)
+const candles = computed(() =>
+  usingCanonicalHistory.value
+    ? canonicalCandles.value
+    : (history.value?.candles ?? []),
+)
 
 const brokerStatus = computed(() => {
   if (quoteQuery.isError.value) {
@@ -309,6 +385,19 @@ function focusSearch() {
               @update:range="onRange"
               @update:custom="onCustomRange"
             />
+
+            <div class="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge :variant="usingCanonicalHistory ? 'secondary' : 'outline'">
+                {{ usingCanonicalHistory ? 'Canonical' : 'Live broker' }}
+              </Badge>
+              <span>
+                {{
+                  usingCanonicalHistory
+                    ? 'From the canonical store'
+                    : 'Live broker history (not yet downloaded)'
+                }}
+              </span>
+            </div>
 
             <SectionState
               v-if="historyQuery.isError.value"
