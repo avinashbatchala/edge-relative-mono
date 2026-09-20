@@ -135,6 +135,17 @@ class CatalogIntegrationTest {
     }
 
     @Test
+    void placeholderVersionFailsAsValidationNotCrashes() {
+        // The seeded ER_RS_CONTINUATION_V1 v1 carries empty parameters; resolving it must produce a
+        // clear validation failure (422) rather than a NullPointer/deserialization 500.
+        var seeded = strategies.get("ER_RS_CONTINUATION_V1");
+        long placeholderVersionId = seeded.versions().get(0).strategyVersionId();
+        assertThatThrownBy(() -> strategies.resolveVersion(placeholderVersionId))
+                .isInstanceOf(CatalogValidationException.class)
+                .hasMessageContaining("parameters");
+    }
+
+    @Test
     void researchStrategyPresetIsNotProductionAuthority() {
         assertThat(StrategyParametersProvider.class).isNotNull();
         assertThat(BacktestPresets.risk(BacktestPresets.RISK_RESEARCH_PERMISSIVE).orElseThrow()

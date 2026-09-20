@@ -162,8 +162,8 @@ public class BacktestService {
         if (strategyVersionId != null) {
             try {
                 parameters = strategyCatalog.resolveVersion(strategyVersionId).parameters();
-            } catch (CatalogNotFoundException notFound) {
-                throw new BacktestValidationException(notFound.getMessage());
+            } catch (CatalogNotFoundException | com.edgerelative.application.catalog.application.CatalogValidationException unresolvable) {
+                throw new BacktestValidationException(unresolvable.getMessage());
             }
         } else {
             parameters = BacktestPresets.strategy(request.strategyPreset())

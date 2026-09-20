@@ -79,6 +79,30 @@ const catalogRiskQuery = useQuery(() => ({
 const strategyOptions = computed(() => catalogStrategiesQuery.data.value ?? [])
 const riskOptions = computed(() => catalogRiskQuery.data.value ?? [])
 
+// Only versions with complete, resolvable parameters can be run; catalog placeholders are hidden.
+const usableStrategies = computed(() =>
+  strategyOptions.value
+    .map((strategy) => ({
+      ...strategy,
+      versions: strategy.versions.filter(
+        (version) =>
+          version.parametersError === null && version.parameters !== null,
+      ),
+    }))
+    .filter((strategy) => strategy.versions.length > 0),
+)
+const usableRiskPolicies = computed(() =>
+  riskOptions.value
+    .map((policy) => ({
+      ...policy,
+      versions: policy.versions.filter(
+        (version) =>
+          version.parametersError === null && version.parameters !== null,
+      ),
+    }))
+    .filter((policy) => policy.versions.length > 0),
+)
+
 const watchlistQuery = useQuery(() => ({
   queryKey: watchlistKeys.all,
   queryFn: ({ signal }) => getWatchlist(signal),
@@ -472,7 +496,7 @@ function parameter(key: string): string {
           >
             <option value="">Use research preset</option>
             <optgroup
-              v-for="strategy in strategyOptions"
+              v-for="strategy in usableStrategies"
               :key="strategy.code"
               :label="strategy.code"
             >
@@ -497,7 +521,7 @@ function parameter(key: string): string {
           >
             <option value="">Use research preset</option>
             <optgroup
-              v-for="policy in riskOptions"
+              v-for="policy in usableRiskPolicies"
               :key="policy.code"
               :label="policy.code"
             >

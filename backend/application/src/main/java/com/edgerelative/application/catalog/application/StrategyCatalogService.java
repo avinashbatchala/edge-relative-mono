@@ -77,8 +77,15 @@ public class StrategyCatalogService {
         if (code == null) {
             throw new CatalogNotFoundException("Strategy for version " + strategyVersionId + " not found.");
         }
-        return new ResolvedStrategy(strategyVersionId, code, version.version(),
-                parametersJson.read(version.parametersJson(), code, version.version()));
+        try {
+            return new ResolvedStrategy(strategyVersionId, code, version.version(),
+                    parametersJson.read(version.parametersJson(), code, version.version()));
+        } catch (RuntimeException failure) {
+            // A version stored without complete parameters (e.g. a catalog placeholder) is not
+            // runnable; surface a clear 422 rather than a 500.
+            throw new CatalogValidationException("Strategy version " + strategyVersionId
+                    + " has incomplete or invalid parameters and cannot be used.");
+        }
     }
 
     public List<StrategyView> list(boolean includeRetired) {
