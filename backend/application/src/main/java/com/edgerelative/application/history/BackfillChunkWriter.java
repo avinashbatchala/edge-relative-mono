@@ -37,9 +37,13 @@ public class BackfillChunkWriter {
                         candle.volume(),
                         candle.openInterest()))
                 .toList();
-        int written = repository.upsertCandles(
+        repository.upsertCandles(
                 chunk.instrumentId(), chunk.timeframeId(), canonical, properties.getInsertBatchSize());
-        repository.markCoverageCompleted(chunk.coverageId(), written);
-        return written;
+        // Record the accepted (current) candle count, not the rows written: a re-fetch of an already
+        // populated chunk writes nothing yet the coverage must still agree with the candle query.
+        int accepted = repository.countCurrentCandles(
+                chunk.instrumentId(), chunk.timeframeId(), chunk.start(), chunk.end());
+        repository.markCoverageCompleted(chunk.coverageId(), accepted);
+        return accepted;
     }
 }

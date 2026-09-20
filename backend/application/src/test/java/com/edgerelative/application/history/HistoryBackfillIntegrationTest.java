@@ -177,6 +177,26 @@ class HistoryBackfillIntegrationTest {
     }
 
     @Test
+    void coverageCountStaysConsistentWhenAPopulatedChunkIsReplayed() throws Exception {
+        WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(MINUTES)));
+        long instrumentId = watchInstrument("HISTD");
+        JsonNode run = startBackfill(instrumentId, "M1", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z");
+        awaitStatus(run.path("runKey").asString(), "COMPLETED");
+        long first = getJson("/api/v1/history/coverage?instrumentId=" + instrumentId + "&timeframe=M1")
+                .path("candleCount").asLong();
+        assertThat(first).isEqualTo(5);
+
+        // Simulate an interrupted worker that left a populated chunk PENDING, then replay it: the
+        // re-fetch writes no new rows, so coverage must still record the accepted candles (5).
+        jdbc.update("UPDATE market.candle_coverage SET status='PENDING' WHERE instrument_id=?", instrumentId);
+        JsonNode replay = startBackfill(instrumentId, "M1", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z");
+        awaitStatus(replay.path("runKey").asString(), "COMPLETED");
+        long after = getJson("/api/v1/history/coverage?instrumentId=" + instrumentId + "&timeframe=M1")
+                .path("candleCount").asLong();
+        assertThat(after).isEqualTo(5);
+    }
+
+    @Test
     void plansProviderBoundedChunksForIntradayRanges() throws Exception {
         WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(CANDLES)));
 

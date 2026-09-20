@@ -182,7 +182,10 @@ public class HistoryRepository {
                                 + "  SELECT open_time, close_time, open, high, low, close, volume, open_interest, "
                                 + "         trade_count, vwap, is_complete, quality_state FROM market.candle "
                                 + "  WHERE instrument_id = ? AND timeframe_id = ? AND is_current "
-                                + "  AND open_time >= ?::timestamptz AND open_time <= ?::timestamptz "
+                                // Half-open [from, to), matching the chunk, coverage and validity
+                                // ranges; a closed end would return the boundary minute and disagree
+                                // with the chunk that produced it.
+                                + "  AND open_time >= ?::timestamptz AND open_time < ?::timestamptz "
                                 + "  ORDER BY open_time DESC LIMIT ?"
                                 + ") recent ORDER BY open_time",
                         instrumentId,
@@ -308,6 +311,22 @@ public class HistoryRepository {
                 meta.get("broker_symbol", String.class),
                 claimed.get("chunk_start", OffsetDateTime.class).toInstant(),
                 claimed.get("chunk_end", OffsetDateTime.class).toInstant()));
+    }
+
+    /**
+     * Current canonical candles within a half-open chunk range. Used to record the accepted count so
+     * coverage and candle queries agree even when a re-fetch writes no new rows.
+     */
+    public int countCurrentCandles(long instrumentId, long timeframeId, Instant start, Instant end) {
+        Long count = dsl.fetchOne(
+                        "SELECT count(*) AS c FROM market.candle WHERE instrument_id = ? AND timeframe_id = ? "
+                                + "AND is_current AND open_time >= ?::timestamptz AND open_time < ?::timestamptz",
+                        instrumentId,
+                        timeframeId,
+                        utc(start),
+                        utc(end))
+                .get("c", Long.class);
+        return count == null ? 0 : count.intValue();
     }
 
     public void markCoverageCompleted(long coverageId, int candleCount) {
