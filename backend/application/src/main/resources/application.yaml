@@ -158,6 +158,15 @@ feature:
     queue-capacity: 2000
 
 market:
+  # Point-in-time sector membership, seeded into reference.instrument_sector_history. Only sectors
+  # with a verified NSE index benchmark are mapped; RELIANCE, BHARTIARTL and ADANIENT are omitted
+  # because Groww exposes no NIFTY Energy/Telecom/appropriate sector index, so their sector context
+  # is reported unavailable rather than substituted.
+  sector-map:
+    SBIN: PSU_BANK
+    ICICIBANK: PRIVATE_BANK
+    HDFCBANK: PRIVATE_BANK
+    TCS: IT
   calendar:
     # NSE Capital Market (cash equities) trading holidays, per the official NSE holiday master.
     # Maintained as data: refresh when the annual NSE circular is published. Dates that fall on a
