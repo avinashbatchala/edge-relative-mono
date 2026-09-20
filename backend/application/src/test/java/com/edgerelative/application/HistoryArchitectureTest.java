@@ -58,6 +58,7 @@ class HistoryArchitectureTest {
     void futureReadConsumersCannotDependOnBrokers() {
         // Feature/backtest/replay/research packages do not exist yet; the rule guards their arrival.
         var consumers = IMPORTER.importPackages(
+                "com.edgerelative.application.feature",
                 "com.edgerelative.application.features",
                 "com.edgerelative.application.backtest",
                 "com.edgerelative.application.replay",

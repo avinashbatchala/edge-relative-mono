@@ -1,0 +1,32 @@
+{
+  "feature": "RRS_RAW",
+  "semanticVersion": "RRS_V1",
+  "tolerance": 1e-9,
+  "parameters": {
+    "atrLength": 1,
+    "atrSmoothing": "SIMPLE",
+    "priceChange": "CLOSE_TO_CLOSE",
+    "fastLength": 1,
+    "slowLength": 1,
+    "persistenceWindow": 2,
+    "slopeLookback": 1,
+    "percentileWindow": 10
+  },
+  "bars": [
+    { "openTime": "2026-09-01T03:45:00Z", "closeTime": "2026-09-01T03:50:00Z", "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1000, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-01T03:50:00Z", "closeTime": "2026-09-01T03:55:00Z", "open": 100.0, "high": 101.0, "low": 100.0, "close": 101.0, "volume": 1000, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-01T03:55:00Z", "closeTime": "2026-09-01T04:00:00Z", "open": 101.0, "high": 102.0, "low": 101.0, "close": 102.0, "volume": 1000, "complete": true, "quality": "GOOD" }
+  ],
+  "benchmarkBars": [
+    { "openTime": "2026-09-01T03:45:00Z", "closeTime": "2026-09-01T03:50:00Z", "open": 200.0, "high": 200.5, "low": 199.5, "close": 200.0, "volume": 5000, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-01T03:50:00Z", "closeTime": "2026-09-01T03:55:00Z", "open": 200.5, "high": 200.5, "low": 199.5, "close": 200.0, "volume": 5000, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-01T03:55:00Z", "closeTime": "2026-09-01T04:00:00Z", "open": 200.5, "high": 200.5, "low": 199.5, "close": 200.0, "volume": 5000, "complete": true, "quality": "GOOD" }
+  ],
+  "expectedRaw": [null, 1.0, 1.0],
+  "expectedFast": [null, 1.0, 1.0],
+  "expectedSlow": [null, 1.0, 1.0],
+  "expectedPersistence": [null, null, 1.0],
+  "expectedAcceleration": [null, null, 0.0],
+  "expectedPercentile": [null, 1.0, 1.0],
+  "expectedTrendState": [null, null, "NEUTRAL"]
+}

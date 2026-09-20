@@ -11,9 +11,13 @@ Maven reactor with an empty framework-free `domain` module, a framework-free
 `application` with jOOQ/PostgreSQL connectivity and local Actuator health;
 `frontend/` has a static Vue workstation;
 `research/` has a Python package and import smoke test. GitHub Actions runs checks
-for all three projects. See `README.md` for setup. No strategy, feature or risk logic,
-broker execution, or frontend/backend integration exists yet. Root `compose.yaml`
-provides local PostgreSQL; backend integration tests use Testcontainers PostgreSQL.
+for all three projects. See `README.md` for setup. A deterministic, versioned feature
+engine exists (ATR, RRS family, RVOL daily/interval/cumulative, RVE, directional
+volume, market/sector context) under `application/feature`, with a broker-neutral
+`/api/v1/features` API and shared fixtures in `contracts/fixtures/features`. There is
+still no strategy, risk, broker execution, or frontend/backend integration. Root
+`compose.yaml` provides local PostgreSQL; backend integration tests use Testcontainers
+PostgreSQL.
 
 Broker integration has two modules: `broker-api` (framework-free, broker-neutral ports and models)
 and `broker-groww` (the Groww adapter). Groww read-only capabilities are implemented; every
@@ -45,7 +49,7 @@ or granting trading authority.
 - Research: Python managed with `uv`; Python does not own authoritative production trading state.
 - Frontend: Vue 3, TypeScript, Composition API with `<script setup>`, Vite, Pinia, and `pnpm`. Vue is intentionally selected over React.
 - Contracts: OpenAPI for HTTP APIs and explicit versioned WebSocket schemas; shared Java/Python calculation fixtures.
-- Analytical history: PostgreSQL is the authoritative canonical candle store for the watched universe (<50 instruments, M1 base only, higher timeframes derived on read). Parquet and object storage remain the eventual store for broad analytical history and are deferred with documented triggers (`docs/design-docs/dev/ADR-001-candle-storage.md`); do not treat PostgreSQL as an unlimited tick warehouse.
+- Analytical history: PostgreSQL is the authoritative canonical candle store for the watched universe (<50 instruments, M1 base only, higher timeframes derived on read). Parquet and object storage remain the eventual store for broad analytical history and are deferred with documented triggers (`docs/design-docs/dev/ADR-001-candle-storage.md`); do not treat PostgreSQL as an unlimited tick warehouse. Derived feature snapshots follow the same scoped exception (`docs/design-docs/dev/ADR-002-feature-snapshot-storage.md`); they are append-only, rebuildable from canonical candles, and never read by the calculation path.
 - Operations: Docker/Compose, Terraform, and GitHub Actions when needed.
 
 DD-04A also proposes `contracts/`, `infra/`, `docker/`, `scripts/`, and more backend

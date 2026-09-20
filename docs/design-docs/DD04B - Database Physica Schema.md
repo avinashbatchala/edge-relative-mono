@@ -984,3 +984,21 @@ market.ingestion_run     requested backfill range, progress and outcome
 
 Both reference `reference.market_data_source`. Data-quality failures may be
 recorded in the existing `market.market_data_incident`.
+
+# 25. Amendment: Feature Snapshot Storage (Scoped)
+
+> **Amendment date:** 2026-09-20. See `docs/design-docs/dev/ADR-002-feature-snapshot-storage.md`.
+
+For the current single-operator, <50-instrument scope, derived feature snapshots are
+persisted in PostgreSQL as a bounded exception to §19. Migration
+`V013__feature_engine.sql` adds:
+
+```text
+market.feature_snapshot         one row per instrument/timeframe/anchor/schema/calculation version
+market.feature_snapshot_value   one row per feature value (quality, availability, parameter hash)
+```
+
+Rows are append-only (`BEFORE UPDATE OR DELETE` triggers reject mutation) and are
+rebuildable from canonical candles by the deterministic feature engine. The
+calculation path never reads these tables; broad feature matrices still belong in
+Parquet/object storage under the §19 triggers.

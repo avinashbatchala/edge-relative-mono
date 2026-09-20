@@ -1,0 +1,23 @@
+{
+  "feature": "RVOL",
+  "semanticVersion": "RVOL_V1",
+  "tolerance": 1e-9,
+  "parameters": {
+    "estimator": "MEAN",
+    "dailyLookback": 50,
+    "intervalLookback": 50,
+    "cumulativeLookback": 50,
+    "minSamples": 2
+  },
+  "timeframeMinutes": 375,
+  "bars": [
+    { "openTime": "2026-09-01T03:45:00Z", "closeTime": "2026-09-01T10:00:00Z", "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 100, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-02T03:45:00Z", "closeTime": "2026-09-02T10:00:00Z", "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 100, "complete": true, "quality": "GOOD" },
+    { "openTime": "2026-09-03T03:45:00Z", "closeTime": "2026-09-03T10:00:00Z", "open": 100.0, "high": 102.5, "low": 99.5, "close": 102.0, "volume": 200, "complete": true, "quality": "GOOD" }
+  ],
+  "expectedDaily": [null, null, 2.0],
+  "expectedInterval": [null, null, 2.0],
+  "expectedCumulative": [null, null, 2.0],
+  "expectedDirectionalLong": [null, null, null],
+  "expectedDirectionalShort": [null, null, 0.0]
+}

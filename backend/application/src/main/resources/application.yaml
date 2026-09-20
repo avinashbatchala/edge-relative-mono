@@ -96,6 +96,62 @@ history:
     # Bounds the M1 rows loaded to derive a higher-timeframe series on the read path.
     max-source-candles: 500000
 
+feature:
+  # Every value below is a RESEARCH CANDIDATE, not a validated production constant, and is folded
+  # into each feature version's parameter hash. Changing a value changes the parameter hash, so an
+  # existing RRS_V1 row can never be silently reinterpreted. See docs/design-docs/dev/ADR-002.
+  # Longer than the deepest mandatory warmup (50 sessions) so M5 and D1 both warm up from canonical M1.
+  history-days: 120
+  benchmark:
+    # DD-02 selects NIFTY 50 for Strategy V1; NIFTY 500 remains the documented research challenger.
+    market-code: NIFTY50
+  atr:
+    # DD-02 §34 candidates: ~50 trading hours of M5 (600 bars) and ~50 D1 sessions.
+    length-by-timeframe:
+      M1: 3000
+      M5: 600
+      M15: 200
+      M30: 100
+      H1: 50
+      H4: 13
+      D1: 50
+      W1: 50
+    default-length: 600
+    smoothing: WILDER
+  rrs:
+    price-change: CLOSE_TO_CLOSE
+    # DD-02 §35: the RDT example uses 3/8; Edge Relative will test this pair, it is not proven optimal.
+    fast-length: 3
+    slow-length: 8
+    persistence-window: 8
+    slope-lookback: 3
+    percentile-window: 500
+  rvol:
+    # DD-02 §44-§47: 50 sessions is a primary candidate; estimator is versioned.
+    estimator: MEAN
+    daily-lookback: 50
+    interval-lookback: 50
+    cumulative-lookback: 50
+    min-samples: 20
+    trimmed-fraction: 0.1
+    ew-span: 20
+  rve:
+    # DD-02 §50; mirrors the RRS fast/slow pair until research says otherwise.
+    fast-length: 3
+    slow-length: 8
+  structure:
+    pivot-width: 3
+    efficiency-window: 20
+  directional-volume:
+    window: 20
+  live:
+    # Bounded in-memory buffer per series; enough for ATR/RVOL warmup without loading history.
+    max-bars: 4000
+  persistence:
+    enabled: true
+    # Bounded queue; a full queue drops rebuildable persistence and increments a counter.
+    queue-capacity: 2000
+
 market:
   calendar:
     # NSE Capital Market (cash equities) trading holidays, per the official NSE holiday master.

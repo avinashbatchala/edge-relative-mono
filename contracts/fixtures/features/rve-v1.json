@@ -1,0 +1,13 @@
+{
+  "feature": "RVE",
+  "semanticVersion": "RVE_V1",
+  "tolerance": 1e-6,
+  "parameters": { "fastLength": 1, "slowLength": 2 },
+  "rvolInterval": [1.0, 1.0, 1.0, 4.0],
+  "expected": [
+    null,
+    0.0,
+    0.0,
+    0.46209812037329586
+  ]
+}
