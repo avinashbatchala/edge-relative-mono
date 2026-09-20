@@ -65,4 +65,28 @@ public final class FeatureMetrics {
     public long persistenceQueueDepth() {
         return persistenceQueueDepth.get();
     }
+
+    public double snapshotCount() {
+        return snapshots.count();
+    }
+
+    public double warmupFailureCount() {
+        return warmupFailures.count();
+    }
+
+    public double missingDependencyCount() {
+        return missingDependencies.count();
+    }
+
+    public double alignmentFailureCount() {
+        return alignmentFailures.count();
+    }
+
+    public double qualityDowngradeCount() {
+        return qualityDowngrades.count();
+    }
+
+    public double persistenceDroppedCount() {
+        return persistenceDropped.count();
+    }
 }

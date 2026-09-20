@@ -38,12 +38,15 @@ public final class CandleAggregator {
     public List<AggregatedCandle> aggregate(List<HistoricalCandle> source, String timeframeCode) {
         Spec spec = TimeframeCatalog.require(timeframeCode);
         if (TimeframeCatalog.M1.equals(spec.code())) {
-            return source.stream().map(CandleAggregator::passthrough).toList();
+            return source.stream().filter(this::inSession).map(CandleAggregator::passthrough).toList();
         }
         List<AggregatedCandle> result = new ArrayList<>();
         Accumulator current = null;
         Object currentKey = null;
         for (HistoricalCandle candle : source) {
+            if (!inSession(candle)) {
+                continue;
+            }
             Bucket bucket = bucket(candle, spec);
             if (current == null || !bucket.key().equals(currentKey)) {
                 if (current != null) {
@@ -58,6 +61,22 @@ public final class CandleAggregator {
             result.add(current.toCandle(spec));
         }
         return result;
+    }
+
+    /**
+     * Canonical NSE session membership (DD-05 §95): a minute at or after the session close (vendor
+     * post-close data) or before the open is not part of the session bar. Without this a vendor
+     * minute after 15:30 IST creates an extra bucket, so every derived session looks incomplete and
+     * volume baselines cannot form.
+     */
+    private boolean inSession(HistoricalCandle candle) {
+        LocalDate session = calendar.sessionDate(candle.openTime());
+        if (!calendar.isTradingDay(session)) {
+            return false;
+        }
+        Instant open = calendar.sessionOpen(session);
+        Instant close = calendar.sessionClose(session);
+        return !candle.openTime().isBefore(open) && candle.openTime().isBefore(close);
     }
 
     private static AggregatedCandle passthrough(HistoricalCandle candle) {

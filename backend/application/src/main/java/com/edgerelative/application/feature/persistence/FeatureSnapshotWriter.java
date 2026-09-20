@@ -78,6 +78,11 @@ public class FeatureSnapshotWriter {
         }
     }
 
+    /** Current bounded-queue depth, for diagnostics. */
+    public int queueDepth() {
+        return executor.getQueue().size();
+    }
+
     /**
      * Blocks until the queue drains, bounded by a timeout; used by tests and shutdown.
      */

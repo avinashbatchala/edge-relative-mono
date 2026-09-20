@@ -78,12 +78,22 @@ public class FeatureSnapshotService {
      * Snapshot at (or before) {@code anchor}; {@code null} anchor means the latest canonical close.
      */
     public FeatureSnapshot snapshot(long instrumentId, String timeframe, Instant anchor) {
+        return snapshot(instrumentId, timeframe, anchor, true);
+    }
+
+    /**
+     * Snapshots computed for an observational dashboard are not persisted: a page load must not
+     * append forty derived rows. Persistence remains for live/backfill computation.
+     */
+    public FeatureSnapshot snapshot(long instrumentId, String timeframe, Instant anchor, boolean persist) {
         Instant effectiveAnchor = anchor == null ? clock.instant() : anchor;
         FeatureContext context = context(instrumentId, timeframe, effectiveAnchor);
         long started = System.nanoTime();
         FeatureSnapshot snapshot = engine.snapshot(context);
         metrics.recordSnapshot(Duration.ofNanos(System.nanoTime() - started));
-        writer.write(snapshot, canonical.ensureTimeframe(timeframe), SOURCE_REVISION);
+        if (persist) {
+            writer.write(snapshot, canonical.ensureTimeframe(timeframe), SOURCE_REVISION);
+        }
         return snapshot;
     }
 

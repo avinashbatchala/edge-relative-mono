@@ -214,7 +214,7 @@ class FeatureSnapshotIntegrationTest {
     }
 
     private long ensureIndex() {
-        return canonical.ensureInstrument("NSE", "CASH", "INDEX", "NIFTY50", "Nifty 50", null, null);
+        return canonical.ensureInstrument("NSE", "CASH", "INDEX", "NIFTY", "NIFTY 50", null, null);
     }
 
     private void seedSession(long instrumentId, LocalDate date, long volume, double basePrice) {

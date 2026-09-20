@@ -65,7 +65,19 @@ public class FeatureReferenceResolver {
                 "SELECT instrument_id FROM reference.instrument WHERE canonical_symbol = ? "
                         + "AND instrument_type = 'INDEX' LIMIT 1",
                 marketCode);
-        return instrument == null ? null : instrument.get("instrument_id", Long.class);
+        if (instrument != null) {
+            return instrument.get("instrument_id", Long.class);
+        }
+        // Benchmark codes are display codes ("NIFTY50"); the canonical index symbol may differ
+        // ("NIFTY", display "NIFTY 50"). Match whitespace-insensitively so the configured DD-02
+        // benchmark resolves without an operator having to rename the canonical instrument.
+        Record byDisplayName = dsl.fetchOne(
+                "SELECT instrument_id FROM reference.instrument "
+                        + "WHERE instrument_type = 'INDEX' "
+                        + "AND upper(replace(display_name, ' ', '')) = upper(replace(?, ' ', '')) "
+                        + "ORDER BY instrument_id LIMIT 1",
+                marketCode);
+        return byDisplayName == null ? null : byDisplayName.get("instrument_id", Long.class);
     }
 
     private Long resolveSectorInstrument(long sectorId, LocalDate sessionDate) {

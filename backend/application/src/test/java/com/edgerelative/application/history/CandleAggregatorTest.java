@@ -117,6 +117,25 @@ class CandleAggregatorTest {
         assertThat(bars.get(0).open()).isEqualByComparingTo("7");
     }
 
+    @Test
+    void postCloseVendorMinutesAreExcludedSoSessionsStayComplete() {
+        List<HistoricalCandle> source = new ArrayList<>();
+        source.addAll(minutes(calendar.sessionOpen(SESSION), 375, new BigDecimal("100")));
+        source.addAll(minutes(calendar.sessionClose(SESSION), 30, new BigDecimal("999")));
+
+        List<AggregatedCandle> m5 = aggregator.aggregate(source, "M5");
+
+        assertThat(m5).hasSize(75);
+        AggregatedCandle last = m5.get(74);
+        assertThat(last.openTime()).isEqualTo(calendar.sessionClose(SESSION).minusSeconds(300));
+        assertThat(last.closeTime()).isEqualTo(calendar.sessionClose(SESSION));
+        assertThat(last.complete()).isTrue();
+        assertThat(last.qualityState()).isEqualTo(CandleAggregator.QUALITY_GOOD);
+        assertThat(last.volume()).isEqualTo(50);
+        // M1 passthrough must also stop at the session close.
+        assertThat(aggregator.aggregate(source, "M1")).hasSize(375);
+    }
+
     private static List<HistoricalCandle> minutes(Instant start, int count, BigDecimal base) {
         List<HistoricalCandle> candles = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {

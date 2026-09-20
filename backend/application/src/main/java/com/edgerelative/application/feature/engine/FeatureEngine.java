@@ -82,6 +82,11 @@ public final class FeatureEngine {
      */
     private List<FeatureSnapshot> snapshots(FeatureContext context, boolean lastOnly) {
         BarSeries subject = BarSeries.of(context.subjectCandles());
+        if (subject.size() == 0) {
+            // No canonical bars: there is no anchor and therefore no snapshot. Callers must treat
+            // this as unavailable data, never as an empty-but-valid measurement.
+            return List.of();
+        }
         BarSeries market = BarSeries.of(context.marketCandles());
         BarSeries sector = BarSeries.of(context.sectorCandles());
         FeaturePolicy policy = context.policy();

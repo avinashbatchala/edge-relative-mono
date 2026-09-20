@@ -113,8 +113,25 @@ class HistoryBackfillIntegrationTest {
     }
 
     @BeforeEach
-    void resetWireMock() {
+    void resetWireMock() throws InterruptedException {
+        awaitBackfillIdle();
         WIREMOCK.resetAll();
+    }
+
+    /**
+     * A background worker still processing a chunk from a prior test would emit a broker call during
+     * a read-only test. Wait until no ingestion run is active, so no further chunks can be claimed.
+     */
+    private void awaitBackfillIdle() throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (System.currentTimeMillis() < deadline) {
+            Integer active = jdbc.queryForObject(
+                    "SELECT count(*) FROM market.ingestion_run WHERE status IN ('QUEUED','RUNNING')", Integer.class);
+            if (active == null || active == 0) {
+                return;
+            }
+            Thread.sleep(50);
+        }
     }
 
     @LocalServerPort

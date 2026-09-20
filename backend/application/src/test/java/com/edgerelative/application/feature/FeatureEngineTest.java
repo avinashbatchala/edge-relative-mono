@@ -47,6 +47,15 @@ class FeatureEngineTest {
     }
 
     @Test
+    void emptySubjectHasNoSnapshotRatherThanAStaleOne() {
+        FeatureContext context = FeatureTestSupport.context(
+                1, List.of(), List.of(), List.of(), FeatureTestSupport.policy(), "M5");
+        assertThat(ENGINE.snapshots(context)).isEmpty();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ENGINE.snapshot(context))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void snapshotEqualsTheLastOfSnapshots() {
         FeatureContext context = FeatureTestSupport.context(
                 1, sessions(D1, D2, 100), sessions(D1, D2, 500), sessions(D1, D2, 300),

@@ -1,5 +1,6 @@
 package com.edgerelative.application.feature.api;
 
+import com.edgerelative.application.feature.service.FeatureDashboardService;
 import com.edgerelative.application.feature.service.FeatureSnapshotService;
 
 import java.time.Instant;
@@ -18,10 +19,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/features")
 public class FeatureQueryController {
 
-    private final FeatureSnapshotService service;
+    private static final int MAX_SERIES_POINTS = 5_000;
 
-    public FeatureQueryController(FeatureSnapshotService service) {
+    private final FeatureSnapshotService service;
+    private final FeatureDashboardService dashboard;
+
+    public FeatureQueryController(FeatureSnapshotService service, FeatureDashboardService dashboard) {
         this.service = service;
+        this.dashboard = dashboard;
+    }
+
+    /** Consolidated latest feature rows for the active watchlist (observational dashboard). */
+    @GetMapping("/dashboard")
+    public List<FeatureDashboardRow> dashboard() {
+        return dashboard.rows();
+    }
+
+    /** Trust diagnostics for the displayed feature state. */
+    @GetMapping("/diagnostics")
+    public FeatureDiagnosticsResponse diagnostics() {
+        return dashboard.diagnostics();
     }
 
     @GetMapping("/snapshot")
@@ -37,10 +54,16 @@ public class FeatureQueryController {
             @RequestParam long instrumentId,
             @RequestParam(defaultValue = FeatureSnapshotService.DEFAULT_TIMEFRAME) String timeframe,
             @RequestParam Instant from,
-            @RequestParam Instant to) {
-        return service.series(instrumentId, timeframe, from, to).stream()
+            @RequestParam Instant to,
+            @RequestParam(defaultValue = "2000") int limit) {
+        List<FeatureSnapshotResponse> all = service.series(instrumentId, timeframe, from, to).stream()
                 .map(FeatureSnapshotResponse::from)
                 .toList();
+        int capped = Math.clamp(limit, 1, MAX_SERIES_POINTS);
+        if (all.size() <= capped) {
+            return all;
+        }
+        return List.copyOf(all.subList(all.size() - capped, all.size()));
     }
 
     @GetMapping("/watchlist")

@@ -2,6 +2,7 @@
 import {
   Activity,
   Database,
+  Gauge,
   LayoutDashboard,
   LineChart,
   ListChecks,
@@ -31,6 +32,7 @@ const route = useRoute()
 const tools = [
   { title: 'Overview', to: '/overview', icon: LayoutDashboard },
   { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
+  { title: 'Feature Dashboard', to: '/features', icon: Gauge },
   { title: 'Market Data', to: '/market', icon: Activity },
   { title: 'Research Data', to: '/research', icon: Database },
 ] as const

@@ -14,8 +14,10 @@ Maven reactor with an empty framework-free `domain` module, a framework-free
 for all three projects. See `README.md` for setup. A deterministic, versioned feature
 engine exists (ATR, RRS family, RVOL daily/interval/cumulative, RVE, directional
 volume, market/sector context) under `application/feature`, with a broker-neutral
-`/api/v1/features` API and shared fixtures in `contracts/fixtures/features`. There is
-still no strategy, risk, broker execution, or frontend/backend integration. Root
+`/api/v1/features` API, a versioned `/ws/features` JSON stream, an observational
+Feature Dashboard at `/features`, and shared fixtures in `contracts/fixtures/features`.
+The stream has no live market-data producer yet: it sends an authoritative snapshot on
+connect/resync. There is still no strategy, risk, or broker execution. Root
 `compose.yaml` provides local PostgreSQL; backend integration tests use Testcontainers
 PostgreSQL.
 
