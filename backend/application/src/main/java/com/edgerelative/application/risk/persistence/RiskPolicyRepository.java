@@ -39,9 +39,21 @@ public class RiskPolicyRepository {
                         + "WHERE rp.code = ? AND rpv.lifecycle_state <> 'RETIRED' "
                         + "ORDER BY rpv.version DESC LIMIT 1",
                 code);
-        if (record == null) {
-            return Optional.empty();
-        }
+        return Optional.ofNullable(record).map(this::map);
+    }
+
+    /** Resolves one specific immutable policy version by id (reproducible reference). */
+    public Optional<ResolvedPolicy> resolveById(long riskPolicyVersionId) {
+        Record record = dsl.fetchOne(
+                "SELECT rpv.risk_policy_version_id, rpv.version, rpv.lifecycle_state, rpv.parameters, rp.code "
+                        + "FROM control.risk_policy_version rpv "
+                        + "JOIN control.risk_policy rp ON rp.risk_policy_id = rpv.risk_policy_id "
+                        + "WHERE rpv.risk_policy_version_id = ?",
+                riskPolicyVersionId);
+        return Optional.ofNullable(record).map(this::map);
+    }
+
+    private ResolvedPolicy map(Record record) {
         String policyCode = record.get("code", String.class);
         int version = record.get("version", Integer.class);
         String lifecycle = record.get("lifecycle_state", String.class);
@@ -50,6 +62,6 @@ public class RiskPolicyRepository {
         parameters.put("version", version);
         parameters.put("lifecycleState", lifecycle);
         RiskPolicy policy = json.treeToValue(parameters, RiskPolicy.class);
-        return Optional.of(new ResolvedPolicy(policy, record.get("risk_policy_version_id", Long.class)));
+        return new ResolvedPolicy(policy, record.get("risk_policy_version_id", Long.class));
     }
 }

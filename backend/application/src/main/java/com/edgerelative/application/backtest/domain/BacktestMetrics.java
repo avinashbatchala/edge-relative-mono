@@ -145,6 +145,8 @@ public final class BacktestMetrics {
         metrics.put("planCount", completed.size() + open.size());
         metrics.put("ambiguousBarCount", completed.stream().mapToInt(BacktestTrade::ambiguousBars).sum());
 
+        // Pipeline stage counts so an empty/low trade list explains where candidates were eliminated.
+        metrics.put("stageCounts", result.stageCounts());
         metrics.put("notes", notes);
         metrics.put("samplingAssumption", "Equity sampled once per " + barsPerYear + " periods/year; returns annualized with a zero reference rate.");
         return metrics;

@@ -32,9 +32,17 @@ public record BacktestRunRow(
         Map<String, Object> parameters) {
 
     public BacktestRunRow {
-        metrics = metrics == null ? Map.of() : Map.copyOf(metrics);
-        failure = failure == null ? Map.of() : Map.copyOf(failure);
-        parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
+        // Undefined metrics are deliberately null values, so Map.copyOf (which rejects nulls) cannot
+        // be used here. Preserve the values in an unmodifiable, null-tolerant view.
+        metrics = immutable(metrics);
+        failure = immutable(failure);
+        parameters = immutable(parameters);
+    }
+
+    private static Map<String, Object> immutable(Map<String, Object> value) {
+        return value == null
+                ? Map.of()
+                : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(value));
     }
 
     public List<String> symbols() {

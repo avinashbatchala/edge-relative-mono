@@ -73,8 +73,11 @@ public class BacktestRepository {
             String currency,
             long seed,
             String requestedBy,
-            long datasetVersionId) {
-        long strategyVersionId = strategyVersionId();
+            long datasetVersionId,
+            Long selectedStrategyVersionId,
+            Long selectedRiskPolicyVersionId) {
+        Long strategyVersionId = selectedStrategyVersionId != null ? selectedStrategyVersionId
+                : (strategyVersionId() == 0L ? null : strategyVersionId());
         long experimentId = dsl.fetchOne(
                         "INSERT INTO research.experiment (experiment_key, code, hypothesis, created_by) "
                                 + "VALUES (?, 'BACKTEST_ER_RS_V1', 'Chronological replay of ER_RS_CONTINUATION_V1', ?) "
@@ -89,7 +92,7 @@ public class BacktestRepository {
                                 + "VALUES (?, ?, 'CREATED', ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?) "
                                 + "ON CONFLICT (run_key) DO NOTHING "
                                 + "RETURNING experiment_run_id",
-                        UUID.fromString(runKey), experimentId, strategyVersionId == 0 ? null : strategyVersionId,
+                        UUID.fromString(runKey), experimentId, strategyVersionId,
                         datasetVersionId, start, end, specJson, costJson, "er-backtest-engine-v1", requestedBy);
         if (run == null) {
             Record existing = dsl.fetchOne(
@@ -102,9 +105,10 @@ public class BacktestRepository {
         long experimentRunId = run.get("experiment_run_id", Long.class);
         long backtestRunId = dsl.fetchOne(
                         "INSERT INTO research.backtest_run (run_key, experiment_run_id, strategy_version_id, "
-                                + "dataset_version_id, status, seed, universe_size, starting_capital, currency, engine_revision) "
-                                + "VALUES (?, ?, ?, ?, 'CREATED', ?, ?, ?, ?, 'er-backtest-engine-v1') RETURNING backtest_run_id",
-                        UUID.fromString(runKey), experimentRunId, strategyVersionId == 0 ? null : strategyVersionId,
+                                + "risk_policy_version_id, dataset_version_id, status, seed, universe_size, starting_capital, "
+                                + "currency, engine_revision) "
+                                + "VALUES (?, ?, ?, ?, ?, 'CREATED', ?, ?, ?, ?, 'er-backtest-engine-v1') RETURNING backtest_run_id",
+                        UUID.fromString(runKey), experimentRunId, strategyVersionId, selectedRiskPolicyVersionId,
                         datasetVersionId, seed, (int) universeSize, startingCapital, currency)
                 .get("backtest_run_id", Long.class);
         dsl.execute(
@@ -149,6 +153,11 @@ public class BacktestRepository {
         dsl.execute("UPDATE research.backtest_run SET status = 'CANCELLED', completed_at = CURRENT_TIMESTAMP "
                 + "WHERE run_key = ? AND status IN ('CREATED','RUNNING')", UUID.fromString(runKey));
         return updated > 0;
+    }
+
+    public java.util.Optional<String> runStatus(String runKey) {
+        Record record = dsl.fetchOne("SELECT status FROM research.experiment_run WHERE run_key = ?", UUID.fromString(runKey));
+        return record == null ? java.util.Optional.empty() : java.util.Optional.of(record.get("status", String.class));
     }
 
     public boolean isCancelled(String runKey) {
@@ -209,16 +218,21 @@ public class BacktestRepository {
     }
 
     public List<BacktestTrade> findTrades(String runKey, String symbol, int limit, int offset) {
-        return dsl.fetch(
-                        "SELECT t.trade_key, t.instrument_id, t.symbol, t.direction, t.entry_pattern, t.entry_at, "
-                                + "t.entry_price, t.exit_at, t.exit_price, t.quantity, t.gross_pnl, t.explicit_costs, "
-                                + "t.net_pnl, t.realized_r, t.holding_seconds, t.exit_reason, t.ambiguous_bars, "
-                                + "t.cost_breakdown, t.plan_key, t.decision_key "
-                                + "FROM research.backtest_trade t "
-                                + "JOIN research.backtest_run br ON br.backtest_run_id = t.backtest_run_id "
-                                + "WHERE br.run_key = ? AND (? IS NULL OR t.symbol = ?) "
-                                + "ORDER BY t.entry_at, t.backtest_trade_id LIMIT ? OFFSET ?",
-                        UUID.fromString(runKey), symbol, symbol, limit, offset)
+        // A null symbol binds as an untyped parameter and PostgreSQL rejects `? IS NULL`; select the
+        // WHERE clause explicitly instead.
+        boolean filtered = symbol != null && !symbol.isBlank();
+        String sql = "SELECT t.trade_key, t.instrument_id, t.symbol, t.direction, t.entry_pattern, t.entry_at, "
+                + "t.entry_price, t.exit_at, t.exit_price, t.quantity, t.gross_pnl, t.explicit_costs, "
+                + "t.net_pnl, t.realized_r, t.holding_seconds, t.exit_reason, t.ambiguous_bars, "
+                + "t.cost_breakdown, t.plan_key, t.decision_key "
+                + "FROM research.backtest_trade t "
+                + "JOIN research.backtest_run br ON br.backtest_run_id = t.backtest_run_id "
+                + "WHERE br.run_key = ? " + (filtered ? "AND t.symbol = ? " : "")
+                + "ORDER BY t.entry_at, t.backtest_trade_id LIMIT ? OFFSET ?";
+        Object[] args = filtered
+                ? new Object[] {UUID.fromString(runKey), symbol, limit, offset}
+                : new Object[] {UUID.fromString(runKey), limit, offset};
+        return dsl.fetch(sql, args)
                 .map(record -> new BacktestTrade(
                         record.get("trade_key", UUID.class).toString(),
                         record.get("instrument_id", Long.class),

@@ -14,6 +14,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { BrokerCandle } from '@/api/types'
+import type { ChartMarker } from '@/lib/chart-markers'
 import { formatCompact, formatPrice } from '@/lib/format'
 import {
   broadcastCrosshair,
@@ -22,7 +23,14 @@ import {
   joinChartSync,
 } from '@/lib/chart-sync'
 
-const props = defineProps<{ candles: BrokerCandle[]; syncKey?: string }>()
+const props = withDefaults(
+  defineProps<{
+    candles: BrokerCandle[]
+    syncKey?: string
+    markers?: ChartMarker[]
+  }>(),
+  { markers: () => [], syncKey: undefined },
+)
 
 const container = ref<HTMLDivElement | null>(null)
 const legend = ref<BrokerCandle | null>(null)
@@ -119,10 +127,35 @@ function applyTheme() {
   volumeSeries.value?.setData(volumeData())
 }
 
+function applyMarkers() {
+  const series = candleSeries.value
+  if (!series) {
+    return
+  }
+  series.setMarkers(
+    (props.markers ?? [])
+      .flatMap((marker) => {
+        const time = toTime(marker.time)
+        return time === null
+          ? []
+          : [
+              {
+                time,
+                position: marker.position,
+                color: marker.color,
+                shape: marker.shape,
+                text: marker.text,
+              },
+            ]
+      })
+      .sort((a, b) => (a.time as number) - (b.time as number)),
+  )
+}
+
 function updateData() {
   candleSeries.value?.setData(candleData())
   volumeSeries.value?.setData(volumeData())
-  legend.value = props.candles.at(-1) ?? null
+  applyMarkers()
 }
 
 function handleCrosshair(param: MouseEventParams) {
@@ -255,6 +288,11 @@ watch(
       broadcastRange()
     }
   },
+)
+watch(
+  () => props.markers,
+  () => applyMarkers(),
+  { deep: true },
 )
 watch(isDark, () => {
   applyTheme()

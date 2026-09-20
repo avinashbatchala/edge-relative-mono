@@ -61,6 +61,19 @@ const router = createRouter({
       component: () => import('@/views/BacktestsView.vue'),
       meta: { title: 'Backtests' },
     },
+    {
+      path: '/backtests/:runKey',
+      name: 'backtest-run',
+      component: () => import('@/views/BacktestRunView.vue'),
+      props: true,
+      meta: { title: 'Backtest Run' },
+    },
+    {
+      path: '/strategies',
+      name: 'strategies',
+      component: () => import('@/views/StrategiesView.vue'),
+      meta: { title: 'Strategies & Risk' },
+    },
   ],
 })
 

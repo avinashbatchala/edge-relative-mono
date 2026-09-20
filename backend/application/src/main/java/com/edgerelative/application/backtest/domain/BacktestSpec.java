@@ -36,11 +36,22 @@ public record BacktestSpec(
         Long marketInstrumentId,
         Long sectorInstrumentId,
         String datasetCode,
-        String datasetChecksum) {
+        String datasetChecksum,
+        ContextSource contextSource) {
 
     public BacktestSpec {
         instrumentIds = instrumentIds == null ? List.of() : List.copyOf(instrumentIds);
         symbols = symbols == null ? List.of() : List.copyOf(symbols);
+    }
+
+    /**
+     * Where the strategy's market/stock/structure inputs come from. {@code STRICT_PRODUCTION} uses
+     * real producers (none wired yet → fails closed, no trades). {@code DERIVED_RESEARCH} derives
+     * them deterministically from canonical data under documented, versioned research assumptions.
+     */
+    public enum ContextSource {
+        STRICT_PRODUCTION,
+        DERIVED_RESEARCH
     }
 
     public enum EndOfRunPolicy {

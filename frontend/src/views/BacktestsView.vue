@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
 import { Play, RefreshCw, Square } from '@lucide/vue'
 import {
   backtestKeys,
@@ -13,6 +14,7 @@ import {
   type BacktestRun,
 } from '@/api/backtests'
 import { ApiError } from '@/api/http'
+import { getRiskPolicies, getStrategies } from '@/api/catalog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,7 +35,12 @@ import {
 import { formatInr, formatPercent, formatPrice } from '@/lib/format'
 
 const queryClient = useQueryClient()
+const router = useRouter()
 const selected = ref<string | null>(null)
+
+function openDetail(runKey: string) {
+  void router.push({ name: 'backtest-run', params: { runKey } })
+}
 const tab = ref<'overview' | 'trades' | 'symbols'>('overview')
 const symbolFilter = ref('')
 const formError = ref<string | null>(null)
@@ -44,12 +51,32 @@ const form = reactive({
   endDate: '2026-09-18',
   timeframe: 'M5',
   startingCapital: 1000000,
-  riskPolicyCode: 'ER_RISK_V1',
+  strategyPreset: 'ER_RS_CONTINUATION_V1_RESEARCH',
+  riskPreset: 'RESEARCH_PERMISSIVE',
+  strategyVersionId: '' as number | '',
+  riskPolicyVersionId: '' as number | '',
+  marketSymbol: 'NIFTY',
+  contextSource: 'DERIVED_RESEARCH',
   strictProducers: true,
   warmupBars: 30,
   seed: 1,
   endOfRun: 'MARK_TO_MARKET',
 })
+
+const catalogStrategiesQuery = useQuery(() => ({
+  queryKey: ['catalog', 'strategies', 'active'],
+  queryFn: ({ signal }) => getStrategies(false, signal),
+  staleTime: 30_000,
+}))
+
+const catalogRiskQuery = useQuery(() => ({
+  queryKey: ['catalog', 'risk', 'active'],
+  queryFn: ({ signal }) => getRiskPolicies(false, signal),
+  staleTime: 30_000,
+}))
+
+const strategyOptions = computed(() => catalogStrategiesQuery.data.value ?? [])
+const riskOptions = computed(() => catalogRiskQuery.data.value ?? [])
 
 const runsQuery = useQuery(() => ({
   queryKey: backtestKeys.list(),
@@ -95,7 +122,14 @@ const startMutation = useMutation({
       dailyTimeframe: 'D1',
       startingCapital: form.startingCapital,
       currency: 'INR',
-      riskPolicyCode: form.riskPolicyCode,
+      strategyPreset: form.strategyPreset,
+      riskPreset: form.riskPreset,
+      strategyVersionId:
+        form.strategyVersionId === '' ? null : form.strategyVersionId,
+      riskPolicyVersionId:
+        form.riskPolicyVersionId === '' ? null : form.riskPolicyVersionId,
+      marketSymbol: form.marketSymbol || null,
+      contextSource: form.contextSource,
       strictProducers: form.strictProducers,
       warmupBars: form.warmupBars,
       seed: form.seed,
@@ -259,9 +293,20 @@ function cloneRun(item: BacktestRun) {
     form.startingCapital = parameters.capital
   }
   if (typeof parameters.riskPolicy === 'string') {
-    form.riskPolicyCode =
-      parameters.riskPolicy.split('/')[0] ?? form.riskPolicyCode
+    form.riskPreset = parameters.riskPolicy.split('/')[0] ?? form.riskPreset
   }
+  if (typeof parameters.strategy === 'string') {
+    form.strategyPreset =
+      parameters.strategy.split('/')[0] ?? form.strategyPreset
+  }
+  form.strategyVersionId =
+    typeof parameters.strategyVersionId === 'number'
+      ? parameters.strategyVersionId
+      : ''
+  form.riskPolicyVersionId =
+    typeof parameters.riskPolicyVersionId === 'number'
+      ? parameters.riskPolicyVersionId
+      : ''
   if (typeof parameters.strict === 'boolean') {
     form.strictProducers = parameters.strict
   }
@@ -342,12 +387,75 @@ function parameter(key: string): string {
           />
         </label>
         <label class="space-y-1 text-sm">
-          <span class="text-muted-foreground">Risk policy</span>
-          <input
-            v-model="form.riskPolicyCode"
-            aria-label="Risk policy"
+          <span class="text-muted-foreground">Strategy preset</span>
+          <select
+            v-model="form.strategyPreset"
+            aria-label="Strategy preset"
             class="w-full rounded-md border bg-transparent px-2 py-1"
-          />
+          >
+            <option value="ER_RS_CONTINUATION_V1_RESEARCH">
+              ER RS Continuation V1 (research)
+            </option>
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">Risk preset</span>
+          <select
+            v-model="form.riskPreset"
+            aria-label="Risk preset"
+            class="w-full rounded-md border bg-transparent px-2 py-1"
+          >
+            <option value="RESEARCH_PERMISSIVE">Research permissive</option>
+            <option value="RESEARCH_CONSERVATIVE">Research conservative</option>
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">Strategy version (catalog)</span>
+          <select
+            v-model="form.strategyVersionId"
+            aria-label="Strategy version"
+            class="w-full rounded-md border bg-transparent px-2 py-1"
+          >
+            <option value="">Use research preset</option>
+            <optgroup
+              v-for="strategy in strategyOptions"
+              :key="strategy.code"
+              :label="strategy.code"
+            >
+              <option
+                v-for="entry in strategy.versions"
+                :key="entry.strategyVersionId"
+                :value="entry.strategyVersionId"
+              >
+                v{{ entry.version }} · {{ entry.lifecycleState }}
+              </option>
+            </optgroup>
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground"
+            >Risk policy version (catalog)</span
+          >
+          <select
+            v-model="form.riskPolicyVersionId"
+            aria-label="Risk policy version"
+            class="w-full rounded-md border bg-transparent px-2 py-1"
+          >
+            <option value="">Use research preset</option>
+            <optgroup
+              v-for="policy in riskOptions"
+              :key="policy.code"
+              :label="policy.code"
+            >
+              <option
+                v-for="entry in policy.versions"
+                :key="entry.riskPolicyVersionId"
+                :value="entry.riskPolicyVersionId"
+              >
+                v{{ entry.version }} · {{ entry.lifecycleState }}
+              </option>
+            </optgroup>
+          </select>
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">Starting capital</span>
@@ -364,6 +472,29 @@ function parameter(key: string): string {
             v-model.number="form.warmupBars"
             type="number"
             aria-label="Warm-up bars"
+            class="w-full rounded-md border bg-transparent px-2 py-1"
+          />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">Context</span>
+          <select
+            v-model="form.contextSource"
+            aria-label="Context source"
+            class="w-full rounded-md border bg-transparent px-2 py-1"
+          >
+            <option value="DERIVED_RESEARCH">
+              Derived from canonical data (research)
+            </option>
+            <option value="STRICT_PRODUCTION">
+              Strict production (fails closed)
+            </option>
+          </select>
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted-foreground">Market symbol (benchmark)</span>
+          <input
+            v-model="form.marketSymbol"
+            aria-label="Market symbol"
             class="w-full rounded-md border bg-transparent px-2 py-1"
           />
         </label>
@@ -408,7 +539,15 @@ function parameter(key: string): string {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="item in runs" :key="item.runKey">
+            <TableRow
+              v-for="item in runs"
+              :key="item.runKey"
+              tabindex="0"
+              class="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
+              :aria-label="`Open backtest run ${item.runKey}`"
+              @click="openDetail(item.runKey)"
+              @keydown.enter.prevent="openDetail(item.runKey)"
+            >
               <TableCell class="text-xs">
                 {{ item.strategyId ?? '—' }} {{ item.strategyVersion ?? '' }}
               </TableCell>
@@ -446,18 +585,18 @@ function parameter(key: string): string {
                 <Button
                   variant="ghost"
                   size="sm"
-                  @click="selectRun(item.runKey)"
+                  @click.stop="selectRun(item.runKey)"
                   >Open</Button
                 >
                 <Button
                   v-if="item.status === 'CREATED' || item.status === 'RUNNING'"
                   variant="ghost"
                   size="sm"
-                  @click="cancelMutation.mutate(item.runKey)"
+                  @click.stop="cancelMutation.mutate(item.runKey)"
                 >
                   <Square class="size-3" aria-hidden="true" /> Cancel
                 </Button>
-                <Button variant="ghost" size="sm" @click="cloneRun(item)">
+                <Button variant="ghost" size="sm" @click.stop="cloneRun(item)">
                   Clone
                 </Button>
               </TableCell>

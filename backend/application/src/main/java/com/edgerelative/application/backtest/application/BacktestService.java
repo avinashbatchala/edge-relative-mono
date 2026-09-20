@@ -8,7 +8,10 @@ import com.edgerelative.application.backtest.domain.EquityPoint;
 import com.edgerelative.application.backtest.engine.BacktestContextProvider;
 import com.edgerelative.application.backtest.engine.BacktestEngine;
 import com.edgerelative.application.backtest.persistence.BacktestRepository;
+import com.edgerelative.application.catalog.application.CatalogNotFoundException;
+import com.edgerelative.application.catalog.application.StrategyCatalogService;
 import com.edgerelative.application.feature.policy.FeatureProperties;
+import com.edgerelative.application.risk.domain.RiskPolicy;
 import com.edgerelative.application.risk.persistence.RiskPolicyRepository;
 import com.edgerelative.application.strategy.application.StrategyParametersProvider;
 import com.edgerelative.application.strategy.domain.StrategyParameters;
@@ -39,6 +42,7 @@ public class BacktestService {
 
     private final BacktestRepository repository;
     private final BacktestEngine engine;
+    private final StrategyCatalogService strategyCatalog;
     private final StrategyParametersProvider strategyParameters;
     private final RiskPolicyRepository riskPolicies;
     private final FeatureProperties featureProperties;
@@ -49,6 +53,7 @@ public class BacktestService {
     public BacktestService(
             BacktestRepository repository,
             BacktestEngine engine,
+            StrategyCatalogService strategyCatalog,
             StrategyParametersProvider strategyParameters,
             RiskPolicyRepository riskPolicies,
             FeatureProperties featureProperties,
@@ -57,6 +62,7 @@ public class BacktestService {
             Clock clock) {
         this.repository = repository;
         this.engine = engine;
+        this.strategyCatalog = strategyCatalog;
         this.strategyParameters = strategyParameters;
         this.riskPolicies = riskPolicies;
         this.featureProperties = featureProperties;
@@ -73,7 +79,7 @@ public class BacktestService {
                 resolved.spec.runKey(), specJson, json.writeValueAsString(costModel(resolved.spec)),
                 resolved.spec.startDate(), resolved.spec.endDate(), resolved.spec.instrumentIds().size(),
                 resolved.spec.startingCapital(), resolved.spec.currency(), resolved.spec.seed(),
-                "operator", datasetVersionId);
+                "operator", datasetVersionId, resolved.strategyVersionId(), resolved.riskPolicyVersionId());
         BacktestRunRow run = repository.findRun(resolved.spec.runKey()).orElseThrow();
         if ("CREATED".equals(run.status())) {
             executor.submit(() -> execute(resolved.spec, ids));
@@ -126,6 +132,19 @@ public class BacktestService {
     }
 
     private Resolved resolve(BacktestRunRequest request) {
+        if (request.symbols() == null || request.symbols().isEmpty()) {
+            throw new BacktestValidationException("Select at least one symbol.");
+        }
+        if (request.startDate() == null || request.endDate() == null
+                || request.endDate().isBefore(request.startDate())) {
+            throw new BacktestValidationException("Choose a valid start and end date.");
+        }
+        if (request.timeframe() == null || request.timeframe().isBlank()) {
+            throw new BacktestValidationException("Choose a supported timeframe.");
+        }
+        if (request.startingCapital() == null || request.startingCapital().signum() <= 0) {
+            throw new BacktestValidationException("Starting capital must be positive.");
+        }
         List<String> missing = new ArrayList<>();
         List<Long> instrumentIds = repository.findInstrumentIds(request.symbols());
         if (instrumentIds.size() != request.symbols().size()) {
@@ -136,12 +155,38 @@ public class BacktestService {
             }
             throw new BacktestValidationException("Unknown instruments: " + missing);
         }
-        StrategyParameters parameters = strategyParameters.parameters()
-                .orElseThrow(() -> new BacktestValidationException(
-                        "Strategy parameters are not configured; the backtest would be unsupported."));
-        RiskPolicyRepository.ResolvedPolicy policy = riskPolicies.resolve(request.riskPolicyCode())
-                .orElseThrow(() -> new BacktestValidationException(
-                        "Risk policy '" + request.riskPolicyCode() + "' is not available."));
+        // Prefer an explicit catalog version (reproducible), then a research preset, then configured
+        // production parameters. Fail closed with a clear reason otherwise.
+        Long strategyVersionId = request.strategyVersionId();
+        StrategyParameters parameters;
+        if (strategyVersionId != null) {
+            try {
+                parameters = strategyCatalog.resolveVersion(strategyVersionId).parameters();
+            } catch (CatalogNotFoundException notFound) {
+                throw new BacktestValidationException(notFound.getMessage());
+            }
+        } else {
+            parameters = BacktestPresets.strategy(request.strategyPreset())
+                    .or(() -> strategyParameters.parameters())
+                    .orElseThrow(() -> new BacktestValidationException(
+                            "Select a strategy version or research preset (or configure production strategy parameters)."));
+            strategyVersionId = repository.strategyVersionId() == 0L ? null : repository.strategyVersionId();
+        }
+        ResolvedRisk resolvedRisk;
+        if (request.riskPolicyVersionId() != null) {
+            resolvedRisk = riskPolicies.resolveById(request.riskPolicyVersionId())
+                    .map(policy -> new ResolvedRisk(policy.policy(), policy.riskPolicyVersionId()))
+                    .orElseThrow(() -> new BacktestValidationException(
+                            "Risk policy version " + request.riskPolicyVersionId() + " not found."));
+        } else {
+            resolvedRisk = BacktestPresets.risk(request.riskPreset())
+                    .map(risk -> new ResolvedRisk(risk, null))
+                    .or(() -> riskPolicies.resolve(request.riskPolicyCode())
+                            .map(policy -> new ResolvedRisk(policy.policy(), policy.riskPolicyVersionId())))
+                    .orElseThrow(() -> new BacktestValidationException(
+                            "Select a risk policy version or research preset (or an available risk policy code)."));
+        }
+        RiskPolicy policy = resolvedRisk.policy();
         Long marketInstrumentId = resolveSingle(request.marketSymbol());
         Long sectorInstrumentId = resolveSingle(request.sectorSymbol());
 
@@ -152,24 +197,61 @@ public class BacktestService {
         canonical.put("timeframe", request.timeframe());
         canonical.put("capital", request.startingCapital());
         canonical.put("currency", request.currency());
+        canonical.put("strategyVersionId", strategyVersionId);
+        canonical.put("riskPolicyVersionId", resolvedRisk.riskPolicyVersionId());
         canonical.put("strategy", parameters.parameterSetId() + "/" + parameters.parameterVersion());
-        canonical.put("riskPolicy", policy.policy().code() + "/" + policy.policy().version());
+        // Include resolved content so a materially different preset produces a different run.
+        canonical.put("strategyFamilies", parameters.enabledFamilies().stream().map(Enum::name).sorted().toList());
+        canonical.put("riskPolicy", policy.code() + "/" + policy.version());
+        canonical.put("riskBaseFraction", policy.trade() == null ? null : policy.trade().baseRiskFraction());
+        canonical.put("contextSource", contextSource(request));
         canonical.put("strict", request.strictProducers());
         canonical.put("warmup", request.warmupBars());
         canonical.put("seed", request.seed());
         String canonicalJson = json.writeValueAsString(canonical);
-        String runKey = UUID.nameUUIDFromBytes(("backtest:" + canonicalJson).getBytes(StandardCharsets.UTF_8)).toString();
+        // Retries of a FAILED/CANCELLED run create a new linked run; in-flight and succeeded runs are
+        // idempotent. Historical results are never overwritten.
+        String runKey = nextRunKey(canonicalJson);
 
         BacktestSpec spec = new BacktestSpec(
                 runKey, instrumentIds, request.symbols(), request.startDate(), request.endDate(),
                 request.timeframe(), request.dailyTimeframe(), request.startingCapital(), request.currency(),
-                request.strictProducers(), parameters, policy.policy(), featureProperties.toPolicy(),
+                request.strictProducers(), parameters, policy, featureProperties.toPolicy(),
                 execution(request.execution()), costs(request.costs()),
-                BacktestSpec.EndOfRunPolicy.valueOf(request.endOfRun()), request.warmupBars(), request.seed(),
+                request.endOfRun() == null || request.endOfRun().isBlank()
+                        ? BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET
+                        : BacktestSpec.EndOfRunPolicy.valueOf(request.endOfRun()),
+                request.warmupBars(), request.seed(),
                 BacktestEngine.ENGINE_REVISION, marketInstrumentId, sectorInstrumentId, "CANONICAL_M5",
-                datasetChecksum(request, instrumentIds));
+                datasetChecksum(request, instrumentIds), contextSource(request));
         canonical.put("runKey", runKey);
-        return new Resolved(spec, canonical);
+        return new Resolved(spec, canonical, strategyVersionId, resolvedRisk.riskPolicyVersionId());
+    }
+
+    private String nextRunKey(String canonicalJson) {
+        String base = UUID.nameUUIDFromBytes(("backtest:" + canonicalJson).getBytes(StandardCharsets.UTF_8)).toString();
+        String candidate = base;
+        for (int attempt = 2; attempt < 1000; attempt++) {
+            java.util.Optional<String> status = repository.runStatus(candidate);
+            if (status.isEmpty() || !("FAILED".equals(status.get()) || "CANCELLED".equals(status.get()))) {
+                return candidate;
+            }
+            candidate = UUID.nameUUIDFromBytes(("backtest:" + canonicalJson + "#" + attempt).getBytes(StandardCharsets.UTF_8))
+                    .toString();
+        }
+        return candidate;
+    }
+
+    private static BacktestSpec.ContextSource contextSource(BacktestRunRequest request) {
+        String value = request.contextSource();
+        if (value == null || value.isBlank()) {
+            return BacktestSpec.ContextSource.STRICT_PRODUCTION;
+        }
+        try {
+            return BacktestSpec.ContextSource.valueOf(value);
+        } catch (IllegalArgumentException unknown) {
+            throw new BacktestValidationException("Unknown context source '" + value + "'.");
+        }
     }
 
     private Long resolveSingle(String symbol) {
@@ -239,7 +321,14 @@ public class BacktestService {
         };
     }
 
-    private record Resolved(BacktestSpec spec, Map<String, Object> canonicalSpec) {
+    private record Resolved(
+            BacktestSpec spec,
+            Map<String, Object> canonicalSpec,
+            Long strategyVersionId,
+            Long riskPolicyVersionId) {
+    }
+
+    private record ResolvedRisk(com.edgerelative.application.risk.domain.RiskPolicy policy, Long riskPolicyVersionId) {
     }
 
     /** Thrown when the requested configuration cannot be run as specified. */

@@ -8,9 +8,19 @@ import {
 } from '@testing-library/vue'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import * as backtestsApi from '@/api/backtests'
 import type { BacktestRun } from '@/api/backtests'
 import BacktestsView from './BacktestsView.vue'
+
+vi.mock('@/api/catalog', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/catalog')>()
+  return {
+    ...actual,
+    getStrategies: vi.fn().mockResolvedValue([]),
+    getRiskPolicies: vi.fn().mockResolvedValue([]),
+  }
+})
 
 vi.mock('@/api/backtests', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/backtests')>()
@@ -78,8 +88,24 @@ function setup(runs: BacktestRun[]) {
       queries: { retry: false, retryDelay: 0, refetchInterval: false },
     },
   })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/backtests',
+        name: 'backtests',
+        component: { template: '<div/>' },
+      },
+      {
+        path: '/backtests/:runKey',
+        name: 'backtest-run',
+        component: { template: '<div/>' },
+      },
+    ],
+  })
+  router.push('/backtests')
   render(defineComponent({ render: () => h(BacktestsView) }), {
-    global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+    global: { plugins: [[VueQueryPlugin, { queryClient }], router] },
   })
 }
 

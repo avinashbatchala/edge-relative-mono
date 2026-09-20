@@ -44,7 +44,8 @@ class BacktestMetricsTest {
                         point(900, "1100", "1125", "25")),
                 List.of(),
                 4,
-                4);
+                4,
+                Map.of());
 
         Map<String, Object> metrics = BacktestMetrics.compute(result, new BigDecimal("1000"), 18900);
 
@@ -62,7 +63,7 @@ class BacktestMetricsTest {
 
     @Test
     void undefinedMetricsAreNullWithExplanationsNotZero() {
-        BacktestResult empty = new BacktestResult(List.of(), List.of(), List.of(), 0, 0);
+        BacktestResult empty = new BacktestResult(List.of(), List.of(), List.of(), 0, 0, Map.of());
         Map<String, Object> metrics = BacktestMetrics.compute(empty, new BigDecimal("1000"), 18900);
 
         assertThat(metrics.get("winRatePct")).isNull();
@@ -81,7 +82,7 @@ class BacktestMetricsTest {
                 "open", 1L, "TCS", Direction.LONG, null, T, new BigDecimal("100"), null, null, 100,
                 new BigDecimal("2"), new BigDecimal("50"), BigDecimal.ZERO, new BigDecimal("50"), null, null,
                 "OPEN_MARKED_TO_MARKET", 0, Map.of(), "plan", "decision");
-        BacktestResult result = new BacktestResult(List.of(open), List.of(point(0, "1050", "1050", "0")), List.of(), 1, 1);
+        BacktestResult result = new BacktestResult(List.of(open), List.of(point(0, "1050", "1050", "0")), List.of(), 1, 1, Map.of());
         Map<String, Object> metrics = BacktestMetrics.compute(result, new BigDecimal("1000"), 18900);
         assertThat(metrics.get("completedTrades")).isEqualTo(0);
         assertThat(metrics.get("openPositions")).isEqualTo(1);

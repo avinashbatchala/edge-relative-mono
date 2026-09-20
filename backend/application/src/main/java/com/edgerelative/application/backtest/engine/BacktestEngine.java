@@ -111,7 +111,8 @@ public final class BacktestEngine {
         Instant windowEndExclusive =
                 spec.endDate().plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
 
-        Portfolio portfolio = new Portfolio(spec, provider);
+        Map<String, long[]> counts = new LinkedHashMap<>();
+        Portfolio portfolio = new Portfolio(spec, provider, counts);
         long total = (long) timeline.size() * Math.max(1, spec.instrumentIds().size());
         long processed = 0;
         List<EquityPoint> equity = new ArrayList<>();
@@ -122,7 +123,8 @@ public final class BacktestEngine {
             List<Long> ordered = new ArrayList<>(spec.instrumentIds());
             ordered.sort(Comparator.naturalOrder());
             for (Long instrumentId : ordered) {
-                processSymbol(spec, provider, portfolio, instrumentId, anchor, m5.get(instrumentId), d1.get(instrumentId), series);
+                processSymbol(spec, provider, portfolio, instrumentId, anchor, m5.get(instrumentId),
+                        d1.get(instrumentId), series, marketCandles, counts);
                 processed++;
             }
             portfolio.markEquity(anchor, equity);
@@ -132,7 +134,17 @@ public final class BacktestEngine {
         }
         portfolio.finish(spec, series, timeline, equity);
         return new BacktestResult(
-                portfolio.trades(), equity, portfolio.rejections(), processed, total);
+                portfolio.trades(), equity, portfolio.rejections(), processed, total, snapshot(counts));
+    }
+
+    private static void increment(Map<String, long[]> counts, String key) {
+        counts.computeIfAbsent(key, ignored -> new long[1])[0]++;
+    }
+
+    private static Map<String, Long> snapshot(Map<String, long[]> counts) {
+        Map<String, Long> result = new TreeMap<>();
+        counts.forEach((key, value) -> result.put(key, value[0]));
+        return result;
     }
 
     private Map<Long, List<AggregatedCandle>> loadSeries(BacktestSpec spec, String timeframe) {
@@ -194,12 +206,15 @@ public final class BacktestEngine {
             Instant anchor,
             NavigableMap<Instant, FeatureSnapshot> m5,
             NavigableMap<Instant, FeatureSnapshot> d1,
-            Map<Long, List<AggregatedCandle>> series) {
+            Map<Long, List<AggregatedCandle>> series,
+            List<AggregatedCandle> marketCandles,
+            Map<String, long[]> counts) {
         List<AggregatedCandle> candles = series.getOrDefault(instrumentId, List.of());
         AggregatedCandle bar = candleAt(candles, anchor);
         if (bar == null) {
             return;
         }
+        increment(counts, "anchorsProcessed");
         portfolio.onBar(spec, instrumentId, bar);
         if (m5 == null || d1 == null) {
             return;
@@ -213,21 +228,32 @@ public final class BacktestEngine {
         }
         Map.Entry<Instant, FeatureSnapshot> dailyEntry = d1.floorEntry(anchor);
         FeatureSnapshot daily = dailyEntry == null ? null : dailyEntry.getValue();
+        Context context = context(spec, provider, instrumentId, anchor, snapshot, daily, bar, candles, marketCandles);
 
         StrategyEvaluationResult longResult = strategyEngine.evaluate(
-                input(spec, provider, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.LONG);
+                input(spec, context, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.LONG);
         StrategyEvaluationResult shortResult = strategyEngine.evaluate(
-                input(spec, provider, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.SHORT);
+                input(spec, context, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.SHORT);
+        increment(counts, "setup_" + longResult.setupState().name());
+        increment(counts, "setup_" + shortResult.setupState().name());
+        if (longResult.setupState() != SetupState.VALID) {
+            longResult.reasonCodes().forEach(code -> increment(counts, "longReason_" + code.name()));
+        }
+        if (shortResult.setupState() != SetupState.VALID) {
+            shortResult.reasonCodes().forEach(code -> increment(counts, "shortReason_" + code.name()));
+        }
         StrategyEvaluationResult chosen = longResult.setupState() == SetupState.VALID
                 ? longResult
                 : shortResult.setupState() == SetupState.VALID ? shortResult : null;
         if (chosen == null) {
             return;
         }
+        increment(counts, "setupValid");
         RiskDecisionProposal proposal = riskEvaluator.evaluate(
-                candidate(spec, provider, instrumentId, anchor, snapshot, chosen, bar),
+                candidate(spec, context, instrumentId, anchor, snapshot, chosen, bar),
                 portfolio.context(spec, anchor, snapshot),
                 spec.riskPolicy());
+        increment(counts, "risk_" + proposal.decision().name());
         if (!proposal.decision().authorizesNewRisk()) {
             portfolio.recordRejection(new BacktestRejection(
                     anchor, instrumentId, chosen.direction(),
@@ -237,23 +263,24 @@ public final class BacktestEngine {
         }
         TradePlan plan = TradePlanFactory.create(
                 proposal, 0L,
-                lineage(spec, provider, instrumentId, anchor, snapshot, chosen, bar, proposal),
+                lineage(spec, context, instrumentId, anchor, snapshot, chosen, bar, proposal),
                 new TradePlanPolicy("backtest", 1, "backtest", null, null, null, "REFERENCE_PRICE",
                         proposal.structuralInvalidation() == null ? null : "STRUCTURAL_UNRESOLVED", "TICK_BUFFER"),
                 anchor, null);
+        increment(counts, "plansCreated");
         portfolio.submit(spec, instrumentId, chosen.direction(), plan);
     }
 
     private StrategyEvaluationInput input(
             BacktestSpec spec,
-            BacktestContextProvider provider,
+            Context context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
             FeatureSnapshot daily,
             AggregatedCandle bar) {
-        BacktestContextProvider.MarketInput market = provider.market(instrumentId, anchor);
-        BacktestContextProvider.StockInput stock = provider.stock(instrumentId, anchor);
+        BacktestContextProvider.MarketInput market = context.market();
+        BacktestContextProvider.StockInput stock = context.stock();
         LocalDate sessionDate = calendar.sessionDate(anchor);
         boolean tradingDay = calendar.isTradingDay(sessionDate);
         List<DependencyStatus> dependencies = new ArrayList<>();
@@ -308,15 +335,17 @@ public final class BacktestEngine {
 
     private RiskCandidate candidate(
             BacktestSpec spec,
-            BacktestContextProvider provider,
+            Context context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
             StrategyEvaluationResult result,
             AggregatedCandle bar) {
-        BacktestContextProvider.MarketInput market = provider.market(instrumentId, anchor);
+        BacktestContextProvider.MarketInput market = context.market();
+        BacktestContextProvider.StockInput stock = context.stock();
         return new RiskCandidate(
-                "bt-" + instrumentId + "-" + anchor,
+                // Run-scoped so replaying the same window never collides on persisted keys.
+                spec.runKey() + ":cand:" + instrumentId + ":" + anchor,
                 "bt",
                 1L,
                 1L,
@@ -337,8 +366,8 @@ public final class BacktestEngine {
                 anchor,
                 market.regime(),
                 market.available(),
-                provider.stock(instrumentId, anchor).eventRiskKnown(),
-                provider.stock(instrumentId, anchor).eventRiskBlocked(),
+                stock.eventRiskKnown(),
+                stock.eventRiskBlocked(),
                 sectorId(snapshot),
                 sectorCode(snapshot),
                 null,
@@ -355,7 +384,7 @@ public final class BacktestEngine {
 
     private PlanLineage lineage(
             BacktestSpec spec,
-            BacktestContextProvider provider,
+            Context context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
@@ -380,7 +409,7 @@ public final class BacktestEngine {
                 0,
                 new BigDecimal("0.05"),
                 1L,
-                provider.market(instrumentId, anchor).regime(),
+                context.market().regime(),
                 sectorCode(snapshot),
                 result.setupInstanceId(),
                 anchor,
@@ -402,6 +431,142 @@ public final class BacktestEngine {
         return new StrategyEvaluationInput.StructureContext(
                 false, null, null, null, null, false, null, present,
                 input.ema3(), input.ema8(), input.ema3Previous(), input.ema8Previous());
+    }
+
+    private record Context(BacktestContextProvider.MarketInput market, BacktestContextProvider.StockInput stock) {
+    }
+
+    /**
+     * Resolves the strategy's market/stock/structure inputs. Strict production uses wired producers
+     * (none yet). Derived research computes them from canonical data under documented assumptions:
+     * market bias from the market price structure, daily alignment from the daily RRS sign, liquidity
+     * from the median traded value, technical void as recent range / ATR, EMA3/EMA8 from closes, and
+     * event risk assumed clear (no event-calendar producer). It remains a versioned research context.
+     */
+    private Context context(
+            BacktestSpec spec,
+            BacktestContextProvider provider,
+            long instrumentId,
+            Instant anchor,
+            FeatureSnapshot snapshot,
+            FeatureSnapshot daily,
+            AggregatedCandle bar,
+            List<AggregatedCandle> candles,
+            List<AggregatedCandle> marketCandles) {
+        if (spec.contextSource() != BacktestSpec.ContextSource.DERIVED_RESEARCH) {
+            return new Context(provider.market(instrumentId, anchor), provider.stock(instrumentId, anchor));
+        }
+        Double marketTrend = trend(candlesUpTo(marketCandles, bar, 21));
+        String bias = marketTrend == null ? "NEUTRAL" : marketTrend > 0 ? "BULLISH" : marketTrend < 0 ? "BEARISH" : "NEUTRAL";
+        Double rssD1 = number(daily, FeatureKeys.RRS_RAW);
+        String dailyStructure = rssD1 == null ? null
+                : rssD1 > 0 ? "LONG_ALIGNED" : rssD1 < 0 ? "SHORT_ALIGNED" : null;
+        List<AggregatedCandle> history = candlesUpTo(candles, bar, 60);
+        Double medianValue = medianTradedValue(history, 20);
+        Double voidAtr = technicalVoid(history, 20, number(snapshot, FeatureKeys.ATR));
+        BacktestContextProvider.StructureInput structure = emaStructure(history);
+        return new Context(
+                new BacktestContextProvider.MarketInput(true, bias, "RANGE", null),
+                new BacktestContextProvider.StockInput(
+                        true, dailyStructure, null, medianValue == null ? null : "VALID", medianValue, voidAtr,
+                        true, false, structure));
+    }
+
+    private static List<AggregatedCandle> candlesUpTo(
+            List<AggregatedCandle> candles, AggregatedCandle bar, int max) {
+        List<AggregatedCandle> upTo = new ArrayList<>();
+        for (AggregatedCandle candle : candles) {
+            if (bar.closeTime() != null && candle.closeTime() != null
+                    && candle.closeTime().isAfter(bar.closeTime())) {
+                break;
+            }
+            upTo.add(candle);
+        }
+        return upTo.size() <= max ? upTo : upTo.subList(upTo.size() - max, upTo.size());
+    }
+
+    private static Double trend(List<AggregatedCandle> history) {
+        BigDecimal first = null;
+        BigDecimal last = null;
+        for (AggregatedCandle candle : history) {
+            if (candle.close() != null) {
+                if (first == null) {
+                    first = candle.close();
+                }
+                last = candle.close();
+            }
+        }
+        if (first == null || last == null || first.signum() == 0) {
+            return null;
+        }
+        return last.subtract(first).divide(first, 10, java.math.RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private static Double medianTradedValue(List<AggregatedCandle> history, int window) {
+        List<Double> values = new ArrayList<>();
+        for (int i = Math.max(0, history.size() - window); i < history.size(); i++) {
+            AggregatedCandle candle = history.get(i);
+            if (candle.close() != null) {
+                values.add(candle.close().doubleValue() * candle.volume());
+            }
+        }
+        if (values.isEmpty()) {
+            return null;
+        }
+        values.sort(Double::compareTo);
+        int mid = values.size() / 2;
+        return values.size() % 2 == 1 ? values.get(mid) : (values.get(mid - 1) + values.get(mid)) / 2.0;
+    }
+
+    private static Double technicalVoid(List<AggregatedCandle> history, int window, Double atr) {
+        if (atr == null || atr <= 0) {
+            return null;
+        }
+        double high = Double.NEGATIVE_INFINITY;
+        double low = Double.POSITIVE_INFINITY;
+        for (int i = Math.max(0, history.size() - window); i < history.size(); i++) {
+            AggregatedCandle candle = history.get(i);
+            if (candle.high() != null) {
+                high = Math.max(high, candle.high().doubleValue());
+            }
+            if (candle.low() != null) {
+                low = Math.min(low, candle.low().doubleValue());
+            }
+        }
+        if (!Double.isFinite(high) || !Double.isFinite(low)) {
+            return null;
+        }
+        return (high - low) / atr;
+    }
+
+    private static BacktestContextProvider.StructureInput emaStructure(List<AggregatedCandle> history) {
+        List<Double> closes = new ArrayList<>();
+        for (AggregatedCandle candle : history) {
+            if (candle.close() != null) {
+                closes.add(candle.close().doubleValue());
+            }
+        }
+        if (closes.size() < 9) {
+            return null;
+        }
+        double ema3 = closes.get(0);
+        double ema8 = closes.get(0);
+        double prev3 = ema3;
+        double prev8 = ema8;
+        for (int i = 1; i < closes.size(); i++) {
+            prev3 = ema3;
+            prev8 = ema8;
+            ema3 = closes.get(i) * (2.0 / 4) + ema3 * (1 - 2.0 / 4);
+            ema8 = closes.get(i) * (2.0 / 9) + ema8 * (1 - 2.0 / 9);
+        }
+        return new BacktestContextProvider.StructureInput(
+                BigDecimal.valueOf(ema3), BigDecimal.valueOf(ema8),
+                BigDecimal.valueOf(prev3), BigDecimal.valueOf(prev8));
+    }
+
+    private static String label(com.edgerelative.application.feature.domain.ContextSnapshot context, String key) {
+        FeatureValue value = context == null ? null : context.features().get(key);
+        return value != null && value.availability() == FeatureAvailability.VALID ? value.label() : null;
     }
 
     private static StrategyEvaluationInput.SectorContext sector(FeatureSnapshot snapshot, Instant anchor) {
@@ -480,10 +645,12 @@ public final class BacktestEngine {
         private final List<BacktestTrade> trades = new ArrayList<>();
         private final List<BacktestRejection> rejections = new ArrayList<>();
         private final BacktestContextProvider provider;
+        private final Map<String, long[]> counts;
 
-        private Portfolio(BacktestSpec spec, BacktestContextProvider provider) {
+        private Portfolio(BacktestSpec spec, BacktestContextProvider provider, Map<String, long[]> counts) {
             this.startingCapital = spec.startingCapital();
             this.provider = provider;
+            this.counts = counts;
         }
 
         boolean hasPositionOrPending(long instrumentId) {
@@ -492,6 +659,7 @@ public final class BacktestEngine {
 
         void submit(BacktestSpec spec, long instrumentId, Direction direction, TradePlan plan) {
             pending.put(instrumentId, new PendingOrder(direction, plan, 0));
+            increment(counts, "ordersSubmitted");
         }
 
         void recordRejection(BacktestRejection rejection) {
@@ -511,9 +679,11 @@ public final class BacktestEngine {
             if (order != null) {
                 order.barsWaited++;
                 if (order.barsWaited > spec.execution().orderExpiryBars()) {
+                    increment(counts, "ordersExpired");
                     pending.remove(instrumentId);
                 } else {
                     fillEntry(spec, instrumentId, order, bar);
+                    increment(counts, "fills");
                     pending.remove(instrumentId);
                 }
             }
@@ -577,9 +747,11 @@ public final class BacktestEngine {
             BigDecimal realizedR = initialRiskTotal.signum() == 0
                     ? null
                     : net.divide(initialRiskTotal, 4, RoundingMode.HALF_UP);
+            increment(counts, "exits");
+            increment(counts, "exit_" + reason);
             trades.add(new BacktestTrade(
                     UUID.nameUUIDFromBytes((position.planKey + ":" + bar.closeTime()).getBytes(StandardCharsets.UTF_8)).toString(),
-                    instrumentId, String.valueOf(instrumentId), position.direction, position.entryPattern,
+                    instrumentId, symbol(spec, instrumentId), position.direction, position.entryPattern,
                     position.entryAt, position.entryPrice, bar.closeTime(), exitPrice, position.quantity,
                     position.initialRiskPerUnit, gross.setScale(2, RoundingMode.HALF_UP), explicit.setScale(2, RoundingMode.HALF_UP),
                     net.setScale(2, RoundingMode.HALF_UP), realizedR,
@@ -616,9 +788,10 @@ public final class BacktestEngine {
                 List<AggregatedCandle> candles = series.getOrDefault(position.instrumentId, List.of());
                 BigDecimal last = candles.isEmpty() ? position.markPrice : candles.get(candles.size() - 1).close();
                 BigDecimal gross = grossPnl(position, last, position.quantity);
+                increment(counts, "openAtEnd");
                 trades.add(new BacktestTrade(
                         UUID.nameUUIDFromBytes((position.planKey + ":open").getBytes(StandardCharsets.UTF_8)).toString(),
-                        position.instrumentId, String.valueOf(position.instrumentId), position.direction, position.entryPattern,
+                        position.instrumentId, symbol(spec, position.instrumentId), position.direction, position.entryPattern,
                         position.entryAt, position.entryPrice, null, null, position.quantity, position.initialRiskPerUnit,
                         gross.setScale(2, RoundingMode.HALF_UP), BigDecimal.ZERO.setScale(2), gross.setScale(2, RoundingMode.HALF_UP),
                         null, null, "OPEN_MARKED_TO_MARKET", position.ambiguousBars, Map.of(), position.planKey,
@@ -628,7 +801,7 @@ public final class BacktestEngine {
 
         RiskContext context(BacktestSpec spec, Instant anchor, FeatureSnapshot snapshot) {
             BigDecimal equity = startingCapital.add(realized);
-            return RiskContext.builder("bt-" + anchor, 1, anchor, calendarSession(spec, anchor))
+            return RiskContext.builder(spec.runKey() + ":ctx:" + anchor, 1, anchor, calendarSession(spec, anchor))
                     .available()
                     .equity(equity, equity)
                     .funding(equity, equity, BigDecimal.ZERO)

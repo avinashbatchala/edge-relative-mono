@@ -22,7 +22,14 @@ import {
 import FeatureOverlayChart from './FeatureOverlayChart.vue'
 import FeatureStateBadge from './FeatureStateBadge.vue'
 
-const props = defineProps<{ instrumentId: number; symbol: string }>()
+const props = defineProps<{
+  instrumentId: number
+  symbol: string
+  /** Explicit window (e.g. a backtest run); overrides the range selector when both are set. */
+  windowFrom?: string
+  windowTo?: string
+  markers?: import('@/lib/chart-markers').ChartMarker[]
+}>()
 
 const timeframe = ref<string>('M5')
 const rangeKey = ref<string>('5D')
@@ -30,6 +37,9 @@ const rangeKey = ref<string>('5D')
 const RANGES: Record<string, number> = { '1D': 1, '5D': 5, '1M': 31, '3M': 92 }
 
 const range = computed(() => {
+  if (props.windowFrom && props.windowTo) {
+    return { from: props.windowFrom, to: props.windowTo }
+  }
   const days = RANGES[rangeKey.value] ?? 5
   const to = new Date()
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000)
@@ -229,6 +239,7 @@ const failed = computed(
       <PriceChart
         v-if="candles.length"
         :candles="candles"
+        :markers="markers"
         sync-key="feature-history"
       />
 

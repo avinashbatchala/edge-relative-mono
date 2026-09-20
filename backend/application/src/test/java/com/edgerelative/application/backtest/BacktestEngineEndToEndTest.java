@@ -105,6 +105,10 @@ class BacktestEngineEndToEndTest {
     }
 
     private static BacktestSpec spec() {
+        return spec(BacktestSpec.ContextSource.STRICT_PRODUCTION);
+    }
+
+    private static BacktestSpec spec(BacktestSpec.ContextSource contextSource) {
         return new BacktestSpec(
                 "e2e-run", List.of(SUBJECT), List.of("SUBJECT"),
                 LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 11), "M5", "D1",
@@ -115,7 +119,17 @@ class BacktestEngineEndToEndTest {
                 new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
                         dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
                 BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,
-                MARKET, null, "CANONICAL_M5", "fixture");
+                MARKET, null, "CANONICAL_M5", "fixture", contextSource);
+    }
+
+    @Test
+    void derivedResearchContextProducesTradesFromCanonicalData() {
+        BacktestResult result = new BacktestEngine(
+                new FixtureReader(), new FeatureEngine(),
+                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
+                NseTradingCalendar.weekendsOnly())
+                .run(spec(BacktestSpec.ContextSource.DERIVED_RESEARCH), BacktestContextProvider.strict(), null);
+        assertThat(result.trades()).isNotEmpty();
     }
 
     private static BacktestContextProvider provider() {
@@ -169,6 +183,38 @@ class BacktestEngineEndToEndTest {
         assertThat(result.equityPoints().get(result.equityPoints().size() - 1).drawdown())
                 .isGreaterThanOrEqualTo(BigDecimal.ZERO);
         assertThat(result.processedEvents()).isGreaterThan(0);
+    }
+
+    @Test
+    void researchPresetsRunWithoutFailingAndFailClosedInStrictMode() {
+        BacktestSpec presetSpec = new BacktestSpec(
+                "preset-run", List.of(SUBJECT), List.of("SUBJECT"),
+                LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 11), "M5", "D1",
+                dec("1000000"), "INR", true,
+                com.edgerelative.application.backtest.application.BacktestPresets
+                        .strategy(com.edgerelative.application.backtest.application.BacktestPresets.STRATEGY_RS_RESEARCH)
+                        .orElseThrow(),
+                com.edgerelative.application.backtest.application.BacktestPresets
+                        .risk(com.edgerelative.application.backtest.application.BacktestPresets.RISK_RESEARCH_PERMISSIVE)
+                        .orElseThrow(),
+                featurePolicy(),
+                new BacktestSpec.ExecutionPolicy("test-exec", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
+                        BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
+                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true),
+                new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
+                        dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
+                BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,
+                MARKET, null, "CANONICAL_M5", "fixture", BacktestSpec.ContextSource.STRICT_PRODUCTION);
+
+        BacktestResult result = new BacktestEngine(
+                new FixtureReader(), new FeatureEngine(),
+                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
+                NseTradingCalendar.weekendsOnly())
+                .run(presetSpec, BacktestContextProvider.strict(), null);
+
+        // Strict production context has no producers, so the run completes with no fabricated trades.
+        assertThat(result.trades()).isEmpty();
+        assertThat(result.equityPoints()).isNotEmpty();
     }
 
     /** Deterministic reader: rising tight subject for history, then a gap below the stop. */

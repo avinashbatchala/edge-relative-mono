@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Settings,
+  ShieldCheck,
   Wrench,
 } from '@lucide/vue'
 import { computed } from 'vue'
@@ -36,6 +37,7 @@ const tools = [
   { title: 'Market Data', to: '/market', icon: Activity },
   { title: 'Research Data', to: '/research', icon: Database },
   { title: 'Backtests', to: '/backtests', icon: FlaskConical },
+  { title: 'Strategies & Risk', to: '/strategies', icon: ShieldCheck },
 ] as const
 
 const upcoming = [{ title: 'Trades', icon: Wrench }] as const
