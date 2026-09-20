@@ -35,4 +35,33 @@ class NseTradingCalendarTest {
         assertThat(calendar.sessionDate(istMorning)).isEqualTo(LocalDate.of(2026, 1, 27));
         assertThat(calendar.weekStart(LocalDate.of(2026, 1, 27))).isEqualTo(LocalDate.of(2026, 1, 26));
     }
+
+    @Test
+    void sessionLengthIsThreeHundredAndSeventyFiveMinutes() {
+        assertThat(calendar.sessionMinutes()).isEqualTo(375);
+    }
+
+    /**
+     * DD01 §131 / DD05 §115: the host default timezone must not change session semantics. These
+     * instants are absolute; the test passes under any JVM default zone.
+     */
+    @Test
+    void sessionInstantsAreIndependentOfTheHostDefaultTimezone() {
+        java.util.TimeZone original = java.util.TimeZone.getDefault();
+        try {
+            for (String zone : java.util.List.of(
+                    "UTC", "Asia/Kolkata", "America/New_York", "Pacific/Kiritimati")) {
+                java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(zone));
+                assertThat(calendar.sessionOpen(LocalDate.of(2026, 9, 18)))
+                        .isEqualTo(Instant.parse("2026-09-18T03:45:00Z"));
+                assertThat(calendar.sessionClose(LocalDate.of(2026, 9, 18)))
+                        .isEqualTo(Instant.parse("2026-09-18T10:00:00Z"));
+                // 18:30 UTC is midnight IST of the next day regardless of host zone.
+                assertThat(calendar.sessionDate(Instant.parse("2026-09-18T18:30:00Z")))
+                        .isEqualTo(LocalDate.of(2026, 9, 19));
+            }
+        } finally {
+            java.util.TimeZone.setDefault(original);
+        }
+    }
 }
