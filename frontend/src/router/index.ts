@@ -24,6 +24,13 @@ const router = createRouter({
       meta: { title: 'Feature Dashboard' },
     },
     {
+      path: '/features/:symbol',
+      name: 'feature-ticker',
+      component: () => import('@/views/FeatureTickerView.vue'),
+      props: true,
+      meta: { title: 'Feature Detail' },
+    },
+    {
       path: '/market',
       name: 'market-search',
       component: () => import('@/views/MarketSearchView.vue'),

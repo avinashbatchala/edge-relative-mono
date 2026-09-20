@@ -1,53 +1,54 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import {
+  CircleCheck,
+  CircleDashed,
+  CircleHelp,
+  CircleX,
+  Clock,
+  MinusCircle,
+  TriangleAlert,
+} from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
+import { featureStateMeta } from '@/lib/feature-presentation'
 
 const props = defineProps<{ state: string; reason?: string | null }>()
 
-const LABELS: Record<string, string> = {
-  HEALTHY: 'Healthy',
-  WARMING_UP: 'Warming up',
-  STALE: 'Stale',
-  DEGRADED: 'Degraded',
-  INVALID: 'Invalid',
-  UNAVAILABLE: 'Unavailable',
+const ICONS = {
+  HEALTHY: CircleCheck,
+  WARMING_UP: CircleDashed,
+  STALE: Clock,
+  DEGRADED: TriangleAlert,
+  INVALID: CircleX,
+  UNAVAILABLE: MinusCircle,
+} as const
+
+const ICON_TONES: Record<string, string> = {
+  HEALTHY: 'text-emerald-600 dark:text-emerald-500',
+  WARMING_UP: 'text-sky-600 dark:text-sky-500',
+  STALE: 'text-amber-600 dark:text-amber-500',
+  DEGRADED: 'text-orange-600 dark:text-orange-500',
+  INVALID: 'text-destructive',
+  UNAVAILABLE: 'text-muted-foreground',
 }
 
-const GLYPHS: Record<string, string> = {
-  HEALTHY: '●',
-  WARMING_UP: '◐',
-  STALE: '◌',
-  DEGRADED: '▲',
-  INVALID: '✕',
-  UNAVAILABLE: '—',
-}
-
-const TONES: Record<string, string> = {
-  HEALTHY: 'border-positive/40 text-positive',
-  WARMING_UP: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
-  STALE: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
-  DEGRADED: 'border-orange-500/40 text-orange-600 dark:text-orange-400',
-  INVALID: 'border-negative/40 text-negative',
-  UNAVAILABLE: 'border-muted-foreground/40 text-muted-foreground',
-}
-
-const label = computed(() => LABELS[props.state] ?? props.state)
-const glyph = computed(() => GLYPHS[props.state] ?? '•')
-const tone = computed(
-  () =>
-    TONES[props.state] ?? 'border-muted-foreground/40 text-muted-foreground',
+const meta = computed(() => featureStateMeta(props.state))
+const icon = computed(
+  () => ICONS[props.state as keyof typeof ICONS] ?? CircleHelp,
+)
+const iconTone = computed(
+  () => ICON_TONES[props.state] ?? 'text-muted-foreground',
 )
 </script>
 
 <template>
   <Badge
     variant="outline"
-    class="gap-1 whitespace-nowrap font-medium"
-    :class="tone"
-    :title="reason ?? undefined"
-    :aria-label="`Feature state: ${label}${reason ? `, ${reason}` : ''}`"
+    class="gap-1 px-1.5 font-normal text-muted-foreground"
+    :title="reason ?? meta.description"
+    :aria-label="`Feature state: ${meta.label}${reason ? `, ${reason}` : ''}`"
   >
-    <span aria-hidden="true">{{ glyph }}</span>
-    <span>{{ label }}</span>
+    <component :is="icon" class="size-3" :class="iconTone" aria-hidden="true" />
+    {{ meta.label }}
   </Badge>
 </template>

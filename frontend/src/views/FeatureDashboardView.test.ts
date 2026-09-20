@@ -5,12 +5,15 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/vue'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import type { FeatureDashboardRow } from '@/api/features'
 import * as featureApi from '@/api/features'
+import { useFeatureStreamStore } from '@/stores/feature-stream'
 import FeatureDashboardView from './FeatureDashboardView.vue'
 
 vi.mock('@/api/features', async (importOriginal) => {
@@ -130,6 +133,28 @@ function setup(rows: FeatureDashboardRow[]) {
   getFeatureDiagnostics.mockResolvedValue(
     diagnostics(rows.map((r) => r.instrumentId)),
   )
+  const pinia = createPinia()
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/features',
+        name: 'feature-dashboard',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/features/:symbol',
+        name: 'feature-ticker',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/market/:symbol',
+        name: 'market-ticker',
+        component: { template: '<div />' },
+      },
+    ],
+  })
+  router.push('/features')
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, retryDelay: 0, refetchInterval: false },
@@ -140,9 +165,10 @@ function setup(rows: FeatureDashboardRow[]) {
   })
   render(Wrapper, {
     global: {
-      plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+      plugins: [pinia, router, [VueQueryPlugin, { queryClient }]],
     },
   })
+  return { pinia, router }
 }
 
 beforeEach(() => {
@@ -161,32 +187,39 @@ test('renders watchlist rows and explains missing metrics', async () => {
     }),
   ])
 
-  expect(await screen.findByText('SYM1')).toBeTruthy()
-  expect(screen.getByText('SYM2')).toBeTruthy()
+  const table = await screen.findByTestId('feature-table')
+  expect(within(table).getByText('SYM1')).toBeTruthy()
+  expect(within(table).getByText('SYM2')).toBeTruthy()
   // Missing metric is visible as an explicit dash with a reason, not zero.
-  expect(screen.getAllByText('—').length).toBeGreaterThan(0)
-  expect(screen.getAllByTitle('baseline samples=3').length).toBeGreaterThan(0)
+  expect(within(table).getAllByText('—').length).toBeGreaterThan(0)
+  expect(
+    within(table).getAllByTitle('baseline samples=3').length,
+  ).toBeGreaterThan(0)
   expect(screen.getByText(/Showing 2 of 2 watchlist rows/)).toBeTruthy()
 })
 
 test('sorts by RRS and keeps missing values last', async () => {
   setup([row(1, 'SYM1', { rrsRaw: 0.5 }), row(2, 'SYM2', { rrsRaw: -3 })])
-  await screen.findByText('SYM1')
+  const table = await screen.findByTestId('feature-table')
 
   // Default sort is absolute RRS desc: |−3| > |0.5|.
-  let symbols = screen.getAllByText(/^SYM\d$/).map((node) => node.textContent)
+  let symbols = within(table)
+    .getAllByText(/^SYM\d$/)
+    .map((node) => node.textContent)
   expect(symbols).toEqual(['SYM2', 'SYM1'])
 
   await fireEvent.click(screen.getByRole('button', { name: 'Sort by RRS' }))
   await waitFor(() => {
-    symbols = screen.getAllByText(/^SYM\d$/).map((node) => node.textContent)
+    symbols = within(table)
+      .getAllByText(/^SYM\d$/)
+      .map((node) => node.textContent)
     expect(symbols).toEqual(['SYM1', 'SYM2'])
   })
 })
 
 test('filters by symbol search and clears', async () => {
   setup([row(1, 'SYM1'), row(2, 'SYM2')])
-  await screen.findByText('SYM1')
+  const table = await screen.findByTestId('feature-table')
 
   await fireEvent.update(
     screen.getByLabelText('Search watchlist symbols'),
@@ -194,19 +227,152 @@ test('filters by symbol search and clears', async () => {
   )
   await waitFor(() => {
     expect(screen.queryByText('SYM1')).toBeNull()
-    expect(screen.getByText('SYM2')).toBeTruthy()
+    expect(within(table).getByText('SYM2')).toBeTruthy()
     expect(screen.getByText(/Showing 1 of 2 watchlist rows/)).toBeTruthy()
   })
 
   await fireEvent.click(screen.getByRole('button', { name: /Clear/ }))
-  await waitFor(() => expect(screen.getByText('SYM1')).toBeTruthy())
+  await waitFor(() => expect(within(table).getByText('SYM1')).toBeTruthy())
 })
 
-test('selecting a row opens the historical inspection panel', async () => {
+test('stock names are links that open each instrument in its own tab', async () => {
   setup([row(1, 'SYM1')])
-  await screen.findByText('SYM1')
+  const table = await screen.findByTestId('feature-table')
 
-  await fireEvent.click(screen.getByRole('button', { name: /SYM1/ }))
+  const link = within(table).getByRole('link', { name: /SYM1/ })
+  expect(link.getAttribute('href')).toBe('/features/SYM1')
+  expect(link.getAttribute('target')).toBe('_blank')
+  expect(link.getAttribute('rel')).toContain('noopener')
+
+  // Row actions still open the in-app feature history drawer.
+  await fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for SYM1' }),
+  )
+  await fireEvent.click(await screen.findByText('Open feature history'))
   expect(await screen.findByTestId('history-panel')).toBeTruthy()
   expect(screen.getByTestId('history-panel').textContent).toContain('SYM1')
+})
+
+test('row actions open the feature view in a new tab', async () => {
+  const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  setup([row(1, 'SYM1')])
+  await screen.findByTestId('feature-table')
+
+  await fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for SYM1' }),
+  )
+  await fireEvent.click(await screen.findByText('Open feature view'))
+  expect(open).toHaveBeenCalledWith(
+    '/features/SYM1',
+    '_blank',
+    'noopener,noreferrer',
+  )
+  open.mockRestore()
+})
+
+test('row actions open market data in a new tab', async () => {
+  const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  setup([row(1, 'SYM1')])
+  await screen.findByTestId('feature-table')
+
+  await fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for SYM1' }),
+  )
+  await fireEvent.click(await screen.findByText('Open market data'))
+  expect(open).toHaveBeenCalledWith(
+    '/market/SYM1',
+    '_blank',
+    'noopener,noreferrer',
+  )
+  open.mockRestore()
+})
+
+test('surfaces the reasoning at the status cell, never raw keys', async () => {
+  setup([
+    row(1, 'SYM1', {
+      quality: 'DEGRADED',
+      availability: 'VALID',
+      qualityReason: 'needs 20 prior sessions, found 3',
+      unavailableReasons: {
+        RVOL_INTERVAL: 'needs 20 prior sessions, found 3',
+        VWAP_DISTANCE_ATR: 'VWAP feature is not implemented',
+      },
+    }),
+  ])
+  await screen.findByTestId('feature-table')
+
+  // The status badge exposes the reason to hover and assistive technology.
+  expect(screen.getByLabelText(/needs 20 prior sessions, found 3/)).toBeTruthy()
+  expect(screen.queryByText('RVOL_INTERVAL')).toBeNull()
+})
+
+test('distinguishes a genuine zero from a missing value', async () => {
+  setup([
+    row(1, 'SYM1', {
+      rrsRaw: null,
+      unavailableReasons: { RRS_RAW: 'baseline samples=3' },
+    }),
+    row(2, 'SYM2', { rrsRaw: 0, rvolInterval: 0 }),
+  ])
+  await screen.findByTestId('feature-table')
+
+  // Missing RRS is an explicit dash with a reason, never coerced to zero.
+  expect(screen.getAllByTitle('baseline samples=3').length).toBeGreaterThan(0)
+  // A legitimate zero renders as a numeric value.
+  expect(screen.getAllByText('0.00').length).toBeGreaterThan(0)
+})
+
+test('activates a row from the keyboard to open it in a new tab', async () => {
+  const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  setup([row(1, 'SYM1')])
+  await screen.findByTestId('feature-table')
+
+  const rowElement = screen.getByLabelText('Open SYM1 in a new tab')
+  await fireEvent.keyDown(rowElement, { key: 'Enter' })
+
+  expect(open).toHaveBeenCalledWith(
+    '/features/SYM1',
+    '_blank',
+    'noopener,noreferrer',
+  )
+  open.mockRestore()
+})
+
+test('exposes the sort direction to assistive technology', async () => {
+  setup([row(1, 'SYM1')])
+  await screen.findByTestId('feature-table')
+
+  const header = screen.getByText('RRS').closest('th') as HTMLElement
+  expect(header.getAttribute('aria-sort')).toBe('none')
+
+  await fireEvent.click(screen.getByRole('button', { name: 'Sort by RRS' }))
+  await waitFor(() =>
+    expect(header.getAttribute('aria-sort')).toBe('descending'),
+  )
+})
+
+test('preserves filters and selection across a live update', async () => {
+  const { pinia } = setup([row(1, 'SYM1'), row(2, 'SYM2')])
+  await screen.findByTestId('feature-table')
+
+  await fireEvent.update(
+    screen.getByLabelText('Search watchlist symbols'),
+    'SYM1',
+  )
+  await waitFor(() => expect(screen.queryByText('SYM2')).toBeNull())
+  await fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for SYM1' }),
+  )
+  await fireEvent.click(await screen.findByText('Open feature history'))
+  await screen.findByTestId('history-panel')
+
+  const store = useFeatureStreamStore(pinia)
+  store.mergeRows([row(1, 'SYM1', { rrsRaw: 9 }), row(3, 'SYM3')])
+
+  await waitFor(() => expect(screen.getByText(/Search: SYM1/)).toBeTruthy())
+  // The active filter keeps excluding the other instruments.
+  expect(screen.queryByText('SYM2')).toBeNull()
+  expect(screen.queryByText('SYM3')).toBeNull()
+  // The open inspection panel is not dismissed by the update.
+  expect(screen.getByTestId('history-panel')).toBeTruthy()
 })

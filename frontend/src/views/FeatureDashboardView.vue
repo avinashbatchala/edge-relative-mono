@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { RefreshCw, RotateCcw, Search, SlidersHorizontal } from '@lucide/vue'
+import { useRouter } from 'vue-router'
+import { MoreHorizontal, RefreshCw } from '@lucide/vue'
 import {
   featureKeys,
   getFeatureDashboard,
@@ -11,8 +12,12 @@ import {
 import { useFeatureStreamStore } from '@/stores/feature-stream'
 import { useFeatureStream } from '@/composables/useFeatureStream'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -22,16 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -49,10 +48,26 @@ import {
   formatPercent,
   movementClass,
 } from '@/lib/format'
+import {
+  directionMetaFromState,
+  featureVersionTitle,
+  formatFeatureVersion,
+  isStale,
+  isTrustworthy,
+  metricDecimals,
+  metricLabel,
+  presentationState,
+  qualityRank,
+  structureMeta,
+} from '@/lib/feature-presentation'
 import FeatureValueCell from '@/components/feature/FeatureValueCell.vue'
-import FeatureStateBadge from '@/components/feature/FeatureStateBadge.vue'
+import FeatureTrustCell from '@/components/feature/FeatureTrustCell.vue'
 import FeatureDiagnosticsPanel from '@/components/feature/FeatureDiagnosticsPanel.vue'
 import FeatureHistoryPanel from '@/components/feature/FeatureHistoryPanel.vue'
+import FeatureFilterBar from '@/components/feature/FeatureFilterBar.vue'
+import FeatureColumnSelector from '@/components/feature/FeatureColumnSelector.vue'
+import FeatureSummaryCards from '@/components/feature/FeatureSummaryCards.vue'
+import ConnectionStatus from '@/components/feature/ConnectionStatus.vue'
 
 type SortKey =
   | 'symbol'
@@ -69,10 +84,12 @@ type SortKey =
 interface Column {
   id: string
   label: string
+  accessibleLabel?: string
   group: string
   primary: boolean
   numeric?: boolean
   sortable?: SortKey
+  metric?: string
   hint?: string
 }
 
@@ -87,107 +104,131 @@ const COLUMNS: Column[] = [
   {
     id: 'price',
     label: 'Last',
+    accessibleLabel: 'Last price',
     group: 'Price',
     primary: true,
     numeric: true,
     sortable: 'price',
+    metric: 'LAST_PRICE',
     hint: 'Latest canonical close for the timeframe',
   },
   {
     id: 'changePct',
     label: 'Chg %',
+    accessibleLabel: 'Percent change',
     group: 'Price',
     primary: true,
     numeric: true,
     sortable: 'changePct',
+    metric: 'PRICE_CHANGE_PERCENT',
     hint: 'Change versus the previous session close',
   },
   {
     id: 'rrsRaw',
     label: 'RRS',
+    accessibleLabel: 'Real relative strength',
     group: 'Relative strength',
     primary: true,
     numeric: true,
     sortable: 'rrsRaw',
+    metric: 'RRS_RAW',
     hint: 'Real Relative Strength: volatility-normalised excess movement versus the broad benchmark',
   },
   {
     id: 'rrsFast',
     label: 'Fast',
+    accessibleLabel: 'RRS fast smoothing',
     group: 'Relative strength',
     primary: false,
     numeric: true,
+    metric: 'RRS_FAST',
     hint: 'Fast EMA of RRS raw',
   },
   {
     id: 'rrsSlow',
     label: 'Slow',
+    accessibleLabel: 'RRS slow smoothing',
     group: 'Relative strength',
     primary: false,
     numeric: true,
+    metric: 'RRS_SLOW',
     hint: 'Slow EMA of RRS raw',
   },
   {
     id: 'rrsPersistence',
     label: 'Persist',
+    accessibleLabel: 'RRS persistence',
     group: 'Relative strength',
     primary: false,
     numeric: true,
     sortable: 'rrsPersistence',
+    metric: 'RRS_PERSISTENCE',
     hint: 'Share of recent bars agreeing with the RRS sign',
   },
   {
     id: 'dailyRrs',
     label: 'Daily',
+    accessibleLabel: 'Daily RRS direction',
     group: 'Relative strength',
     primary: false,
-    hint: 'Daily RRS direction (higher-timeframe context)',
+    hint: 'Higher-timeframe RRS direction',
   },
   {
     id: 'rvolInterval',
     label: 'RVOL',
-    group: 'Volume',
+    accessibleLabel: 'Relative volume',
+    group: 'Participation',
     primary: true,
     numeric: true,
     sortable: 'rvolInterval',
+    metric: 'RVOL_INTERVAL',
     hint: 'Interval RVOL: current slot versus the same slot in prior sessions',
   },
   {
     id: 'rvolCumulative',
-    label: 'Cum RVOL',
-    group: 'Volume',
+    label: 'Cum',
+    accessibleLabel: 'Cumulative relative volume',
+    group: 'Participation',
     primary: false,
     numeric: true,
+    metric: 'RVOL_CUMULATIVE',
     hint: 'Cumulative RVOL to the same session-relative time',
   },
   {
     id: 'rve',
     label: 'RVE',
-    group: 'Volume',
+    accessibleLabel: 'Relative volume expansion',
+    group: 'Participation',
     primary: true,
     numeric: true,
     sortable: 'rve',
+    metric: 'RVE',
     hint: 'Relative Volume Expansion: fast minus slow log RVOL',
   },
   {
     id: 'atrPct',
     label: 'ATR %',
+    accessibleLabel: 'ATR percent',
     group: 'Volatility',
     primary: false,
     numeric: true,
+    metric: 'ATR_PERCENT',
     hint: 'ATR as a percentage of price',
   },
   {
     id: 'vwapDist',
     label: 'VWAP/ATR',
+    accessibleLabel: 'VWAP distance in ATR units',
     group: 'Volatility',
     primary: false,
     numeric: true,
+    metric: 'VWAP_DISTANCE_ATR',
     hint: 'Distance from VWAP in ATR units',
   },
   {
     id: 'market',
     label: 'Market',
+    accessibleLabel: 'Market price structure',
     group: 'Context',
     primary: false,
     hint: 'Broad-market price structure',
@@ -195,6 +236,7 @@ const COLUMNS: Column[] = [
   {
     id: 'sector',
     label: 'Sector',
+    accessibleLabel: 'Sector price structure',
     group: 'Context',
     primary: false,
     hint: 'Sector price structure',
@@ -202,7 +244,8 @@ const COLUMNS: Column[] = [
   {
     id: 'quality',
     label: 'Trust',
-    group: 'Quality',
+    accessibleLabel: 'Feature quality and trust',
+    group: 'Health',
     primary: true,
     sortable: 'quality',
     hint: 'Aggregate feature quality and availability',
@@ -210,7 +253,8 @@ const COLUMNS: Column[] = [
   {
     id: 'age',
     label: 'Fresh',
-    group: 'Quality',
+    accessibleLabel: 'Data freshness',
+    group: 'Health',
     primary: true,
     numeric: true,
     sortable: 'age',
@@ -219,12 +263,14 @@ const COLUMNS: Column[] = [
   {
     id: 'version',
     label: 'Version',
-    group: 'Quality',
+    accessibleLabel: 'Feature version',
+    group: 'Health',
     primary: false,
     hint: 'Active RRS feature version',
   },
 ]
 
+const router = useRouter()
 const store = useFeatureStreamStore()
 useFeatureStream()
 
@@ -267,31 +313,6 @@ const visible = ref<Record<string, boolean>>(
 )
 
 const selected = ref<FeatureDashboardRow | null>(null)
-
-const QUALITY_RANK: Record<string, number> = {
-  GOOD: 0,
-  CORRECTED: 1,
-  DEGRADED: 2,
-  SUSPECT: 3,
-  STALE: 4,
-  INCOMPLETE: 5,
-  UNAVAILABLE: 6,
-}
-
-function qualityRank(row: FeatureDashboardRow): number {
-  return QUALITY_RANK[row.quality] ?? 7
-}
-
-function isTrustworthy(row: FeatureDashboardRow): boolean {
-  return (
-    (row.quality === 'GOOD' || row.quality === 'CORRECTED') &&
-    row.availability === 'VALID'
-  )
-}
-
-function isStale(row: FeatureDashboardRow): boolean {
-  return row.availability === 'STALE' || row.quality === 'STALE'
-}
 
 function matches(row: FeatureDashboardRow): boolean {
   if (
@@ -367,19 +388,21 @@ function matches(row: FeatureDashboardRow): boolean {
       return false
     }
   }
-  if (qualityFilter.value === 'trustworthy' && !isTrustworthy(row)) {
+  const trustworthy = isTrustworthy(row.quality, row.availability)
+  if (qualityFilter.value === 'trustworthy' && !trustworthy) {
     return false
   }
-  if (qualityFilter.value === 'degraded' && isTrustworthy(row)) {
+  if (qualityFilter.value === 'degraded' && trustworthy) {
     return false
   }
   if (qualityFilter.value === 'unavailable' && row.availability === 'VALID') {
     return false
   }
-  if (freshnessFilter.value === 'fresh' && isStale(row)) {
+  const stale = isStale(row.quality, row.availability)
+  if (freshnessFilter.value === 'fresh' && stale) {
     return false
   }
-  if (freshnessFilter.value === 'stale' && !isStale(row)) {
+  if (freshnessFilter.value === 'stale' && !stale) {
     return false
   }
   return true
@@ -408,7 +431,7 @@ function sortValue(row: FeatureDashboardRow): number | string | null {
     case 'age':
       return row.staleSeconds
     case 'quality':
-      return qualityRank(row)
+      return qualityRank(row.quality)
   }
 }
 
@@ -431,7 +454,6 @@ function compare(a: FeatureDashboardRow, b: FeatureDashboardRow): number {
   return sortDir.value === 'asc' ? result : -result
 }
 
-// Keep the order stable between explicit actions so rows do not jump while values update live.
 const frozenKeys = ref<string[]>([])
 const filterSignature = computed(() =>
   [
@@ -476,6 +498,13 @@ const visibleColumns = computed(() =>
   COLUMNS.filter((column) => visible.value[column.id]),
 )
 
+const selectableColumns = computed(() =>
+  COLUMNS.filter((column) => column.id !== 'symbol').map((column) => ({
+    id: column.id,
+    label: column.label,
+  })),
+)
+
 function isGroupStart(index: number): boolean {
   if (index === 0) {
     return false
@@ -486,8 +515,27 @@ function isGroupStart(index: number): boolean {
   )
 }
 
+function ariaSort(
+  column: Column,
+): 'ascending' | 'descending' | 'none' | undefined {
+  if (!column.sortable) {
+    return undefined
+  }
+  if (sortKey.value !== column.sortable) {
+    return 'none'
+  }
+  return sortDir.value === 'asc' ? 'ascending' : 'descending'
+}
+
 function rowKey(row: FeatureDashboardRow): string {
   return `${row.instrumentId}:${row.timeframe}`
+}
+
+function isSelected(row: FeatureDashboardRow): boolean {
+  return (
+    selected.value?.instrumentId === row.instrumentId &&
+    selected.value?.timeframe === row.timeframe
+  )
 }
 
 function stateFor(row: FeatureDashboardRow): string {
@@ -496,9 +544,7 @@ function stateFor(row: FeatureDashboardRow): string {
   )
   return instrument
     ? instrument.state
-    : isTrustworthy(row)
-      ? 'HEALTHY'
-      : 'DEGRADED'
+    : presentationState(row.quality, row.availability)
 }
 
 function onSort(column: Column) {
@@ -524,113 +570,97 @@ function clearFilters() {
   minRvol.value = ''
 }
 
-interface ActiveFilter {
-  key: string
-  label: string
-  clear: () => void
+function clearFilter(key: string) {
+  switch (key) {
+    case 'search':
+      search.value = ''
+      break
+    case 'timeframe':
+      timeframeFilter.value = 'all'
+      break
+    case 'rs':
+      rsFilter.value = 'all'
+      break
+    case 'rve':
+      rveFilter.value = 'all'
+      break
+    case 'alignment':
+      alignmentFilter.value = 'all'
+      break
+    case 'quality':
+      qualityFilter.value = 'all'
+      break
+    case 'freshness':
+      freshnessFilter.value = 'all'
+      break
+    case 'minRvol':
+      minRvol.value = ''
+      break
+  }
 }
 
-const activeFilters = computed<ActiveFilter[]>(() => {
-  const filters: ActiveFilter[] = []
+const activeFilters = computed(() => {
+  const filters: { key: string; label: string }[] = []
   if (search.value) {
-    filters.push({
-      key: 'search',
-      label: `Search: ${search.value}`,
-      clear: () => (search.value = ''),
-    })
+    filters.push({ key: 'search', label: `Search: ${search.value}` })
   }
   if (timeframeFilter.value !== 'all') {
     filters.push({
       key: 'timeframe',
       label: `Timeframe: ${timeframeFilter.value}`,
-      clear: () => (timeframeFilter.value = 'all'),
     })
   }
   if (rsFilter.value !== 'all') {
-    filters.push({
-      key: 'rs',
-      label: `RS: ${rsFilter.value}`,
-      clear: () => (rsFilter.value = 'all'),
-    })
+    filters.push({ key: 'rs', label: `Relative strength: ${rsFilter.value}` })
   }
   if (rveFilter.value !== 'all') {
-    filters.push({
-      key: 'rve',
-      label: `RVE: ${rveFilter.value}`,
-      clear: () => (rveFilter.value = 'all'),
-    })
+    filters.push({ key: 'rve', label: `RVE: ${rveFilter.value}` })
   }
   if (alignmentFilter.value !== 'all') {
     filters.push({
       key: 'alignment',
       label: `Alignment: ${alignmentFilter.value}`,
-      clear: () => (alignmentFilter.value = 'all'),
     })
   }
   if (qualityFilter.value !== 'all') {
-    filters.push({
-      key: 'quality',
-      label: `Quality: ${qualityFilter.value}`,
-      clear: () => (qualityFilter.value = 'all'),
-    })
+    filters.push({ key: 'quality', label: `Quality: ${qualityFilter.value}` })
   }
   if (freshnessFilter.value !== 'all') {
     filters.push({
       key: 'freshness',
       label: `Freshness: ${freshnessFilter.value}`,
-      clear: () => (freshnessFilter.value = 'all'),
     })
   }
   if (minRvol.value !== '') {
-    filters.push({
-      key: 'minRvol',
-      label: `RVOL ≥ ${minRvol.value}`,
-      clear: () => (minRvol.value = ''),
-    })
+    filters.push({ key: 'minRvol', label: `RVOL ≥ ${minRvol.value}` })
   }
   return filters
 })
+
+function featureHref(row: FeatureDashboardRow): string {
+  return router.resolve({
+    name: 'feature-ticker',
+    params: { symbol: row.symbol },
+  }).href
+}
+
+/** A trader tracks several names at once: every stock opens in its own tab. */
+function openInNewTab(row: FeatureDashboardRow) {
+  window.open(featureHref(row), '_blank', 'noopener,noreferrer')
+}
+
+function openMarketDataInNewTab(row: FeatureDashboardRow) {
+  window.open(`/market/${row.symbol}`, '_blank', 'noopener,noreferrer')
+}
+
+function metricLabels(row: FeatureDashboardRow): string[] {
+  return Object.keys(row.unavailableReasons).map(metricLabel)
+}
 
 function resync() {
   store.setAuthoritative(store.rowList)
   diagnosticsQuery.refetch()
   dashboardQuery.refetch()
-}
-
-function structureLabel(state: string | null): string {
-  switch (state) {
-    case 'BULL_STRUCTURE':
-      return 'Bull'
-    case 'BEAR_STRUCTURE':
-      return 'Bear'
-    case 'MIXED':
-      return 'Mixed'
-    default:
-      return '—'
-  }
-}
-
-function directionLabel(state: string | null): string {
-  switch (state) {
-    case 'POSITIVE':
-      return '▲ Positive'
-    case 'NEGATIVE':
-      return '▼ Negative'
-    case 'NEUTRAL':
-      return '■ Neutral'
-    default:
-      return '—'
-  }
-}
-
-function dailyTone(state: string | null): string {
-  if (state === 'POSITIVE') {
-    return 'text-positive'
-  }
-  if (state === 'NEGATIVE') {
-    return 'text-negative'
-  }
-  return 'text-muted-foreground'
 }
 
 const hasRows = computed(() => store.rowList.length > 0)
@@ -640,228 +670,65 @@ const showingEmptyWatchlist = computed(
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-4 p-4 lg:p-6">
+  <div class="flex flex-1 flex-col gap-4 p-4 lg:p-6">
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div class="space-y-1">
         <h1 class="text-xl font-semibold tracking-tight">Feature Dashboard</h1>
         <p class="max-w-2xl text-sm text-muted-foreground">
-          Point-in-time relative strength, volume and volatility for the active
-          watchlist. Observational only — no strategy, risk or execution
-          decisions.
+          Point-in-time relative strength, participation and volatility for the
+          active watchlist. Observational only.
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <span class="hidden text-xs text-muted-foreground sm:inline">
-          Synced {{ formatAge(store.lastUpdatedAt) }}
-        </span>
+        <ConnectionStatus
+          :connection="store.connection"
+          :gap-detected="store.gapDetected"
+          :last-updated-at="store.lastUpdatedAt"
+        />
         <Button variant="outline" size="sm" @click="resync">
           <RefreshCw class="mr-1 size-3.5" aria-hidden="true" /> Refresh
         </Button>
       </div>
     </header>
 
-    <FeatureDiagnosticsPanel
-      :diagnostics="diagnosticsQuery.data.value ?? null"
-      :connection="store.connection"
-      :last-updated-at="store.lastUpdatedAt"
-      :last-sequence="store.lastSequence"
-      :gap-detected="store.gapDetected"
-    />
+    <FeatureSummaryCards :rows="store.rowList" timeframe="M5" />
 
-    <Card class="overflow-hidden">
-      <div class="flex flex-wrap items-center gap-2 border-b p-3">
-        <div class="relative">
-          <Search
-            class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            v-model="search"
-            placeholder="Search symbol"
-            aria-label="Search watchlist symbols"
-            class="h-9 w-56 pl-8"
-          />
-        </div>
+    <Card class="gap-0 overflow-hidden py-0">
+      <CardHeader class="px-6 py-5">
+        <CardTitle class="text-base">Watchlist features</CardTitle>
+        <CardDescription>
+          Sorted and filtered without changing the underlying measurements.
+        </CardDescription>
+      </CardHeader>
 
-        <Popover>
-          <PopoverTrigger as-child>
-            <Button variant="outline" size="sm" class="h-9">
-              <SlidersHorizontal class="mr-1 size-3.5" aria-hidden="true" />
-              Filters
-              <span
-                v-if="activeFilters.length"
-                class="ml-1 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
-              >
-                {{ activeFilters.length }}
-              </span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" class="w-80 space-y-3 p-3">
-            <div class="grid grid-cols-2 gap-3">
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">Timeframe</span>
-                <NativeSelect
-                  v-model="timeframeFilter"
-                  aria-label="Timeframe filter"
-                >
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="M5">5m</NativeSelectOption>
-                  <NativeSelectOption value="D1">1D</NativeSelectOption>
-                </NativeSelect>
-              </label>
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">Relative strength</span>
-                <NativeSelect
-                  v-model="rsFilter"
-                  aria-label="Relative strength filter"
-                >
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="positive"
-                    >Positive</NativeSelectOption
-                  >
-                  <NativeSelectOption value="negative"
-                    >Negative</NativeSelectOption
-                  >
-                  <NativeSelectOption value="neutral"
-                    >Neutral</NativeSelectOption
-                  >
-                </NativeSelect>
-              </label>
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">RVE</span>
-                <NativeSelect v-model="rveFilter" aria-label="RVE filter">
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="expanding"
-                    >Expanding</NativeSelectOption
-                  >
-                  <NativeSelectOption value="stable">Stable</NativeSelectOption>
-                  <NativeSelectOption value="contracting"
-                    >Contracting</NativeSelectOption
-                  >
-                </NativeSelect>
-              </label>
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">Alignment</span>
-                <NativeSelect
-                  v-model="alignmentFilter"
-                  aria-label="Alignment filter"
-                >
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="market">Market</NativeSelectOption>
-                  <NativeSelectOption value="sector">Sector</NativeSelectOption>
-                  <NativeSelectOption value="both">Both</NativeSelectOption>
-                </NativeSelect>
-              </label>
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">Quality</span>
-                <NativeSelect
-                  v-model="qualityFilter"
-                  aria-label="Quality filter"
-                >
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="trustworthy"
-                    >Trustworthy</NativeSelectOption
-                  >
-                  <NativeSelectOption value="degraded"
-                    >Degraded</NativeSelectOption
-                  >
-                  <NativeSelectOption value="unavailable"
-                    >Unavailable</NativeSelectOption
-                  >
-                </NativeSelect>
-              </label>
-              <label class="space-y-1 text-xs">
-                <span class="text-muted-foreground">Freshness</span>
-                <NativeSelect
-                  v-model="freshnessFilter"
-                  aria-label="Freshness filter"
-                >
-                  <NativeSelectOption value="all">All</NativeSelectOption>
-                  <NativeSelectOption value="fresh">Fresh</NativeSelectOption>
-                  <NativeSelectOption value="stale">Stale</NativeSelectOption>
-                </NativeSelect>
-              </label>
-              <label class="col-span-2 space-y-1 text-xs">
-                <span class="text-muted-foreground">Minimum interval RVOL</span>
-                <Input
-                  v-model="minRvol"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g. 1.5"
-                  aria-label="Minimum interval RVOL"
-                  class="h-9"
-                />
-              </label>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" size="sm" class="h-9">Columns</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            class="max-h-80 w-52 overflow-auto"
-          >
-            <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              v-for="column in COLUMNS.filter((c) => c.id !== 'symbol')"
-              :key="column.id"
-              :model-value="visible[column.id]"
-              @update:model-value="
-                (value: boolean) => (visible[column.id] = value)
-              "
-            >
-              {{ column.label }}
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <span class="ml-auto text-xs text-muted-foreground">
-          Showing {{ displayRows.length }} of
-          {{ store.rowList.length }} watchlist rows
-        </span>
-      </div>
-
-      <div
-        v-if="activeFilters.length"
-        class="flex flex-wrap items-center gap-1.5 border-b bg-muted/20 px-3 py-2"
-      >
-        <span
-          v-for="filter in activeFilters"
-          :key="filter.key"
-          class="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs"
-        >
-          {{ filter.label }}
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-foreground"
-            :aria-label="`Remove filter ${filter.label}`"
-            @click="filter.clear()"
-          >
-            ×
-          </button>
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-6 px-2 text-xs"
-          @click="clearFilters"
-        >
-          <RotateCcw class="mr-1 size-3" aria-hidden="true" /> Clear
-        </Button>
+      <div class="flex flex-wrap items-center gap-2 border-y px-6 py-3">
+        <FeatureFilterBar
+          v-model:search="search"
+          v-model:timeframe="timeframeFilter"
+          v-model:rs="rsFilter"
+          v-model:rve="rveFilter"
+          v-model:alignment="alignmentFilter"
+          v-model:quality="qualityFilter"
+          v-model:freshness="freshnessFilter"
+          v-model:rvol="minRvol"
+          :active-filters="activeFilters"
+          :visible="displayRows.length"
+          :total="store.rowList.length"
+          @clear-filter="clearFilter"
+          @clear-all="clearFilters"
+        />
+        <FeatureColumnSelector v-model="visible" :columns="selectableColumns" />
       </div>
 
       <div
         v-if="dashboardQuery.isPending.value && !hasRows"
         class="space-y-2 p-4"
+        role="status"
       >
         <Skeleton class="h-9 w-full" />
         <Skeleton class="h-9 w-full" />
         <Skeleton class="h-9 w-full" />
+        <span class="sr-only">Loading feature dashboard</span>
       </div>
 
       <div
@@ -881,24 +748,26 @@ const showingEmptyWatchlist = computed(
         to see feature state.
       </div>
 
-      <div v-else class="overflow-x-auto">
-        <Table>
-          <TableHeader class="sticky top-0 z-10 bg-card">
+      <div v-else data-testid="feature-table" class="overflow-x-auto">
+        <Table class="min-w-[900px]">
+          <TableHeader class="sticky top-0 z-30 bg-muted">
             <TableRow class="hover:bg-transparent">
               <TableHead
                 v-for="(column, index) in visibleColumns"
                 :key="column.id"
+                :aria-sort="ariaSort(column)"
+                :title="column.hint"
                 :class="[
                   column.numeric ? 'text-right' : '',
                   isGroupStart(index) ? 'border-l' : '',
                   column.primary ? '' : 'hidden lg:table-cell',
+                  index === 0 ? 'sticky left-0 z-40 border-r bg-muted' : '',
                 ]"
-                :title="column.hint"
               >
                 <button
                   v-if="column.sortable"
                   type="button"
-                  class="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                  class="inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   :class="column.numeric ? 'flex-row-reverse' : ''"
                   :aria-label="`Sort by ${column.label}`"
                   @click="onSort(column)"
@@ -915,6 +784,12 @@ const showingEmptyWatchlist = computed(
                   </span>
                 </button>
                 <span v-else>{{ column.label }}</span>
+                <span v-if="column.accessibleLabel" class="sr-only">
+                  {{ column.accessibleLabel }}
+                </span>
+              </TableHead>
+              <TableHead class="w-[48px] text-right">
+                <span class="sr-only">Row actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -922,11 +797,13 @@ const showingEmptyWatchlist = computed(
             <TableRow
               v-for="row in displayRows"
               :key="rowKey(row)"
-              class="cursor-pointer transition-colors hover:bg-muted/50"
-              :class="
-                selected?.instrumentId === row.instrumentId ? 'bg-muted/50' : ''
-              "
-              @click="selected = row"
+              :data-state="isSelected(row) ? 'selected' : undefined"
+              tabindex="0"
+              class="group cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
+              :aria-label="`Open ${row.symbol} in a new tab`"
+              @click="openInNewTab(row)"
+              @keydown.enter.prevent="openInNewTab(row)"
+              @keydown.space.prevent="openInNewTab(row)"
             >
               <TableCell
                 v-for="(column, index) in visibleColumns"
@@ -935,13 +812,18 @@ const showingEmptyWatchlist = computed(
                   column.numeric ? 'text-right tabular-nums' : '',
                   isGroupStart(index) ? 'border-l' : '',
                   column.primary ? '' : 'hidden lg:table-cell',
+                  index === 0
+                    ? 'sticky left-0 z-10 border-r bg-card transition-colors group-hover:bg-muted/50 group-data-[state=selected]:bg-muted'
+                    : '',
                 ]"
               >
-                <button
+                <a
                   v-if="column.id === 'symbol'"
-                  type="button"
-                  class="flex items-center gap-2 text-left"
-                  @click.stop="selected = row"
+                  :href="featureHref(row)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-2 text-left focus-visible:outline-none"
+                  @click.stop
                 >
                   <span
                     class="grid size-7 shrink-0 place-items-center rounded-md bg-secondary text-[10px] font-semibold uppercase text-muted-foreground"
@@ -959,10 +841,11 @@ const showingEmptyWatchlist = computed(
                       {{ row.exchange }} · {{ row.timeframe }}
                     </span>
                   </span>
-                </button>
+                </a>
                 <FeatureValueCell
                   v-else-if="column.id === 'price'"
                   :value="row.lastPrice"
+                  :decimals="metricDecimals('LAST_PRICE')"
                 />
                 <span
                   v-else-if="column.id === 'changePct'"
@@ -974,86 +857,140 @@ const showingEmptyWatchlist = computed(
                 <FeatureValueCell
                   v-else-if="column.id === 'rrsRaw'"
                   :value="row.rrsRaw"
+                  :decimals="metricDecimals('RRS_RAW')"
                   signed
                   :reason="row.unavailableReasons['RRS_RAW']"
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'rrsFast'"
                   :value="row.rrsFast"
+                  :decimals="metricDecimals('RRS_FAST')"
                   signed
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'rrsSlow'"
                   :value="row.rrsSlow"
+                  :decimals="metricDecimals('RRS_SLOW')"
                   signed
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'rrsPersistence'"
                   :value="row.rrsPersistence"
+                  :decimals="metricDecimals('RRS_PERSISTENCE')"
                 />
                 <span
                   v-else-if="column.id === 'dailyRrs'"
                   class="text-xs"
-                  :class="dailyTone(row.dailyRrsState)"
+                  :class="
+                    directionMetaFromState(row.dailyRrsState)?.tone ??
+                    'text-muted-foreground'
+                  "
                 >
-                  {{ directionLabel(row.dailyRrsState) }}
+                  <template v-if="directionMetaFromState(row.dailyRrsState)">
+                    {{ directionMetaFromState(row.dailyRrsState)?.glyph }}
+                    {{ directionMetaFromState(row.dailyRrsState)?.label }}
+                  </template>
+                  <template v-else>—</template>
                 </span>
                 <FeatureValueCell
                   v-else-if="column.id === 'rvolInterval'"
                   :value="row.rvolInterval"
+                  :decimals="metricDecimals('RVOL_INTERVAL')"
                   :reason="row.unavailableReasons['RVOL_INTERVAL']"
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'rvolCumulative'"
                   :value="row.rvolCumulative"
+                  :decimals="metricDecimals('RVOL_CUMULATIVE')"
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'rve'"
                   :value="row.rve"
+                  :decimals="metricDecimals('RVE')"
                   signed
                   :reason="row.unavailableReasons['RVE']"
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'atrPct'"
                   :value="row.atrPercent"
+                  :decimals="metricDecimals('ATR_PERCENT')"
                   suffix="%"
                 />
                 <FeatureValueCell
                   v-else-if="column.id === 'vwapDist'"
                   :value="row.vwapDistanceAtr"
+                  :decimals="metricDecimals('VWAP_DISTANCE_ATR')"
                   :reason="row.unavailableReasons['VWAP_DISTANCE_ATR']"
                 />
-                <span v-else-if="column.id === 'market'" class="text-xs">
-                  {{ structureLabel(row.marketState) }}
+                <span
+                  v-else-if="column.id === 'market'"
+                  class="text-xs"
+                  :class="structureMeta(row.marketState).tone"
+                >
+                  {{ structureMeta(row.marketState).glyph }}
+                  {{ structureMeta(row.marketState).label }}
                 </span>
-                <span v-else-if="column.id === 'sector'" class="text-xs">
-                  {{ structureLabel(row.sectorState) }}
+                <span
+                  v-else-if="column.id === 'sector'"
+                  class="text-xs"
+                  :class="structureMeta(row.sectorState).tone"
+                >
+                  {{ structureMeta(row.sectorState).glyph }}
+                  {{ structureMeta(row.sectorState).label }}
                 </span>
-                <FeatureStateBadge
+                <FeatureTrustCell
                   v-else-if="column.id === 'quality'"
                   :state="stateFor(row)"
                   :reason="row.qualityReason"
+                  :metrics="metricLabels(row)"
                 />
                 <span
                   v-else-if="column.id === 'age'"
                   class="text-xs"
-                  :title="formatIstDateTime(row.observationTime)"
+                  :title="`${formatIstDateTime(row.observationTime)} IST`"
                 >
                   {{ formatAge(row.observationTime) }}
                 </span>
                 <span
                   v-else-if="column.id === 'version'"
                   class="text-[10px] text-muted-foreground"
+                  :title="featureVersionTitle(row.featureVersions['RRS_RAW'])"
                 >
-                  {{
-                    row.featureVersions['RRS_RAW'] ?? row.featureSchemaVersion
-                  }}
+                  {{ formatFeatureVersion(row.featureVersions['RRS_RAW']) }}
                 </span>
+              </TableCell>
+              <TableCell class="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-7"
+                      :aria-label="`Actions for ${row.symbol}`"
+                      @click.stop
+                    >
+                      <MoreHorizontal class="size-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" @click.stop>
+                    <DropdownMenuLabel>{{ row.symbol }}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem @select="selected = row">
+                      Open feature history
+                    </DropdownMenuItem>
+                    <DropdownMenuItem @select="openInNewTab(row)">
+                      Open feature view
+                    </DropdownMenuItem>
+                    <DropdownMenuItem @select="openMarketDataInNewTab(row)">
+                      Open market data
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
             <TableRow v-if="displayRows.length === 0">
               <TableCell
-                :colspan="visibleColumns.length"
+                :colspan="visibleColumns.length + 1"
                 class="py-10 text-center text-sm text-muted-foreground"
               >
                 <p>No rows match the current filters.</p>
@@ -1075,6 +1012,14 @@ const showingEmptyWatchlist = computed(
       </div>
     </Card>
 
+    <FeatureDiagnosticsPanel
+      :diagnostics="diagnosticsQuery.data.value ?? null"
+      :connection="store.connection"
+      :last-updated-at="store.lastUpdatedAt"
+      :last-sequence="store.lastSequence"
+      :gap-detected="store.gapDetected"
+    />
+
     <Sheet
       :open="selected !== null"
       @update:open="(open: boolean) => !open && (selected = null)"
@@ -1093,7 +1038,7 @@ const showingEmptyWatchlist = computed(
               <SheetDescription>
                 {{ selected?.displayName ?? selected?.symbol }} ·
                 {{ selected?.timeframe }} · observation
-                {{ formatIstDateTime(selected?.observationTime) }}
+                {{ formatIstDateTime(selected?.observationTime) }} IST
               </SheetDescription>
             </div>
           </div>

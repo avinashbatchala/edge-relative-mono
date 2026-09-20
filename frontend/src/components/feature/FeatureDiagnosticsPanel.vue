@@ -3,10 +3,22 @@ import { computed, ref } from 'vue'
 import { ChevronDown } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import type { FeatureDiagnosticsResponse } from '@/api/features'
 import { formatAge, formatIstDateTime } from '@/lib/format'
+import {
+  featureStateMeta,
+  featureStateRank,
+  metricLabel,
+} from '@/lib/feature-presentation'
 import FeatureStateBadge from './FeatureStateBadge.vue'
+import ConnectionStatus from './ConnectionStatus.vue'
 
 const props = defineProps<{
   diagnostics: FeatureDiagnosticsResponse | null
@@ -16,22 +28,51 @@ const props = defineProps<{
   gapDetected: boolean
 }>()
 
-const detailsOpen = ref(false)
+const systemOpen = ref(false)
 
-const connectionLabel = computed(() => {
-  switch (props.connection) {
-    case 'open':
-      return 'Live'
-    case 'connecting':
-      return 'Connecting'
-    case 'reconnecting':
-      return 'Reconnecting'
-    case 'closed':
-      return 'Disconnected'
-    default:
-      return 'Idle'
+const stateCounts = computed(() => props.diagnostics?.stateCounts ?? {})
+
+const overallState = computed(() => {
+  const states = Object.keys(stateCounts.value)
+  if (states.length === 0) {
+    return 'WARMING_UP'
   }
+  return states.reduce(
+    (worst, state) =>
+      featureStateRank(state) > featureStateRank(worst) ? state : worst,
+    'HEALTHY',
+  )
 })
+
+const summary = computed(() => {
+  const total = props.diagnostics?.watchlistCount ?? 0
+  if (total === 0) {
+    return 'No active watchlist instruments.'
+  }
+  const nonHealthy = Object.entries(stateCounts.value)
+    .filter(([state]) => state !== 'HEALTHY')
+    .sort((a, b) => featureStateRank(b[0]) - featureStateRank(a[0]))
+  if (nonHealthy.length === 0) {
+    return `All ${total} instruments are fresh and trustworthy.`
+  }
+  const parts = nonHealthy
+    .map(
+      ([state, count]) =>
+        `${count} ${featureStateMeta(state).label.toLowerCase()}`,
+    )
+    .join(' · ')
+  const blocked =
+    (stateCounts.value.UNAVAILABLE ?? 0) + (stateCounts.value.INVALID ?? 0)
+  return blocked > 0
+    ? `${parts}. Some features cannot be used for decisions — open a row's status for the reason.`
+    : `${parts}. Measurements are shown; open a row's status for the reason.`
+})
+
+const metricGaps = computed(() =>
+  Object.entries(props.diagnostics?.metricGaps ?? {})
+    .filter(([, count]) => count > 0)
+    .map(([metric, count]) => ({ metric, label: metricLabel(metric), count })),
+)
 
 const counters = computed(() => {
   const value = props.diagnostics?.counters
@@ -54,146 +95,59 @@ const counters = computed(() => {
     },
   ]
 })
-
-const stateCounts = computed(() =>
-  Object.entries(props.diagnostics?.stateCounts ?? {}),
-)
-
-const nonHealthyStates = computed(() =>
-  stateCounts.value.filter(([state]) => state !== 'HEALTHY'),
-)
-
-const metricGaps = computed(() =>
-  Object.entries(props.diagnostics?.metricGaps ?? {}).filter(
-    ([, count]) => count > 0,
-  ),
-)
-
-const healthy = computed(() => props.diagnostics?.healthyCount ?? 0)
-const total = computed(() => props.diagnostics?.watchlistCount ?? 0)
 </script>
 
 <template>
   <Card class="overflow-hidden">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-medium">Feature trust</span>
+    <CardHeader class="gap-1 px-4 py-4 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <CardTitle class="text-sm">Data trust</CardTitle>
+          <FeatureStateBadge :state="overallState" />
+        </div>
+        <ConnectionStatus
+          :connection="connection"
+          :gap-detected="gapDetected"
+          :last-updated-at="lastUpdatedAt"
+        />
+      </div>
+      <CardDescription>{{ summary }}</CardDescription>
+    </CardHeader>
+
+    <CardContent class="space-y-3 px-4 pb-4 sm:px-6">
+      <div
+        v-if="metricGaps.length"
+        class="flex flex-wrap items-center gap-1.5 text-xs"
+      >
+        <span class="text-muted-foreground">Unavailable by metric:</span>
         <Badge
-          :variant="connection === 'open' ? 'secondary' : 'outline'"
-          class="gap-1"
-        >
-          <span
-            class="size-1.5 rounded-full"
-            :class="
-              connection === 'open' ? 'bg-positive' : 'bg-muted-foreground'
-            "
-            aria-hidden="true"
-          />
-          {{ connectionLabel }}
-        </Badge>
-        <Badge
-          v-if="gapDetected"
+          v-for="gap in metricGaps"
+          :key="gap.metric"
           variant="outline"
-          class="border-amber-500/40 text-amber-600 dark:text-amber-400"
+          class="gap-1 font-normal text-muted-foreground"
         >
-          Resyncing
+          {{ gap.label }}
+          <span class="tabular-nums">{{ gap.count }}</span>
         </Badge>
       </div>
 
-      <dl class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <div class="flex items-center gap-1">
-          <dt class="text-muted-foreground">Engine</dt>
-          <dd class="font-medium">{{ diagnostics?.engineStatus ?? '—' }}</dd>
-        </div>
-        <div class="flex items-center gap-1">
-          <dt class="text-muted-foreground">Trusted</dt>
-          <dd class="font-medium tabular-nums">{{ healthy }}/{{ total }}</dd>
-        </div>
-        <div class="hidden items-center gap-1 sm:flex">
-          <dt class="text-muted-foreground">Schema</dt>
-          <dd class="font-medium">
-            {{ diagnostics?.versions.featureSchemaVersion ?? '—' }}
-          </dd>
-        </div>
-        <div class="hidden items-center gap-1 lg:flex">
-          <dt class="text-muted-foreground">Updated</dt>
-          <dd class="font-medium">{{ formatAge(lastUpdatedAt) }}</dd>
-        </div>
-      </dl>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="h-7 px-2 text-xs"
+        @click="systemOpen = !systemOpen"
+      >
+        {{ systemOpen ? 'Hide' : 'Show' }} engine and feed details
+        <ChevronDown
+          class="ml-1 size-3.5 transition-transform"
+          :class="systemOpen ? 'rotate-180' : ''"
+          aria-hidden="true"
+        />
+      </Button>
 
-      <div class="ml-auto flex flex-wrap items-center gap-2">
-        <template v-if="nonHealthyStates.length">
-          <span
-            v-for="[state, count] in nonHealthyStates"
-            :key="state"
-            class="inline-flex items-center gap-1"
-          >
-            <FeatureStateBadge :state="state" />
-            <span class="text-xs tabular-nums text-muted-foreground">{{
-              count
-            }}</span>
-          </span>
-        </template>
-        <span v-else class="text-xs text-muted-foreground"
-          >All rows trusted</span
-        >
-        <Button variant="ghost" size="sm" @click="detailsOpen = !detailsOpen">
-          {{ detailsOpen ? 'Hide details' : 'Details' }}
-          <ChevronDown
-            class="ml-1 size-3.5 transition-transform"
-            :class="detailsOpen ? 'rotate-180' : ''"
-            aria-hidden="true"
-          />
-        </Button>
-      </div>
-    </div>
-
-    <div v-if="detailsOpen" class="space-y-4 border-t bg-muted/20 p-3 text-xs">
-      <div class="grid gap-4 md:grid-cols-2">
+      <div v-if="systemOpen" class="grid gap-4 text-xs md:grid-cols-2">
         <section class="space-y-2">
-          <h3 class="font-medium text-foreground">Current state</h3>
-          <div class="flex flex-wrap items-center gap-2">
-            <span
-              v-for="[state, count] in stateCounts"
-              :key="state"
-              class="inline-flex items-center gap-1"
-            >
-              <FeatureStateBadge :state="state" />
-              <span class="tabular-nums text-muted-foreground">{{
-                count
-              }}</span>
-            </span>
-          </div>
-          <div class="space-y-1">
-            <p class="text-muted-foreground">
-              Unavailable metrics (rows affected):
-            </p>
-            <div
-              v-if="metricGaps.length"
-              class="flex flex-wrap gap-x-3 gap-y-1"
-            >
-              <span
-                v-for="[metric, count] in metricGaps"
-                :key="metric"
-                class="inline-flex items-center gap-1 tabular-nums"
-              >
-                <span class="font-medium">{{ metric }}</span>
-                <span class="text-muted-foreground">{{ count }}</span>
-              </span>
-            </div>
-            <p v-else class="text-muted-foreground">
-              No unavailable metrics in the displayed rows.
-            </p>
-          </div>
-        </section>
-
-        <section class="space-y-2">
-          <h3 class="font-medium text-foreground">
-            Engine counters
-            <span class="font-normal text-muted-foreground"
-              >(since process start)</span
-            >
-          </h3>
+          <h3 class="font-medium text-foreground">Engine counters</h3>
           <dl class="grid grid-cols-2 gap-x-4 gap-y-1">
             <div
               v-for="counter in counters"
@@ -203,16 +157,27 @@ const total = computed(() => props.diagnostics?.watchlistCount ?? 0)
               <dt class="text-muted-foreground">{{ counter.label }}</dt>
               <dd class="font-medium tabular-nums">{{ counter.value }}</dd>
             </div>
+          </dl>
+        </section>
+        <section class="space-y-2">
+          <h3 class="font-medium text-foreground">Feed and versions</h3>
+          <dl class="space-y-1">
+            <div class="flex items-center justify-between gap-2">
+              <dt class="text-muted-foreground">Engine</dt>
+              <dd class="font-medium">
+                {{ diagnostics?.engineStatus ?? '—' }}
+              </dd>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <dt class="text-muted-foreground">Schema</dt>
+              <dd class="font-medium">
+                {{ diagnostics?.versions.featureSchemaVersion ?? '—' }}
+              </dd>
+            </div>
             <div class="flex items-center justify-between gap-2">
               <dt class="text-muted-foreground">Calculation</dt>
               <dd class="font-medium">
                 {{ diagnostics?.versions.calculationVersion ?? '—' }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-2">
-              <dt class="text-muted-foreground">Generated</dt>
-              <dd class="font-medium">
-                {{ formatIstDateTime(diagnostics?.generatedAt) }}
               </dd>
             </div>
             <div class="flex items-center justify-between gap-2">
@@ -221,33 +186,28 @@ const total = computed(() => props.diagnostics?.watchlistCount ?? 0)
                 {{ lastSequence ?? '—' }}
               </dd>
             </div>
+            <div class="flex items-center justify-between gap-2">
+              <dt class="text-muted-foreground">Generated</dt>
+              <dd class="font-medium">
+                {{ formatIstDateTime(diagnostics?.generatedAt) }} IST
+              </dd>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <dt class="text-muted-foreground">Last update</dt>
+              <dd class="font-medium">{{ formatAge(lastUpdatedAt) }}</dd>
+            </div>
           </dl>
         </section>
+        <section
+          v-if="diagnostics?.notes.length"
+          class="space-y-1 md:col-span-2"
+        >
+          <h3 class="font-medium text-foreground">Notes</h3>
+          <ul class="list-disc space-y-0.5 pl-4 text-muted-foreground">
+            <li v-for="note in diagnostics.notes" :key="note">{{ note }}</li>
+          </ul>
+        </section>
       </div>
-
-      <section v-if="diagnostics?.instruments.length" class="space-y-2">
-        <h3 class="font-medium text-foreground">Per-instrument trust</h3>
-        <div class="flex flex-wrap gap-x-3 gap-y-1.5">
-          <span
-            v-for="instrument in diagnostics.instruments"
-            :key="instrument.instrumentId"
-            class="inline-flex items-center gap-1.5"
-          >
-            <FeatureStateBadge
-              :state="instrument.state"
-              :reason="instrument.reasonCode"
-            />
-            <span class="font-medium">{{ instrument.symbol }}</span>
-          </span>
-        </div>
-      </section>
-
-      <section v-if="diagnostics?.notes.length" class="space-y-1">
-        <h3 class="font-medium text-foreground">Notes</h3>
-        <ul class="list-disc space-y-0.5 pl-4 text-muted-foreground">
-          <li v-for="note in diagnostics.notes" :key="note">{{ note }}</li>
-        </ul>
-      </section>
-    </div>
+    </CardContent>
   </Card>
 </template>

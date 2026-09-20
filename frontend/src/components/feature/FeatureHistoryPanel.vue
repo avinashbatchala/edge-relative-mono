@@ -13,6 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { BrokerCandle } from '@/api/types'
 import { formatAge, formatIstDateTime } from '@/lib/format'
+import {
+  availabilityLabel,
+  formatFeatureVersion,
+  featureVersionTitle,
+  presentationState,
+} from '@/lib/feature-presentation'
 import FeatureLineChart from './FeatureLineChart.vue'
 import FeatureStateBadge from './FeatureStateBadge.vue'
 
@@ -169,7 +175,7 @@ const failed = computed(
       </NativeSelect>
       <FeatureStateBadge
         v-if="latest"
-        :state="latest.quality === 'GOOD' ? 'HEALTHY' : latest.quality"
+        :state="presentationState(latest.quality, latest.availability)"
         :reason="latest.availability"
       />
     </div>
@@ -236,8 +242,15 @@ const failed = computed(
         </div>
         <div>
           <dt class="text-muted-foreground">RRS version</dt>
-          <dd class="font-medium">
-            {{ latest?.features['RRS_RAW']?.featureVersion ?? '—' }}
+          <dd
+            class="font-medium"
+            :title="
+              featureVersionTitle(latest?.features['RRS_RAW']?.featureVersion)
+            "
+          >
+            {{
+              formatFeatureVersion(latest?.features['RRS_RAW']?.featureVersion)
+            }}
           </dd>
         </div>
       </dl>
@@ -251,7 +264,7 @@ const failed = computed(
           :key="state"
           class="tabular-nums"
         >
-          {{ state }} {{ count }}
+          {{ availabilityLabel(state) }} {{ count }}
         </span>
       </div>
 
@@ -261,7 +274,9 @@ const failed = computed(
         role="status"
       >
         Multiple feature versions appear in this range ({{
-          versionBoundaries.join(', ')
+          versionBoundaries
+            .map((version) => formatFeatureVersion(version))
+            .join(', ')
         }}). The series is not continuous; treat version boundaries explicitly.
       </p>
     </template>

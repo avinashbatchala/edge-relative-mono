@@ -295,7 +295,7 @@ public class FeatureDashboardService {
 
     private static Double contextMetric(ContextSnapshot context, String key, Map<String, String> unavailable) {
         if (context == null) {
-            unavailable.putIfAbsent(key, "context unavailable");
+            unavailable.putIfAbsent(key, "sector benchmark not resolved");
             return null;
         }
         return value(context.features().get(key), key, unavailable);
@@ -319,7 +319,17 @@ public class FeatureDashboardService {
                 ? snapshot.features().get(key)
                 : context == null ? null : context.features().get(key);
         if (value == null || !value.availability().hasValue() || value.label() == null) {
-            unavailable.putIfAbsent(key, value == null ? "not calculated" : reason(value));
+            String reason;
+            if (value != null) {
+                reason = reason(value);
+            } else if (key.startsWith("MARKET")) {
+                reason = "broad-market benchmark not resolved";
+            } else if (key.startsWith("SECTOR")) {
+                reason = "sector benchmark not resolved";
+            } else {
+                reason = "not calculated";
+            }
+            unavailable.putIfAbsent(key, reason);
             return null;
         }
         return value.label();

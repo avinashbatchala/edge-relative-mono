@@ -89,6 +89,7 @@ public final class RvolFeature {
                     complete,
                     barAvailability,
                     barQuality,
+                    parameters.minSamples(),
                     cumulativeInSession[i],
                     baseline(parameters.dailyLookback(), parameters.minSamples(), estimator, sessionIndex[i], sessions,
                             (sessionAgg, target) -> sessionAgg.totalVolumeIfComplete()));
@@ -96,6 +97,7 @@ public final class RvolFeature {
                     complete,
                     barAvailability,
                     barQuality,
+                    parameters.minSamples(),
                     series.volume(i),
                     baseline(parameters.intervalLookback(), parameters.minSamples(), estimator, sessionIndex[i], sessions,
                             (sessionAgg, target) -> sessionAgg.volumeAtSlot(currentSlot)));
@@ -103,6 +105,7 @@ public final class RvolFeature {
                     complete,
                     barAvailability,
                     barQuality,
+                    parameters.minSamples(),
                     cumulativeInSession[i],
                     baseline(parameters.cumulativeLookback(), parameters.minSamples(), estimator, sessionIndex[i], sessions,
                             (sessionAgg, target) -> sessionAgg.cumulativeUpTo(currentTau)));
@@ -124,17 +127,20 @@ public final class RvolFeature {
             boolean complete,
             FeatureAvailability barAvailability,
             FeatureQuality barQuality,
+            int minSamples,
             double current,
             Baseline baseline) {
         if (!complete) {
-            return Metric.unavailable(barAvailability, FeatureQuality.INCOMPLETE, "incomplete bar");
+            return Metric.unavailable(barAvailability, FeatureQuality.INCOMPLETE, "bar is not finalized");
         }
         if (!baseline.sufficient()) {
             return Metric.unavailable(
-                    FeatureAvailability.INSUFFICIENT_HISTORY, FeatureQuality.INCOMPLETE, "baseline samples=" + baseline.count);
+                    FeatureAvailability.INSUFFICIENT_HISTORY,
+                    FeatureQuality.INCOMPLETE,
+                    "needs " + minSamples + " prior sessions, found " + baseline.count);
         }
         if (!Double.isFinite(baseline.value) || baseline.value <= 0.0) {
-            return Metric.unavailable(FeatureAvailability.INVALID, FeatureQuality.INCOMPLETE, "baseline<=0");
+            return Metric.unavailable(FeatureAvailability.INVALID, FeatureQuality.INCOMPLETE, "no baseline volume");
         }
         return Metric.numeric(current / baseline.value, barQuality);
     }

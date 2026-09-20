@@ -277,16 +277,20 @@ public final class FeatureEngine {
             return Metric.numeric(result.raw()[index], result.rawQuality()[index]);
         }
         return Metric.unavailable(
-                result.rawAvailability()[index], result.rawQuality()[index], "RRS raw unavailable");
+                result.rawAvailability()[index],
+                result.rawQuality()[index],
+                unavailableReason(result.rawAvailability()[index]));
     }
 
     private static Metric derived(RrsFeature.Result result, int index, double[] values) {
         if (result.rawAvailability()[index] != FeatureAvailability.VALID) {
             return Metric.unavailable(
-                    result.rawAvailability()[index], result.rawQuality()[index], "RRS raw unavailable");
+                    result.rawAvailability()[index],
+                    result.rawQuality()[index],
+                    unavailableReason(result.rawAvailability()[index]));
         }
         if (!Double.isFinite(values[index])) {
-            return Metric.unavailable(FeatureAvailability.WARMING_UP, FeatureQuality.INCOMPLETE, "warmup");
+            return Metric.unavailable(FeatureAvailability.WARMING_UP, FeatureQuality.INCOMPLETE, "warming up");
         }
         return Metric.numeric(values[index], result.rawQuality()[index]);
     }
@@ -294,12 +298,27 @@ public final class FeatureEngine {
     private static Metric trend(RrsFeature.Result result, int index) {
         if (result.rawAvailability()[index] != FeatureAvailability.VALID) {
             return Metric.unavailable(
-                    result.rawAvailability()[index], result.rawQuality()[index], "RRS raw unavailable");
+                    result.rawAvailability()[index],
+                    result.rawQuality()[index],
+                    unavailableReason(result.rawAvailability()[index]));
         }
         if (result.trendState()[index] == null) {
-            return Metric.unavailable(FeatureAvailability.WARMING_UP, FeatureQuality.INCOMPLETE, "warmup");
+            return Metric.unavailable(FeatureAvailability.WARMING_UP, FeatureQuality.INCOMPLETE, "warming up");
         }
         return Metric.label(result.trendState()[index], result.rawQuality()[index]);
+    }
+
+    /** Plain-language reason for an unavailable feature, surfaced in the trust view. */
+    private static String unavailableReason(FeatureAvailability availability) {
+        return switch (availability) {
+            case STALE -> "benchmark not aligned at this timestamp";
+            case MISSING_INPUT -> "benchmark unavailable for this timeframe";
+            case WARMING_UP -> "warming up";
+            case INCOMPLETE -> "bar is not finalized";
+            case INSUFFICIENT_HISTORY -> "insufficient prior sessions";
+            case INVALID -> "invalid input";
+            default -> "unavailable";
+        };
     }
 
     private static FeatureQuality requiredQuality(Map<String, FeatureValue> features) {
