@@ -2,6 +2,7 @@
 import {
   Activity,
   Database,
+  FlaskConical,
   Gauge,
   LayoutDashboard,
   ListChecks,
@@ -34,6 +35,7 @@ const tools = [
   { title: 'Opportunities', to: '/opportunities', icon: Gauge },
   { title: 'Market Data', to: '/market', icon: Activity },
   { title: 'Research Data', to: '/research', icon: Database },
+  { title: 'Backtests', to: '/backtests', icon: FlaskConical },
 ] as const
 
 const upcoming = [{ title: 'Trades', icon: Wrench }] as const

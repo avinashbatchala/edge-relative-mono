@@ -55,6 +55,12 @@ const router = createRouter({
       component: () => import('@/views/ResearchDataView.vue'),
       meta: { title: 'Research Data' },
     },
+    {
+      path: '/backtests',
+      name: 'backtests',
+      component: () => import('@/views/BacktestsView.vue'),
+      meta: { title: 'Backtests' },
+    },
   ],
 })
 
