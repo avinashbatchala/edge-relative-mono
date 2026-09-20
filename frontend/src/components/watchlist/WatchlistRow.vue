@@ -48,12 +48,20 @@ const previousClose = computed(() => {
 })
 const status = computed(() => {
   if (isError.value) {
-    return { label: 'Unavailable', variant: 'destructive' as const }
+    return {
+      label: 'Unavailable',
+      variant: 'destructive' as const,
+      dot: 'bg-destructive',
+    }
   }
   if (isPending.value) {
-    return { label: 'Loading', variant: 'outline' as const }
+    return {
+      label: 'Loading',
+      variant: 'outline' as const,
+      dot: 'bg-muted-foreground',
+    }
   }
-  return { label: 'Live', variant: 'secondary' as const }
+  return { label: 'Live', variant: 'secondary' as const, dot: 'bg-positive' }
 })
 const updatedAt = computed(() =>
   dataUpdatedAt.value ? new Date(dataUpdatedAt.value).toISOString() : null,
@@ -77,24 +85,38 @@ function stop(event: Event) {
 
 <template>
   <TableRow
-    class="cursor-pointer"
+    class="cursor-pointer transition-colors hover:bg-muted/50"
     tabindex="0"
     :aria-label="`Open ${entry.symbol} details`"
     @click="openDetail"
     @keydown="onRowKey"
   >
     <TableCell class="max-w-[220px]">
-      <div class="flex flex-col">
-        <span class="truncate font-medium">{{ entry.symbol }}</span>
-        <span class="truncate text-xs text-muted-foreground">
-          {{ entry.name ?? '—' }}
+      <div class="flex items-center gap-2">
+        <span
+          class="grid size-7 shrink-0 place-items-center rounded-md bg-secondary text-[10px] font-semibold uppercase text-muted-foreground"
+          aria-hidden="true"
+        >
+          {{ entry.symbol.slice(0, 2) }}
+        </span>
+        <span class="flex min-w-0 flex-col">
+          <span class="truncate font-medium leading-tight">{{
+            entry.symbol
+          }}</span>
+          <span
+            class="truncate text-[10px] leading-tight text-muted-foreground"
+          >
+            {{ entry.name ?? '—' }}
+          </span>
         </span>
       </div>
     </TableCell>
-    <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
+    <TableCell
+      class="hidden whitespace-nowrap text-xs text-muted-foreground xl:table-cell"
+    >
       {{ entry.exchange }} · {{ entry.segment ?? entry.instrumentType }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="border-l text-right tabular-nums">
       {{ formatInr(quote?.lastPrice ?? null) }}
     </TableCell>
     <TableCell
@@ -109,22 +131,24 @@ function stop(event: Event) {
     >
       {{ formatPercent(quote?.dayChangePercent ?? null) }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="hidden border-l text-right tabular-nums lg:table-cell">
       {{ formatPrice(quote?.ohlc?.open ?? null) }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="hidden text-right tabular-nums lg:table-cell">
       {{ formatPrice(quote?.ohlc?.high ?? null) }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="hidden text-right tabular-nums lg:table-cell">
       {{ formatPrice(quote?.ohlc?.low ?? null) }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="hidden text-right tabular-nums xl:table-cell">
       {{ formatPrice(previousClose) }}
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <TableCell class="hidden text-right tabular-nums lg:table-cell">
       {{ formatCompact(quote?.volume ?? null) }}
     </TableCell>
-    <TableCell class="whitespace-nowrap text-right tabular-nums">
+    <TableCell
+      class="hidden whitespace-nowrap border-l text-right tabular-nums xl:table-cell"
+    >
       <span class="text-muted-foreground">{{
         formatInr(quote?.bidPrice ?? null)
       }}</span>
@@ -132,12 +156,19 @@ function stop(event: Event) {
       <span>{{ formatInr(quote?.offerPrice ?? null) }}</span>
     </TableCell>
     <TableCell
-      class="whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums"
+      class="hidden whitespace-nowrap border-l text-right text-xs text-muted-foreground tabular-nums xl:table-cell"
     >
       {{ updatedAt ? formatAge(updatedAt) : '—' }}
     </TableCell>
     <TableCell class="text-right">
-      <Badge :variant="status.variant">{{ status.label }}</Badge>
+      <Badge :variant="status.variant" class="gap-1">
+        <span
+          class="size-1.5 rounded-full"
+          :class="status.dot"
+          aria-hidden="true"
+        />
+        {{ status.label }}
+      </Badge>
     </TableCell>
     <TableCell class="text-right" @click="stop">
       <div class="flex items-center justify-end gap-1">

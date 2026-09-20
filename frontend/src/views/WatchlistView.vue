@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { AlertCircle, ListChecks, Plus } from '@lucide/vue'
+import { AlertCircle, ListChecks, Plus, RefreshCw, Search } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import type { BrokerInstrument } from '@/api/types'
 import {
@@ -15,7 +15,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -53,6 +55,17 @@ const capacity = computed(() => response.value?.capacity ?? 20)
 const count = computed(() => response.value?.count ?? entries.value.length)
 const remaining = computed(() => Math.max(0, capacity.value - count.value))
 const isFull = computed(() => remaining.value <= 0)
+
+const filter = ref('')
+const filteredEntries = computed(() => {
+  const term = filter.value.trim().toLowerCase()
+  if (!term) {
+    return entries.value
+  }
+  return entries.value.filter((entry) =>
+    `${entry.symbol} ${entry.name ?? ''}`.toLowerCase().includes(term),
+  )
+})
 
 // --- add ---------------------------------------------------------------------
 const addOpen = ref(false)
@@ -143,32 +156,30 @@ function move(instrumentId: number, direction: -1 | 1) {
   <main
     class="mx-auto w-full max-w-[1600px] flex-1 space-y-4 px-4 py-6 lg:px-6"
   >
-    <div
-      class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-    >
+    <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="space-y-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Watchlist</h1>
-        <p class="text-sm text-muted-foreground">
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-semibold tracking-tight">Watchlist</h1>
+          <Badge
+            :variant="isFull ? 'destructive' : 'secondary'"
+            class="tabular-nums"
+          >
+            {{ count }} / {{ capacity }} instruments
+          </Badge>
+        </div>
+        <p class="max-w-2xl text-sm text-muted-foreground">
           Up to {{ capacity }} canonical instruments with live market state.
+          Select an instrument to open its detail page.
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <Badge
-          :variant="isFull ? 'destructive' : 'secondary'"
-          class="tabular-nums"
-        >
-          {{ count }} / {{ capacity }} instruments
-        </Badge>
-        <Button size="sm" :disabled="isFull" @click="addOpen = true">
-          <Plus class="size-4" aria-hidden="true" />
-          Add instrument
-        </Button>
-      </div>
+      <Button size="sm" :disabled="isFull" @click="addOpen = true">
+        <Plus class="mr-1 size-4" aria-hidden="true" />
+        Add instrument
+      </Button>
     </div>
 
     <p v-if="isFull" class="text-xs text-muted-foreground">
-      Maximum reached. Remove an instrument to add another ({{ remaining }}
-      remaining).
+      Maximum reached. Remove an instrument to add another.
     </p>
 
     <SectionState
@@ -178,67 +189,111 @@ function move(instrumentId: number, direction: -1 | 1) {
       @retry="watchlistQuery.refetch()"
     />
 
-    <Card v-else-if="watchlistQuery.isPending.value">
-      <CardContent class="space-y-2 pt-6">
-        <Skeleton v-for="n in 6" :key="n" class="h-10 w-full" />
-      </CardContent>
+    <Card v-else-if="watchlistQuery.isPending.value" class="space-y-2 p-4">
+      <Skeleton v-for="n in 6" :key="n" class="h-10 w-full" />
     </Card>
 
-    <Card v-else-if="entries.length === 0">
-      <CardContent class="flex flex-col items-center gap-3 py-16 text-center">
-        <div class="grid size-10 place-items-center rounded-full bg-muted">
-          <ListChecks class="size-4 text-muted-foreground" aria-hidden="true" />
+    <Card
+      v-else-if="entries.length === 0"
+      class="flex flex-col items-center gap-3 py-16 text-center"
+    >
+      <div class="grid size-10 place-items-center rounded-full bg-muted">
+        <ListChecks class="size-4 text-muted-foreground" aria-hidden="true" />
+      </div>
+      <div class="space-y-1">
+        <p class="text-sm font-medium">Your watchlist is empty</p>
+        <p class="mx-auto max-w-md text-sm text-muted-foreground">
+          Add up to {{ capacity }} instruments to track live price, session
+          statistics and feature state.
+        </p>
+      </div>
+      <Button size="sm" @click="addOpen = true">
+        <Plus class="mr-1 size-4" aria-hidden="true" />
+        Add instrument
+      </Button>
+    </Card>
+
+    <Card v-else class="overflow-hidden">
+      <div class="flex flex-wrap items-center gap-2 border-b p-3">
+        <div class="relative">
+          <Search
+            class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            v-model="filter"
+            placeholder="Search watchlist"
+            aria-label="Search watchlist"
+            class="h-9 w-56 pl-8"
+          />
         </div>
-        <div class="space-y-1">
-          <p class="text-sm font-medium">Your watchlist is empty</p>
-          <p class="mx-auto max-w-md text-sm text-muted-foreground">
-            Add up to {{ capacity }} instruments to track live price, session
-            statistics and more.
-          </p>
-        </div>
-        <Button size="sm" @click="addOpen = true">
-          <Plus class="size-4" aria-hidden="true" />
-          Add instrument
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-9"
+          @click="watchlistQuery.refetch()"
+        >
+          <RefreshCw class="mr-1 size-3.5" aria-hidden="true" /> Refresh
         </Button>
-      </CardContent>
-    </Card>
+        <span class="ml-auto text-xs text-muted-foreground">
+          Showing {{ filteredEntries.length }} of
+          {{ entries.length }} instruments
+        </span>
+      </div>
 
-    <Card v-else>
-      <CardContent class="px-0 pt-0">
-        <div class="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Instrument</TableHead>
-                <TableHead>Market</TableHead>
-                <TableHead class="text-right">LTP</TableHead>
-                <TableHead class="text-right">Chg</TableHead>
-                <TableHead class="text-right">Chg%</TableHead>
-                <TableHead class="text-right">Open</TableHead>
-                <TableHead class="text-right">High</TableHead>
-                <TableHead class="text-right">Low</TableHead>
-                <TableHead class="text-right">Prev</TableHead>
-                <TableHead class="text-right">Volume</TableHead>
-                <TableHead class="text-right">Bid / Ask</TableHead>
-                <TableHead class="text-right">Updated</TableHead>
-                <TableHead class="text-right">Status</TableHead>
-                <TableHead class="w-[120px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <WatchlistRow
-                v-for="(entry, index) in entries"
-                :key="entry.instrumentId"
-                :entry="entry"
-                :first="index === 0"
-                :last="index === entries.length - 1"
-                @remove="remove"
-                @move="move"
-              />
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
+      <div class="overflow-x-auto">
+        <Table>
+          <TableHeader class="sticky top-0 z-10 bg-card">
+            <TableRow class="hover:bg-transparent">
+              <TableHead>Instrument</TableHead>
+              <TableHead class="hidden xl:table-cell">Market</TableHead>
+              <TableHead class="border-l text-right">LTP</TableHead>
+              <TableHead class="text-right">Chg</TableHead>
+              <TableHead class="text-right">Chg%</TableHead>
+              <TableHead class="hidden border-l text-right lg:table-cell"
+                >Open</TableHead
+              >
+              <TableHead class="hidden text-right lg:table-cell"
+                >High</TableHead
+              >
+              <TableHead class="hidden text-right lg:table-cell">Low</TableHead>
+              <TableHead class="hidden text-right xl:table-cell"
+                >Prev</TableHead
+              >
+              <TableHead class="hidden text-right lg:table-cell"
+                >Volume</TableHead
+              >
+              <TableHead class="hidden border-l text-right xl:table-cell"
+                >Bid / Ask</TableHead
+              >
+              <TableHead class="hidden border-l text-right xl:table-cell"
+                >Updated</TableHead
+              >
+              <TableHead class="text-right">Status</TableHead>
+              <TableHead class="w-[120px] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <WatchlistRow
+              v-for="(entry, index) in filteredEntries"
+              :key="entry.instrumentId"
+              :entry="entry"
+              :first="index === 0"
+              :last="index === filteredEntries.length - 1"
+              @remove="remove"
+              @move="move"
+            />
+            <TableRow v-if="filteredEntries.length === 0">
+              <TableCell
+                :colspan="14"
+                class="py-10 text-center text-sm text-muted-foreground"
+              >
+                No instruments match “{{ filter }}”.
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
     </Card>
 
     <Dialog v-model:open="addOpen">
