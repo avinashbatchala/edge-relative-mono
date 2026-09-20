@@ -49,6 +49,7 @@ public final class FeatureVersions {
                         "persistenceWindow", rrs.persistenceWindow(),
                         "slopeLookback", rrs.slopeLookback(),
                         "percentileWindow", rrs.percentileWindow(),
+                        "percentileMinSamples", rrs.percentileMinSamples(),
                         "benchmark", benchmarkCode == null ? "UNRESOLVED" : benchmarkCode,
                         "timeframe", timeframe));
     }

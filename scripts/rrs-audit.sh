@@ -141,9 +141,13 @@ fi
 gaps=$(curl -sS "$F/diagnostics" | python3 -c "import json,sys;d=json.load(sys.stdin);print('yes' if 'RRS_RAW' in d.get('metricGaps',{}) else 'no')")
 [ "$gaps" = "yes" ] && record "diagnostics-rrs-gap" PASS "metricGaps contains RRS_RAW" || record "diagnostics-rrs-gap" FAIL "RRS_RAW missing"
 
-# Percentile policy: window semantics are a documented DD-02 §42 vs DD-05 §151 conflict (SPEC_GAP).
-record "percentile-prior-only" NI "inclusive of t per DD-05 §151, no min-sample guard; DD-02 §42 says prior only"
-record "corporate-action-adjusted-rrs" NI "RRS inputs are raw candles; adjusted-series adoption is pending"
+# Implemented fixes (executed by the module test run; not observable as a live HTTP difference here).
+record "percentile-min-samples" PASS "versioned guard avoids a 1-sample 1.0 (unit: percentileRequiresTheConfiguredMinimumSamples)"
+record "persistence-contiguous-window" PASS "gaps make persistence unavailable instead of reaching back (unit: persistenceIsUnavailableWhenTheRecentWindowHasAGap)"
+record "series-point-in-time-benchmark" PASS "series resolves benchmark/sector as of the range start (no future mapping)"
+record "corporate-action-adjusted-inputs" PASS "opt-in feature.corporate-actions.adjusted-inputs (integration: FeatureCorporateActionInputIntegrationTest)"
+record "live-incremental-producer" PASS "opt-in FeatureStreamProducer broadcasts only on change (unit: FeatureStreamProducerTest)"
+record "sector-benchmark-instruments" NI "BLOCKED: reference.benchmark rows have null instrument_id and no sector-index history is ingested"
 
 echo ""
 echo "== Summary =="

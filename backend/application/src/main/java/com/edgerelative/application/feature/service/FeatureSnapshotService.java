@@ -1,5 +1,7 @@
 package com.edgerelative.application.feature.service;
 
+import com.edgerelative.application.corporateaction.application.CorporateActionAdjustmentService;
+import com.edgerelative.application.corporateaction.math.CorporateActionAdjustment.AdjustedCandle;
 import com.edgerelative.application.feature.domain.BenchmarkIdentity;
 import com.edgerelative.application.feature.domain.FeatureSnapshot;
 import com.edgerelative.application.feature.engine.FeatureContext;
@@ -7,6 +9,7 @@ import com.edgerelative.application.feature.engine.FeatureEngine;
 import com.edgerelative.application.feature.engine.FeatureMetrics;
 import com.edgerelative.application.feature.persistence.FeatureSnapshotWriter;
 import com.edgerelative.application.feature.policy.FeaturePolicy;
+import com.edgerelative.application.feature.policy.FeatureProperties;
 import com.edgerelative.application.feature.policy.FeatureVersions;
 import com.edgerelative.application.history.AggregatedCandle;
 import com.edgerelative.application.history.query.HistoricalDataReader;
@@ -38,18 +41,21 @@ public class FeatureSnapshotService {
 
     private static final int HISTORY_LIMIT = 10_000;
     private static final String SOURCE_REVISION = "canonical-m1-v1";
+    private static final String ADJUSTED_SOURCE_REVISION = "canonical-m1-ca-adjusted-v1";
     public static final String DEFAULT_TIMEFRAME = "M5";
 
     private final HistoricalDataReader reader;
     private final CanonicalInstrumentService canonical;
     private final FeatureReferenceResolver referenceResolver;
     private final FeaturePolicy policy;
+    private final FeatureProperties properties;
     private final FeatureVersions versions;
     private final NseTradingCalendar calendar;
     private final FeatureEngine engine;
     private final FeatureSnapshotWriter writer;
     private final FeatureMetrics metrics;
     private final WatchlistService watchlist;
+    private final CorporateActionAdjustmentService adjustments;
     private final Clock clock;
 
     public FeatureSnapshotService(
@@ -57,23 +63,27 @@ public class FeatureSnapshotService {
             CanonicalInstrumentService canonical,
             FeatureReferenceResolver referenceResolver,
             FeaturePolicy policy,
+            FeatureProperties properties,
             FeatureVersions versions,
             NseTradingCalendar calendar,
             FeatureEngine engine,
             FeatureSnapshotWriter writer,
             FeatureMetrics metrics,
             WatchlistService watchlist,
+            CorporateActionAdjustmentService adjustments,
             Clock clock) {
         this.reader = reader;
         this.canonical = canonical;
         this.referenceResolver = referenceResolver;
         this.policy = policy;
+        this.properties = properties;
         this.versions = versions;
         this.calendar = calendar;
         this.engine = engine;
         this.writer = writer;
         this.metrics = metrics;
         this.watchlist = watchlist;
+        this.adjustments = adjustments;
         this.clock = clock;
     }
 
@@ -109,9 +119,13 @@ public class FeatureSnapshotService {
         FeatureSnapshot snapshot = engine.snapshot(context);
         metrics.recordSnapshot(Duration.ofNanos(System.nanoTime() - started));
         if (persist) {
-            writer.write(snapshot, canonical.ensureTimeframe(timeframe), SOURCE_REVISION);
+            writer.write(snapshot, canonical.ensureTimeframe(timeframe), sourceRevision());
         }
         return snapshot;
+    }
+
+    private String sourceRevision() {
+        return properties.getCorporateActions().isAdjustedInputs() ? ADJUSTED_SOURCE_REVISION : SOURCE_REVISION;
     }
 
     /**
@@ -121,9 +135,13 @@ public class FeatureSnapshotService {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new FeatureException(FeatureException.INVALID, "'from' must be before 'to'");
         }
+        // Resolve the benchmark as of the range START for a historical series: using the range end
+        // would let a sector/benchmark mapping that became valid only later leak into earlier bars
+        // (DD-05 §141 point-in-time membership, §260 no future knowledge).
         FeatureContext context = context(
                 instrumentId,
                 timeframe,
+                from,
                 to,
                 from.minus(Duration.ofDays(policy.historyDays())),
                 new ConcurrentHashMap<>());
@@ -137,7 +155,7 @@ public class FeatureSnapshotService {
         }
         if (!result.isEmpty()) {
             FeatureSnapshot last = result.get(result.size() - 1);
-            writer.write(last, canonical.ensureTimeframe(timeframe), SOURCE_REVISION);
+            writer.write(last, canonical.ensureTimeframe(timeframe), sourceRevision());
         }
         return result;
     }
@@ -163,6 +181,7 @@ public class FeatureSnapshotService {
                 instrumentId,
                 timeframe,
                 to,
+                to,
                 to.minus(Duration.ofDays(policy.historyDays())),
                 cache);
     }
@@ -173,8 +192,23 @@ public class FeatureSnapshotService {
             Instant to,
             Instant from,
             ConcurrentMap<String, List<AggregatedCandle>> cache) {
+        return context(instrumentId, timeframe, to, to, from, cache);
+    }
+
+    /**
+     * @param benchmarkAnchor the instant at which benchmark/sector identity is resolved. A single
+     *                        snapshot uses its anchor; a historical series uses the range start so a
+     *                        later mapping cannot leak backwards.
+     */
+    private FeatureContext context(
+            long instrumentId,
+            String timeframe,
+            Instant benchmarkAnchor,
+            Instant to,
+            Instant from,
+            ConcurrentMap<String, List<AggregatedCandle>> cache) {
         BenchmarkIdentity benchmark =
-                referenceResolver.resolve(instrumentId, to, policy.benchmark().marketCode());
+                referenceResolver.resolve(instrumentId, benchmarkAnchor, policy.benchmark().marketCode());
         List<AggregatedCandle> subject =
                 load(cache, instrumentId, timeframe, from, to, HISTORY_LIMIT);
         List<AggregatedCandle> market = benchmark.hasMarket()
@@ -222,7 +256,12 @@ public class FeatureSnapshotService {
             Instant from,
             Instant to,
             int limit) {
-        String key = instrumentId + "|" + timeframe + "|" + from + "|" + to + "|" + limit;
-        return cache.computeIfAbsent(key, ignored -> reader.candles(instrumentId, timeframe, from, to, limit));
+        boolean adjusted = properties.getCorporateActions().isAdjustedInputs();
+        String key = instrumentId + "|" + timeframe + "|" + from + "|" + to + "|" + limit + "|ca=" + adjusted;
+        return cache.computeIfAbsent(key, ignored -> adjusted
+                ? adjustments.adjustedCandles(instrumentId, timeframe, from, to, limit, to).stream()
+                        .map(AdjustedCandle::candle)
+                        .toList()
+                : reader.candles(instrumentId, timeframe, from, to, limit));
     }
 }

@@ -14,5 +14,6 @@ public record RrsParameters(
         int slowLength,
         int persistenceWindow,
         int slopeLookback,
-        int percentileWindow) {
+        int percentileWindow,
+        int percentileMinSamples) {
 }

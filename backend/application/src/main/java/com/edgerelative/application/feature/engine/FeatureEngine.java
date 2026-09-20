@@ -106,7 +106,8 @@ public final class FeatureEngine {
                 policy.rrs().slowLength(),
                 policy.rrs().persistenceWindow(),
                 policy.rrs().slopeLookback(),
-                policy.rrs().percentileWindow());
+                policy.rrs().percentileWindow(),
+                policy.rrs().percentileMinSamples());
         RrsFeature.Result rrs = rrsFeature.compute(subject, market, rrsParameters);
         RrsFeature.Result vsSector =
                 market.size() > 0 && sector.size() > 0 ? rrsFeature.compute(subject, sector, rrsParameters) : null;

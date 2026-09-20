@@ -35,7 +35,7 @@ public final class FeatureTestSupport {
                 120,
                 new FeaturePolicy.Benchmark("NIFTY50"),
                 new FeaturePolicy.Atr(Map.of("M5", atrLength, "D1", atrLength), atrLength, AtrSmoothing.WILDER),
-                new FeaturePolicy.Rrs(PriceChange.CLOSE_TO_CLOSE, 3, 8, 8, 3, 500),
+                new FeaturePolicy.Rrs(PriceChange.CLOSE_TO_CLOSE, 3, 8, 8, 3, 500, 1),
                 rvol,
                 new FeaturePolicy.Rve(3, 8),
                 new FeaturePolicy.Structure(3, 20),

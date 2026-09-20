@@ -31,6 +31,7 @@ public class FeatureProperties {
     private final Live live = new Live();
     private final Dashboard dashboard = new Dashboard();
     private final Freshness freshness = new Freshness();
+    private final CorporateActions corporateActions = new CorporateActions();
 
     public FeaturePolicy toPolicy() {
         return new FeaturePolicy(
@@ -46,7 +47,8 @@ public class FeatureProperties {
                         rrs.getSlowLength(),
                         rrs.getPersistenceWindow(),
                         rrs.getSlopeLookback(),
-                        rrs.getPercentileWindow()),
+                        rrs.getPercentileWindow(),
+                        rrs.getPercentileMinSamples()),
                 new FeaturePolicy.Rvol(
                         BaselineEstimatorType.parse(rvol.getEstimator()),
                         rvol.getDailyLookback(),
@@ -73,6 +75,7 @@ public class FeatureProperties {
         positive(rrs.getPersistenceWindow(), "feature.rrs.persistence-window");
         positive(rrs.getSlopeLookback(), "feature.rrs.slope-lookback");
         positive(rrs.getPercentileWindow(), "feature.rrs.percentile-window");
+        positive(rrs.getPercentileMinSamples(), "feature.rrs.percentile-min-samples");
         positive(rvol.getDailyLookback(), "feature.rvol.daily-lookback");
         positive(rvol.getIntervalLookback(), "feature.rvol.interval-lookback");
         positive(rvol.getCumulativeLookback(), "feature.rvol.cumulative-lookback");
@@ -161,6 +164,10 @@ public class FeatureProperties {
         return freshness;
     }
 
+    public CorporateActions getCorporateActions() {
+        return corporateActions;
+    }
+
     public static class Benchmark {
         private String marketCode;
 
@@ -210,6 +217,7 @@ public class FeatureProperties {
         private int persistenceWindow;
         private int slopeLookback;
         private int percentileWindow;
+        private int percentileMinSamples = 1;
 
         public String getPriceChange() {
             return priceChange;
@@ -257,6 +265,14 @@ public class FeatureProperties {
 
         public void setPercentileWindow(int percentileWindow) {
             this.percentileWindow = percentileWindow;
+        }
+
+        public int getPercentileMinSamples() {
+            return percentileMinSamples;
+        }
+
+        public void setPercentileMinSamples(int percentileMinSamples) {
+            this.percentileMinSamples = percentileMinSamples;
         }
     }
 
@@ -454,6 +470,25 @@ public class FeatureProperties {
 
         public void setD1MaxAgeSeconds(Long d1MaxAgeSeconds) {
             this.d1MaxAgeSeconds = d1MaxAgeSeconds;
+        }
+    }
+
+    /**
+     * Corporate-action input policy (DD-05 §112/§113). When enabled, features read the versioned
+     * split/bonus-adjusted analytical series instead of raw prices, so a price discontinuity does not
+     * split an RRS/ATR regime. Raw candles remain untouched, and an unsupported action (or one with
+     * no factor) fails closed rather than substituting raw silently. Disabled by default because it
+     * is only meaningful once the relevant factors are ingested.
+     */
+    public static class CorporateActions {
+        private boolean adjustedInputs;
+
+        public boolean isAdjustedInputs() {
+            return adjustedInputs;
+        }
+
+        public void setAdjustedInputs(boolean adjustedInputs) {
+            this.adjustedInputs = adjustedInputs;
         }
     }
 }

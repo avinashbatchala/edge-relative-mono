@@ -106,6 +106,11 @@ feature:
   benchmark:
     # DD-02 selects NIFTY 50 for Strategy V1; NIFTY 500 remains the documented research challenger.
     market-code: NIFTY50
+  corporate-actions:
+    # DD-05 §113: features may read the versioned split/bonus-adjusted series for continuity while
+    # raw candles stay untouched. Enable once the relevant factors are ingested; an unsupported
+    # action then fails closed rather than silently mixing raw and adjusted prices.
+    adjusted-inputs: false
   atr:
     # DD-02 §34 candidates: ~50 trading hours of M5 (600 bars) and ~50 D1 sessions.
     length-by-timeframe:
@@ -127,6 +132,9 @@ feature:
     persistence-window: 8
     slope-lookback: 3
     percentile-window: 500
+    # DD-05 §151 rolling percentile: require enough observations that the distribution is meaningful;
+    # without this the first finite RRS bar would report a degenerate percentile of 1.0.
+    percentile-min-samples: 20
   rvol:
     # DD-02 §44-§47: 50 sessions is a primary candidate; estimator is versioned.
     estimator: MEAN
@@ -156,6 +164,12 @@ feature:
     enabled: true
     # Bounded queue; a full queue drops rebuildable persistence and increments a counter.
     queue-capacity: 2000
+  stream:
+    producer:
+      # Incremental feature.update producer. Disabled until a live market-data producer updates the
+      # canonical store, otherwise it would re-broadcast on ingestion.
+      enabled: false
+      interval-ms: 5000
 
 market:
   # Point-in-time sector membership, seeded into reference.instrument_sector_history. Only sectors

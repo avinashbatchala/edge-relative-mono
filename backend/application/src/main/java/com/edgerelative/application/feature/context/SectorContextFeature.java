@@ -31,7 +31,8 @@ public final class SectorContextFeature {
                 policy.rrs().slowLength(),
                 policy.rrs().persistenceWindow(),
                 policy.rrs().slopeLookback(),
-                policy.rrs().percentileWindow());
+                policy.rrs().percentileWindow(),
+                policy.rrs().percentileMinSamples());
         RrsFeature.Result rrs = new RrsFeature().compute(sector, market, rrsParameters);
         double[] highs = array(sector, true, false, false);
         double[] lows = array(sector, false, true, false);

@@ -1,6 +1,7 @@
 package com.edgerelative.application.feature.stream;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -8,6 +9,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 /** Registers the versioned JSON feature stream. Same-origin dev server only. */
 @Configuration
 @EnableWebSocket
+@EnableScheduling
 public class FeatureStreamConfig implements WebSocketConfigurer {
 
     private final FeatureStreamHandler handler;

@@ -56,7 +56,8 @@ class FeatureFixtureTest {
                 parameters.path("slowLength").asInt(),
                 parameters.path("persistenceWindow").asInt(),
                 parameters.path("slopeLookback").asInt(),
-                parameters.path("percentileWindow").asInt());
+                parameters.path("percentileWindow").asInt(),
+                parameters.path("percentileMinSamples").asInt(1));
         RrsFeature.Result result = new RrsFeature().compute(
                 BarSeries.of(bars(fixture.path("bars"))),
                 BarSeries.of(bars(fixture.path("benchmarkBars"))),

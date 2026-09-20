@@ -45,7 +45,8 @@ public record FeaturePolicy(
             int slowLength,
             int persistenceWindow,
             int slopeLookback,
-            int percentileWindow) {
+            int percentileWindow,
+            int percentileMinSamples) {
     }
 
     public record Rvol(

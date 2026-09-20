@@ -106,7 +106,7 @@ public final class RrsFeature {
         double[] acceleration = difference(fast);
         double[] slope = slope(fast, parameters.slopeLookback());
         double[] persistence = persistence(raw, fast, parameters.persistenceWindow());
-        double[] percentile = percentile(raw, parameters.percentileWindow());
+        double[] percentile = percentile(raw, parameters.percentileWindow(), parameters.percentileMinSamples());
         String[] trend = trend(fast, acceleration);
         return new Result(
                 raw,
@@ -145,35 +145,50 @@ public final class RrsFeature {
         return result;
     }
 
+    /**
+     * Share of the last {@code window} contiguous bars whose RRS raw sign agrees with RRS fast
+     * (DD-02 §35, "percent of recent bars"). The window is strictly the previous {@code window} bars
+     * including the current one: a gap (non-finite raw) makes the score unavailable rather than
+     * reaching back past the gap, which would silently mix non-recent regime observations.
+     */
     private static double[] persistence(double[] raw, double[] fast, int window) {
         double[] result = new double[window > 0 ? raw.length : 0];
         Arrays.fill(result, Double.NaN);
         for (int i = 0; i < raw.length; i++) {
-            if (!Double.isFinite(fast[i]) || fast[i] == 0.0) {
+            if (i + 1 < window || !Double.isFinite(fast[i]) || fast[i] == 0.0) {
                 continue;
             }
             double referenceSign = Math.signum(fast[i]);
-            int considered = 0;
+            boolean eligible = true;
             int agreeing = 0;
-            for (int j = i; j >= 0 && considered < window; j--) {
+            for (int j = i - window + 1; j <= i; j++) {
                 if (!Double.isFinite(raw[j])) {
-                    continue;
+                    eligible = false;
+                    break;
                 }
-                considered++;
                 if (Math.signum(raw[j]) == referenceSign) {
                     agreeing++;
                 }
             }
-            if (considered == window) {
+            if (eligible) {
                 result[i] = (double) agreeing / window;
             }
         }
         return result;
     }
 
-    private static double[] percentile(double[] raw, int window) {
+    /**
+     * Trailing point-in-time percentile of RRS raw (DD-05 §151). The window is the last {@code
+     * window} observations available before or at {@code i} (inclusive of the current bar). A
+     * versioned {@code minSamples} guard prevents a degenerate distribution: with fewer than {@code
+     * minSamples} finite observations the percentile is unavailable rather than a trivial 1.0 from a
+     * one-point sample. DD-02 §42 phrased this as "prior observations"; the inclusive reading of the
+     * more specific DD-05 §151 is used, and the guard is the operator-controlled strictness.
+     */
+    private static double[] percentile(double[] raw, int window, int minSamples) {
         double[] result = new double[raw.length];
         Arrays.fill(result, Double.NaN);
+        int required = Math.max(1, minSamples);
         for (int i = 0; i < raw.length; i++) {
             if (!Double.isFinite(raw[i])) {
                 continue;
@@ -186,7 +201,7 @@ public final class RrsFeature {
                     values[count++] = raw[j];
                 }
             }
-            if (count == 0) {
+            if (count < required) {
                 continue;
             }
             result[i] = RollingStatistics.percentileRank(Arrays.copyOf(values, count), raw[i]);

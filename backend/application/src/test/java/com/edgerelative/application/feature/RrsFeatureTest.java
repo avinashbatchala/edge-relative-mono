@@ -22,7 +22,7 @@ class RrsFeatureTest {
     private static final Instant BASE = Instant.parse("2026-09-01T03:45:00Z");
 
     private static RrsParameters parameters() {
-        return new RrsParameters(1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5);
+        return new RrsParameters(1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5, 1);
     }
 
     /**
@@ -109,8 +109,8 @@ class RrsFeatureTest {
                 bar(1, 109, 112, 108, 110, 100, true, "GOOD"),
                 bar(2, 119, 120.5, 118, 120, 100, true, "GOOD"));
         BarSeries benchmark = flat(200, 3);
-        RrsParameters shortAtr = new RrsParameters(1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5);
-        RrsParameters longAtr = new RrsParameters(2, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5);
+        RrsParameters shortAtr = new RrsParameters(1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5, 1);
+        RrsParameters longAtr = new RrsParameters(2, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5, 1);
         RrsFeature feature = new RrsFeature();
         double shortRaw = feature.compute(BarSeries.of(varying), benchmark, shortAtr).raw()[2];
         double longRaw = feature.compute(BarSeries.of(varying), benchmark, longAtr).raw()[2];
@@ -126,6 +126,43 @@ class RrsFeatureTest {
             bars.add(bar(i, level, level, level, level, 0, true, "GOOD"));
         }
         return BarSeries.of(bars);
+    }
+
+    @Test
+    void percentileRequiresTheConfiguredMinimumSamples() {
+        RrsParameters strict = new RrsParameters(
+                1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_CLOSE, 1, 1, 1, 1, 5, 3);
+        RrsFeature.Result result =
+                new RrsFeature().compute(trending(100, 101, 102, 103, 104), flat(200, 5), strict);
+
+        // raw[0] is NaN; by index 2 only two finite observations exist, so the percentile is withheld.
+        assertThat(result.percentile()[2]).isNaN();
+        assertThat(result.percentile()[3]).isFinite();
+    }
+
+    @Test
+    void persistenceIsUnavailableWhenTheRecentWindowHasAGap() {
+        RrsParameters params = new RrsParameters(
+                1, AtrSmoothing.SIMPLE, PriceChange.CLOSE_TO_OPEN, 1, 1, 2, 1, 5, 1);
+        BarSeries subject = BarSeries.of(List.of(
+                bar(0, 100, 101, 99, 101, 100, true, "GOOD"),
+                bar(1, 101, 102, 100, 102, 100, true, "GOOD"),
+                bar(2, 102, 103, 101, 103, 100, true, "GOOD")));
+        BarSeries benchmark = BarSeries.of(List.of(
+                bar(0, 200, 201, 199, 201, 100, true, "GOOD"),
+                FeatureTestSupport.bar(
+                        BASE.plusSeconds(360).toString(),
+                        BASE.plusSeconds(660).toString(),
+                        200, 201, 199, 201, 100),
+                bar(2, 200, 201, 199, 201, 100, true, "GOOD")));
+
+        RrsFeature.Result result = new RrsFeature().compute(subject, benchmark, params);
+
+        assertThat(result.raw()[0]).isFinite();
+        assertThat(result.raw()[1]).isNaN();
+        assertThat(result.raw()[2]).isFinite();
+        // The last two-bar window [1,2] contains the gap, so persistence must not reach back to bar 0.
+        assertThat(result.persistence()[2]).isNaN();
     }
 
     @Test

@@ -10,7 +10,8 @@
     "slowLength": 1,
     "persistenceWindow": 2,
     "slopeLookback": 1,
-    "percentileWindow": 10
+    "percentileWindow": 10,
+    "percentileMinSamples": 1
   },
   "bars": [
     { "openTime": "2026-09-01T03:45:00Z", "closeTime": "2026-09-01T03:50:00Z", "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1000, "complete": true, "quality": "GOOD" },

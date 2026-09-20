@@ -97,7 +97,7 @@ class BacktestEngineEndToEndTest {
                 30,
                 new FeaturePolicy.Benchmark("NIFTY50"),
                 new FeaturePolicy.Atr(Map.of("M5", 1, "D1", 1), 1, AtrSmoothing.SIMPLE),
-                new FeaturePolicy.Rrs(PriceChange.CLOSE_TO_CLOSE, 1, 2, 2, 1, 2),
+                new FeaturePolicy.Rrs(PriceChange.CLOSE_TO_CLOSE, 1, 2, 2, 1, 2, 1),
                 new FeaturePolicy.Rvol(BaselineEstimatorType.MEAN, 1, 1, 1, 1, 0.0, 2),
                 new FeaturePolicy.Rve(1, 2),
                 new FeaturePolicy.Structure(1, 2),
