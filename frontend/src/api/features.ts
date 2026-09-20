@@ -45,6 +45,32 @@ export interface FeatureDashboardRow {
   featureSchemaVersion: string
   featureVersions: Record<string, string>
   unavailableReasons: Record<string, string>
+  /** Per-metric availability state token; distinguishes warming/missing/stale/invalid/not-implemented. */
+  unavailableStates: Record<string, string>
+}
+
+export interface MetricAvailability {
+  metric: string
+  state: string
+  reason: string
+  affectedCount: number
+}
+
+export interface TradingImpact {
+  status: string
+  label: string
+  scopeCount: number
+  detail: string
+}
+
+export interface DiagnosticsFreshness {
+  state: string
+  sessionContext: string
+  newestAgeSeconds: number | null
+  oldestAgeSeconds: number | null
+  policySeconds: number | null
+  asOf: string | null
+  basis: string
 }
 
 export interface FeatureDiagnosticsResponse {
@@ -76,6 +102,10 @@ export interface FeatureDiagnosticsResponse {
     quality: string
   }[]
   notes: string[]
+  calculationMode: string
+  tradingImpact: TradingImpact
+  freshness: DiagnosticsFreshness
+  metricAvailability: MetricAvailability[]
 }
 
 export interface FeatureValueResponse {

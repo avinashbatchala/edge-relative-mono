@@ -30,6 +30,7 @@ public class FeatureProperties {
     private final Persistence persistence = new Persistence();
     private final Live live = new Live();
     private final Dashboard dashboard = new Dashboard();
+    private final Freshness freshness = new Freshness();
 
     public FeaturePolicy toPolicy() {
         return new FeaturePolicy(
@@ -85,6 +86,14 @@ public class FeatureProperties {
         positive(live.getMaxBars(), "feature.live.max-bars");
         if (dashboard.getCacheTtl() == null || dashboard.getCacheTtl().isNegative()) {
             throw new IllegalStateException("feature.dashboard.cache-ttl must not be negative");
+        }
+        nonNegative(freshness.getM5MaxAgeSeconds(), "feature.freshness.m5-max-age-seconds");
+        nonNegative(freshness.getD1MaxAgeSeconds(), "feature.freshness.d1-max-age-seconds");
+    }
+
+    private static void nonNegative(Long value, String name) {
+        if (value != null && value < 0) {
+            throw new IllegalStateException(name + " must not be negative");
         }
     }
 
@@ -146,6 +155,10 @@ public class FeatureProperties {
 
     public Dashboard getDashboard() {
         return dashboard;
+    }
+
+    public Freshness getFreshness() {
+        return freshness;
     }
 
     public static class Benchmark {
@@ -414,6 +427,33 @@ public class FeatureProperties {
 
         public void setQueueCapacity(int queueCapacity) {
             this.queueCapacity = queueCapacity;
+        }
+    }
+
+    /**
+     * Backend freshness policy. Both bounds are optional: leaving them unset reports
+     * {@code policySeconds = null} and the dashboard states "Freshness policy not configured"
+     * rather than inventing a threshold. Bounds are per underlying timeframe, so a daily input is
+     * never judged against the intraday bound.
+     */
+    public static class Freshness {
+        private Long m5MaxAgeSeconds;
+        private Long d1MaxAgeSeconds;
+
+        public Long getM5MaxAgeSeconds() {
+            return m5MaxAgeSeconds;
+        }
+
+        public void setM5MaxAgeSeconds(Long m5MaxAgeSeconds) {
+            this.m5MaxAgeSeconds = m5MaxAgeSeconds;
+        }
+
+        public Long getD1MaxAgeSeconds() {
+            return d1MaxAgeSeconds;
+        }
+
+        public void setD1MaxAgeSeconds(Long d1MaxAgeSeconds) {
+            this.d1MaxAgeSeconds = d1MaxAgeSeconds;
         }
     }
 }

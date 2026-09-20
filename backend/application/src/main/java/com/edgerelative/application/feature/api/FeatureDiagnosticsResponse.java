@@ -20,7 +20,11 @@ public record FeatureDiagnosticsResponse(
         Counters counters,
         Versions versions,
         List<InstrumentState> instruments,
-        List<String> notes) {
+        List<String> notes,
+        String calculationMode,
+        TradingImpact tradingImpact,
+        Freshness freshness,
+        List<MetricAvailability> metricAvailability) {
 
     /** Low-cardinality counters surfaced from the feature metrics registry. */
     public record Counters(
@@ -43,5 +47,30 @@ public record FeatureDiagnosticsResponse(
             String reasonCode,
             Long staleSeconds,
             String quality) {
+    }
+
+    /**
+     * Authoritative trading-impact gate. This dashboard is observational and no setup/risk gate
+     * producer is wired yet, so it reports {@code NOT_EVALUATED} and never invents a decision.
+     */
+    public record TradingImpact(String status, String label, int scopeCount, String detail) {
+    }
+
+    /**
+     * Underlying market-data freshness, using the backend freshness policy and NSE session context.
+     * {@code policySeconds} is null when no policy is configured (no hard-coded threshold).
+     */
+    public record Freshness(
+            String state,
+            String sessionContext,
+            Long newestAgeSeconds,
+            Long oldestAgeSeconds,
+            Long policySeconds,
+            Instant asOf,
+            String basis) {
+    }
+
+    /** One grouped availability issue: metric + state + reason across unique affected instruments. */
+    public record MetricAvailability(String metric, String state, String reason, int affectedCount) {
     }
 }

@@ -88,11 +88,17 @@ function row(
     unavailableReasons: {
       VWAP_DISTANCE_ATR: 'VWAP feature is not implemented',
     },
+    unavailableStates: {
+      VWAP_DISTANCE_ATR: 'NOT_IMPLEMENTED',
+    },
     ...values,
   }
 }
 
-function diagnostics(instrumentIds: number[]) {
+function diagnostics(
+  instrumentIds: number[],
+  overrides: Partial<featureApi.FeatureDiagnosticsResponse> = {},
+) {
   return {
     generatedAt: '2026-09-20T10:00:01Z',
     engineStatus: 'UP',
@@ -125,13 +131,37 @@ function diagnostics(instrumentIds: number[]) {
       quality: 'GOOD',
     })),
     notes: ['No live market-data event producer is wired.'],
+    calculationMode: 'ON_DEMAND_CANONICAL',
+    tradingImpact: {
+      status: 'NOT_EVALUATED',
+      label: 'Trading impact not evaluated',
+      scopeCount: 0,
+      detail: 'No authoritative strategy/data-gate result is produced yet.',
+    },
+    freshness: {
+      state: 'FRESH',
+      sessionContext: 'OPEN',
+      newestAgeSeconds: 5,
+      oldestAgeSeconds: 5,
+      policySeconds: null,
+      asOf: '2026-09-20T10:00:00Z',
+      basis: 'No backend freshness policy is configured.',
+    },
+    metricAvailability: [],
+    ...overrides,
   }
 }
 
-function setup(rows: FeatureDashboardRow[]) {
+function setup(
+  rows: FeatureDashboardRow[],
+  overrides: Partial<featureApi.FeatureDiagnosticsResponse> = {},
+) {
   getFeatureDashboard.mockResolvedValue(rows)
   getFeatureDiagnostics.mockResolvedValue(
-    diagnostics(rows.map((r) => r.instrumentId)),
+    diagnostics(
+      rows.map((r) => r.instrumentId),
+      overrides,
+    ),
   )
   const pinia = createPinia()
   const router = createRouter({
@@ -349,6 +379,162 @@ test('exposes the sort direction to assistive technology', async () => {
   await waitFor(() =>
     expect(header.getAttribute('aria-sort')).toBe('descending'),
   )
+})
+
+test('answers the trust question while technical diagnostics stay collapsed', async () => {
+  setup([row(1, 'SYM1')])
+  await screen.findByTestId('feature-table')
+
+  // The trading-impact sentence is visible without opening any detail section.
+  expect(screen.getByTestId('trading-impact').textContent).toContain(
+    'Trading impact not evaluated',
+  )
+  // Connection, freshness and calculation mode are always visible and distinct.
+  expect(screen.getAllByText('Idle').length).toBeGreaterThan(0)
+  expect(screen.getByText('Market-data freshness')).toBeTruthy()
+  expect(screen.getByText('Calculation mode')).toBeTruthy()
+  expect(screen.getByText('On-demand from canonical candles')).toBeTruthy()
+  expect(screen.getAllByText(/Snapshot refreshed/).length).toBeGreaterThan(0)
+  expect(screen.getByText(/Market data as of/)).toBeTruthy()
+
+  const technical = screen.getByRole('button', {
+    name: /Technical diagnostics/,
+  })
+  expect(technical.getAttribute('aria-expanded')).toBe('false')
+})
+
+test('distinguishes warming, missing, stale, invalid and not-implemented metrics', async () => {
+  setup([row(1, 'SYM1')], {
+    metricAvailability: [
+      {
+        metric: 'RRS_RAW',
+        state: 'MISSING_INPUT',
+        reason: 'no data',
+        affectedCount: 2,
+      },
+      {
+        metric: 'RVOL_INTERVAL',
+        state: 'WARMING_UP',
+        reason: 'samples=3',
+        affectedCount: 1,
+      },
+      { metric: 'ATR', state: 'STALE', reason: 'old bar', affectedCount: 1 },
+      {
+        metric: 'RVE',
+        state: 'INVALID',
+        reason: 'bad input',
+        affectedCount: 1,
+      },
+      {
+        metric: 'VWAP_DISTANCE_ATR',
+        state: 'NOT_IMPLEMENTED',
+        reason: 'VWAP feature is not implemented',
+        affectedCount: 1,
+      },
+    ],
+  })
+  await screen.findByTestId('feature-table')
+
+  expect(screen.getByText('Missing input')).toBeTruthy()
+  expect(screen.getByText('Warming up')).toBeTruthy()
+  expect(screen.getByText('Stale')).toBeTruthy()
+  expect(screen.getByText('Invalid')).toBeTruthy()
+  expect(screen.getByText('Not implemented')).toBeTruthy()
+  // Grouped counts are shown as affected instruments, not a summed watchlist total.
+  expect(screen.getAllByText(/2 instruments/).length).toBeGreaterThan(0)
+})
+
+test('an optional missing metric does not mark the watchlist unhealthy', async () => {
+  setup([row(1, 'SYM1')], {
+    metricAvailability: [
+      {
+        metric: 'VWAP_DISTANCE_ATR',
+        state: 'NOT_IMPLEMENTED',
+        reason: 'VWAP feature is not implemented',
+        affectedCount: 1,
+      },
+    ],
+  })
+  await screen.findByTestId('feature-table')
+
+  expect(screen.getAllByText('Healthy').length).toBeGreaterThan(0)
+  expect(screen.getByText('Not implemented')).toBeTruthy()
+})
+
+test('a connected dashboard with stale candles never appears healthy', async () => {
+  setup([row(1, 'SYM1')], {
+    healthyCount: 0,
+    stateCounts: { STALE: 1 },
+    freshness: {
+      state: 'STALE',
+      sessionContext: 'OPEN',
+      newestAgeSeconds: 5000,
+      oldestAgeSeconds: 5000,
+      policySeconds: 900,
+      asOf: '2026-09-20T08:00:00Z',
+      basis: 'Compared against the configured M5 freshness bound.',
+    },
+    instruments: [
+      {
+        instrumentId: 1,
+        symbol: 'SYM1',
+        state: 'STALE',
+        reasonCode: 'STALE',
+        staleSeconds: 5000,
+        quality: 'STALE',
+      },
+    ],
+  })
+  await screen.findByTestId('feature-table')
+
+  expect(screen.getAllByText('Idle').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
+  expect(
+    screen.getByText(/1 of 1 instruments have a data-quality issue/),
+  ).toBeTruthy()
+  expect(screen.getByText(/bound 15m/)).toBeTruthy()
+  // The stale board is never presented as healthy.
+  expect(screen.queryByText('Healthy')).toBeNull()
+})
+
+test('View affected rows applies a visible clearable issue filter', async () => {
+  setup(
+    [
+      row(1, 'SYM1', {
+        rrsRaw: null,
+        unavailableReasons: { RRS_RAW: 'samples=3' },
+        unavailableStates: { RRS_RAW: 'WARMING_UP' },
+      }),
+      row(2, 'SYM2'),
+    ],
+    {
+      metricAvailability: [
+        {
+          metric: 'RRS_RAW',
+          state: 'WARMING_UP',
+          reason: 'samples=3',
+          affectedCount: 1,
+        },
+      ],
+    },
+  )
+  await screen.findByTestId('feature-table')
+
+  await fireEvent.click(
+    screen.getByRole('button', { name: /View .* rows affected by/ }),
+  )
+  await waitFor(() => {
+    expect(screen.queryByText('SYM2')).toBeNull()
+    expect(screen.getByText('SYM1')).toBeTruthy()
+    expect(
+      screen.getByText(/Issue: Relative strength — Warming up/),
+    ).toBeTruthy()
+  })
+
+  await fireEvent.click(
+    screen.getByRole('button', { name: 'Clear issue filter' }),
+  )
+  await waitFor(() => expect(screen.getByText('SYM2')).toBeTruthy())
 })
 
 test('preserves filters and selection across a live update', async () => {

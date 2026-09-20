@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { MoreHorizontal, RefreshCw } from '@lucide/vue'
@@ -54,10 +54,12 @@ import {
   formatFeatureVersion,
   isStale,
   isTrustworthy,
+  metricAvailabilityMeta,
   metricDecimals,
   metricLabel,
   presentationState,
   qualityRank,
+  rowHasMetricIssue,
   structureMeta,
 } from '@/lib/feature-presentation'
 import FeatureValueCell from '@/components/feature/FeatureValueCell.vue'
@@ -313,6 +315,13 @@ const alignmentFilter = ref('all')
 const qualityFilter = ref('all')
 const freshnessFilter = ref('all')
 const minRvol = ref('')
+const issueFilter = ref<{
+  metric: string
+  state: string
+  reason: string
+} | null>(null)
+
+const tableRegion = ref<HTMLElement | null>(null)
 
 const sortKey = ref<SortKey>('rrsAbs')
 const sortDir = ref<'asc' | 'desc'>('desc')
@@ -413,6 +422,16 @@ function matches(row: FeatureDashboardRow): boolean {
   if (freshnessFilter.value === 'stale' && !stale) {
     return false
   }
+  if (
+    issueFilter.value &&
+    !rowHasMetricIssue(
+      row.unavailableStates,
+      row.unavailableReasons,
+      issueFilter.value,
+    )
+  ) {
+    return false
+  }
   return true
 }
 
@@ -473,6 +492,9 @@ const filterSignature = computed(() =>
     qualityFilter.value,
     freshnessFilter.value,
     minRvol.value,
+    issueFilter.value
+      ? `${issueFilter.value.metric}:${issueFilter.value.state}:${issueFilter.value.reason}`
+      : '',
     sortKey.value,
     sortDir.value,
   ].join('|'),
@@ -576,6 +598,20 @@ function clearFilters() {
   qualityFilter.value = 'all'
   freshnessFilter.value = 'all'
   minRvol.value = ''
+  issueFilter.value = null
+}
+
+/**
+ * Applies a "View affected rows" filter and moves focus to the board so keyboard users land on the
+ * filtered result without the expanded trust sections collapsing (they keep their own state).
+ */
+function applyIssueFilter(issue: {
+  metric: string
+  state: string
+  reason: string
+}) {
+  issueFilter.value = { ...issue }
+  void nextTick(() => tableRegion.value?.focus())
 }
 
 function clearFilter(key: string) {
@@ -603,6 +639,9 @@ function clearFilter(key: string) {
       break
     case 'minRvol':
       minRvol.value = ''
+      break
+    case 'issue':
+      issueFilter.value = null
       break
   }
 }
@@ -641,6 +680,12 @@ const activeFilters = computed(() => {
   }
   if (minRvol.value !== '') {
     filters.push({ key: 'minRvol', label: `RVOL ≥ ${minRvol.value}` })
+  }
+  if (issueFilter.value) {
+    filters.push({
+      key: 'issue',
+      label: `Issue: ${metricLabel(issueFilter.value.metric)} — ${metricAvailabilityMeta(issueFilter.value.state).label}`,
+    })
   }
   return filters
 })
@@ -702,6 +747,15 @@ const showingEmptyWatchlist = computed(
 
     <FeatureSummaryCards :rows="store.rowList" timeframe="M5" />
 
+    <FeatureDiagnosticsPanel
+      :diagnostics="diagnosticsQuery.data.value ?? null"
+      :connection="store.connection"
+      :last-updated-at="store.lastUpdatedAt"
+      :last-sequence="store.lastSequence"
+      :gap-detected="store.gapDetected"
+      @view-affected="applyIssueFilter"
+    />
+
     <Card class="gap-0 overflow-hidden py-0">
       <CardHeader class="px-6 py-5">
         <CardTitle class="text-base">Watchlist features</CardTitle>
@@ -727,6 +781,21 @@ const showingEmptyWatchlist = computed(
           @clear-all="clearFilters"
         />
         <FeatureColumnSelector v-model="visible" :columns="selectableColumns" />
+      </div>
+
+      <div
+        v-if="issueFilter"
+        class="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-6 py-2 text-sm"
+        role="status"
+      >
+        <span>
+          Showing rows affected by
+          <strong>{{ metricLabel(issueFilter.metric) }}</strong>
+          — {{ metricAvailabilityMeta(issueFilter.state).label }}
+        </span>
+        <Button variant="ghost" size="sm" @click="clearFilter('issue')">
+          Clear issue filter
+        </Button>
       </div>
 
       <div
@@ -757,7 +826,13 @@ const showingEmptyWatchlist = computed(
         to see feature state.
       </div>
 
-      <div v-else data-testid="feature-table" class="overflow-x-auto">
+      <div
+        v-else
+        ref="tableRegion"
+        data-testid="feature-table"
+        tabindex="-1"
+        class="overflow-x-auto focus-visible:outline-none"
+      >
         <Table class="min-w-[900px]">
           <TableHeader class="sticky top-0 z-30 bg-muted">
             <TableRow class="hover:bg-transparent">
@@ -1020,14 +1095,6 @@ const showingEmptyWatchlist = computed(
         </Table>
       </div>
     </Card>
-
-    <FeatureDiagnosticsPanel
-      :diagnostics="diagnosticsQuery.data.value ?? null"
-      :connection="store.connection"
-      :last-updated-at="store.lastUpdatedAt"
-      :last-sequence="store.lastSequence"
-      :gap-detected="store.gapDetected"
-    />
 
     <Sheet
       :open="selected !== null"

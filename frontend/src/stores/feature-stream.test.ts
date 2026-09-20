@@ -47,6 +47,7 @@ function row(
     featureSchemaVersion: 'er-feature-schema-v1',
     featureVersions: { RRS_RAW: 'RRS_V1@abc' },
     unavailableReasons: {},
+    unavailableStates: {},
     ...values,
   }
 }

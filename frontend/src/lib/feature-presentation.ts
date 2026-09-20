@@ -325,3 +325,227 @@ export function formatFeatureVersion(value: string | null | undefined): string {
 export function featureVersionTitle(value: string | null | undefined): string {
   return value ? `Feature definition ${value}` : 'Feature version unavailable'
 }
+
+/**
+ * Metric availability state vocabulary. The backend reports the authoritative availability per
+ * metric; the UI must not infer a state (for example, not every unavailable volume metric is
+ * warming up). Amber marks degraded conditions; red marks confirmed blocking input failures.
+ */
+export interface MetricAvailabilityMeta {
+  label: string
+  glyph: string
+  tone: string
+  blocking: boolean
+  description: string
+}
+
+const METRIC_AVAILABILITY_UNKNOWN: MetricAvailabilityMeta = {
+  label: 'Reason unavailable',
+  glyph: '•',
+  tone: 'text-muted-foreground',
+  blocking: false,
+  description: 'The backend did not report a state for this metric.',
+}
+
+const METRIC_AVAILABILITY_META: Record<string, MetricAvailabilityMeta> = {
+  WARMING_UP: {
+    label: 'Warming up',
+    glyph: '◐',
+    tone: 'text-amber-600 dark:text-amber-400',
+    blocking: false,
+    description:
+      'Not enough prior history yet; the value may appear on a later bar.',
+  },
+  INSUFFICIENT_HISTORY: {
+    label: 'Insufficient history',
+    glyph: '◐',
+    tone: 'text-amber-600 dark:text-amber-400',
+    blocking: false,
+    description: 'The required lookback window is not yet populated.',
+  },
+  MISSING_INPUT: {
+    label: 'Missing input',
+    glyph: '✕',
+    tone: 'text-negative',
+    blocking: true,
+    description: 'A required underlying input is unavailable.',
+  },
+  STALE: {
+    label: 'Stale',
+    glyph: '◌',
+    tone: 'text-amber-600 dark:text-amber-400',
+    blocking: false,
+    description:
+      'The underlying input predates the current session expectation.',
+  },
+  INCOMPLETE: {
+    label: 'Incomplete',
+    glyph: '◌',
+    tone: 'text-amber-600 dark:text-amber-400',
+    blocking: false,
+    description:
+      'The underlying bar is incomplete and is not a confirmed close.',
+  },
+  INVALID: {
+    label: 'Invalid',
+    glyph: '✕',
+    tone: 'text-negative',
+    blocking: true,
+    description: 'The input or calculation is invalid.',
+  },
+  NOT_IMPLEMENTED: {
+    label: 'Not implemented',
+    glyph: '—',
+    tone: 'text-muted-foreground',
+    blocking: false,
+    description: 'No producer exists for this metric yet.',
+  },
+  NOT_CALCULATED: {
+    label: 'Not calculated',
+    glyph: '—',
+    tone: 'text-muted-foreground',
+    blocking: false,
+    description: 'The metric was not produced for this observation.',
+  },
+  BENCHMARK_UNRESOLVED: {
+    label: 'Benchmark unresolved',
+    glyph: '◌',
+    tone: 'text-amber-600 dark:text-amber-400',
+    blocking: false,
+    description:
+      'The point-in-time benchmark or sector reference could not be resolved.',
+  },
+  NOT_APPLICABLE: {
+    label: 'Not applicable',
+    glyph: '—',
+    tone: 'text-muted-foreground',
+    blocking: false,
+    description: 'The metric does not apply to this instrument.',
+  },
+  UNKNOWN: METRIC_AVAILABILITY_UNKNOWN,
+}
+
+export function metricAvailabilityMeta(state: string): MetricAvailabilityMeta {
+  return METRIC_AVAILABILITY_META[state] ?? METRIC_AVAILABILITY_UNKNOWN
+}
+
+export function metricAvailabilityLabel(state: string): string {
+  return metricAvailabilityMeta(state).label
+}
+
+export interface FreshnessMeta {
+  label: string
+  glyph: string
+  tone: string
+}
+
+const FRESHNESS_UNKNOWN: FreshnessMeta = {
+  label: 'Unknown',
+  glyph: '•',
+  tone: 'text-muted-foreground',
+}
+
+const FRESHNESS_META: Record<string, FreshnessMeta> = {
+  FRESH: { label: 'Fresh', glyph: '●', tone: 'text-positive' },
+  STALE: {
+    label: 'Stale',
+    glyph: '◌',
+    tone: 'text-amber-600 dark:text-amber-400',
+  },
+  UNKNOWN: FRESHNESS_UNKNOWN,
+}
+
+export function freshnessMeta(state: string): FreshnessMeta {
+  return FRESHNESS_META[state] ?? FRESHNESS_UNKNOWN
+}
+
+export function sessionContextLabel(
+  context: string | null | undefined,
+): string {
+  switch (context) {
+    case 'OPEN':
+      return 'Market open'
+    case 'PRE_OPEN':
+      return 'Pre-open'
+    case 'CLOSED':
+      return 'Market closed'
+    case 'NON_TRADING_DAY':
+      return 'Non-trading day'
+    default:
+      return 'Market session unknown'
+  }
+}
+
+export interface TradingImpactMeta {
+  label: string
+  glyph: string
+  tone: string
+  blocking: boolean
+}
+
+const TRADING_IMPACT_NOT_EVALUATED: TradingImpactMeta = {
+  label: 'Trading impact not evaluated',
+  glyph: '•',
+  tone: 'text-muted-foreground',
+  blocking: false,
+}
+
+const TRADING_IMPACT_META: Record<string, TradingImpactMeta> = {
+  NOT_EVALUATED: TRADING_IMPACT_NOT_EVALUATED,
+  PASS: {
+    label: 'Required data checks passed',
+    glyph: '●',
+    tone: 'text-positive',
+    blocking: false,
+  },
+  BLOCKED: {
+    label: 'New entries blocked',
+    glyph: '⛔',
+    tone: 'text-negative',
+    blocking: true,
+  },
+  NONE: {
+    label: 'No new exposure permitted',
+    glyph: '⛔',
+    tone: 'text-negative',
+    blocking: true,
+  },
+}
+
+export function tradingImpactMeta(
+  status: string | null | undefined,
+): TradingImpactMeta {
+  return TRADING_IMPACT_META[status ?? ''] ?? TRADING_IMPACT_NOT_EVALUATED
+}
+
+export function calculationModeLabel(mode: string | null | undefined): string {
+  switch (mode) {
+    case 'ON_DEMAND_CANONICAL':
+      return 'On-demand from canonical candles'
+    case 'LIVE_UPDATE_STREAM':
+      return 'Live update stream'
+    default:
+      return mode
+        ? mode.replace(/_/g, ' ').toLowerCase()
+        : 'Calculation mode unknown'
+  }
+}
+
+/** True when the row carries a specific grouped availability issue. */
+export function rowHasMetricIssue(
+  unavailableStates: Record<string, string> | undefined,
+  unavailableReasons: Record<string, string> | undefined,
+  issue: { metric: string; state: string; reason: string },
+): boolean {
+  const state = unavailableStates?.[issue.metric]
+  const reason = unavailableReasons?.[issue.metric]
+  if (state === undefined || reason === undefined) {
+    return false
+  }
+  return state === issue.state && reason === issue.reason
+}
+
+/** 'Reason unavailable' when the backend reported an empty or missing reason. */
+export function displayReason(reason: string | null | undefined): string {
+  return reason && reason.trim().length > 0 ? reason : 'Reason unavailable'
+}

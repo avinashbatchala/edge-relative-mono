@@ -46,10 +46,12 @@ public record FeatureDashboardRow(
         Long staleSeconds,
         String featureSchemaVersion,
         Map<String, String> featureVersions,
-        Map<String, String> unavailableReasons) {
+        Map<String, String> unavailableReasons,
+        Map<String, String> unavailableStates) {
 
     public FeatureDashboardRow {
         featureVersions = featureVersions == null ? Map.of() : Map.copyOf(featureVersions);
         unavailableReasons = unavailableReasons == null ? Map.of() : Map.copyOf(unavailableReasons);
+        unavailableStates = unavailableStates == null ? Map.of() : Map.copyOf(unavailableStates);
     }
 }

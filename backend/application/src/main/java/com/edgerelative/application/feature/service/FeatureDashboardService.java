@@ -15,12 +15,14 @@ import com.edgerelative.application.feature.policy.CalculationVersions;
 import com.edgerelative.application.feature.policy.FeatureDashboardExecutor;
 import com.edgerelative.application.feature.policy.FeatureProperties;
 import com.edgerelative.application.history.AggregatedCandle;
+import com.edgerelative.application.reference.NseTradingCalendar;
 import com.edgerelative.application.watchlist.WatchlistService;
 import com.edgerelative.application.watchlist.api.WatchlistEntry;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,6 +57,8 @@ public class FeatureDashboardService {
     private final FeatureSnapshotWriter writer;
     private final Clock clock;
     private final FeatureDashboardExecutor featureDashboardExecutor;
+    private final NseTradingCalendar calendar;
+    private final FeatureProperties.Freshness freshnessPolicy;
     private final Duration cacheTtl;
     private final ReentrantLock cacheLock = new ReentrantLock();
     private volatile List<FeatureDashboardRow> cachedRows;
@@ -67,6 +71,7 @@ public class FeatureDashboardService {
             FeatureSnapshotWriter writer,
             Clock clock,
             FeatureDashboardExecutor featureDashboardExecutor,
+            NseTradingCalendar calendar,
             FeatureProperties properties) {
         this.watchlist = watchlist;
         this.snapshots = snapshots;
@@ -74,6 +79,8 @@ public class FeatureDashboardService {
         this.writer = writer;
         this.clock = clock;
         this.featureDashboardExecutor = featureDashboardExecutor;
+        this.calendar = calendar;
+        this.freshnessPolicy = properties.getFreshness();
         this.cacheTtl = properties.getDashboard().getCacheTtl();
     }
 
@@ -199,17 +206,119 @@ public class FeatureDashboardService {
                 counters,
                 new FeatureDiagnosticsResponse.Versions(FeatureSchemaVersions.CURRENT, CalculationVersions.CURRENT),
                 states,
-                List.of(
-                        "Features are computed on demand from canonical candles (dashboard, diagnostics, "
-                                + "series, and the authoritative stream snapshot on connect/resync). There is "
-                                + "no live market-data event producer yet, so no incremental recalculation "
-                                + "occurs; sequence stays 0 until a producer broadcasts feature.update.",
-                        "Stale/aggregate quality reflects the newest canonical candle, not a live feed. It "
-                                + "clears only when fresh canonical data is ingested for the watchlist.",
-                        "The engine counters (snapshots/warm-up/missing/alignment/quality) are cumulative "
-                                + "since process start and are not incremented by dashboard reads; use the "
-                                + "current state counts and per-metric gaps for the displayed state.",
-                        "VWAP distance in ATR units has no producer: VWAP is not implemented in the feature engine."));
+                notes(),
+                "ON_DEMAND_CANONICAL",
+                tradingImpact(),
+                freshness(rows, now, latestSeconds, oldestSeconds),
+                metricAvailability(rows));
+    }
+
+    private static List<String> notes() {
+        return List.of(
+                "Features are computed on demand from canonical candles (dashboard, diagnostics, "
+                        + "series, and the authoritative stream snapshot on connect/resync). There is "
+                        + "no live market-data event producer yet, so no incremental recalculation "
+                        + "occurs; sequence stays 0 until a producer broadcasts feature.update.",
+                "Stale/aggregate quality reflects the newest canonical candle, not a live feed. It "
+                        + "clears only when fresh canonical data is ingested for the watchlist.",
+                "The engine counters (snapshots/warm-up/missing/alignment/quality) are cumulative "
+                        + "since process start and are not incremented by dashboard reads; use the "
+                        + "current state counts and per-metric gaps for the displayed state.",
+                "VWAP distance in ATR units has no producer: VWAP is not implemented in the feature engine.");
+    }
+
+    /**
+     * No setup/risk gate producer is wired, so trading impact is explicitly not evaluated. The UI
+     * must not infer permission from connection state or an aggregate quality badge.
+     */
+    private static FeatureDiagnosticsResponse.TradingImpact tradingImpact() {
+        return new FeatureDiagnosticsResponse.TradingImpact(
+                "NOT_EVALUATED",
+                "Trading impact not evaluated",
+                0,
+                "No authoritative strategy/data-gate result is produced yet. This dashboard is "
+                        + "observational and does not grant or deny trading permission.");
+    }
+
+    private FeatureDiagnosticsResponse.Freshness freshness(
+            List<FeatureDashboardRow> rows, Instant now, long latestSeconds, long oldestSeconds) {
+        Long policySeconds = freshnessPolicy == null ? null : freshnessPolicy.getM5MaxAgeSeconds();
+        if (policySeconds == null && freshnessPolicy != null) {
+            policySeconds = freshnessPolicy.getD1MaxAgeSeconds();
+        }
+        LocalDate sessionDate = calendar.sessionDate(now);
+        boolean tradingDay = calendar.isTradingDay(sessionDate);
+        String sessionContext;
+        if (!tradingDay) {
+            sessionContext = "NON_TRADING_DAY";
+        } else if (now.isBefore(calendar.sessionOpen(sessionDate))) {
+            sessionContext = "PRE_OPEN";
+        } else if (!now.isBefore(calendar.sessionClose(sessionDate))) {
+            sessionContext = "CLOSED";
+        } else {
+            sessionContext = "OPEN";
+        }
+        Instant asOf = null;
+        boolean missingObservation = false;
+        boolean anyStale = false;
+        for (FeatureDashboardRow row : rows) {
+            if (row.observationTime() == null) {
+                missingObservation = true;
+            } else if (asOf == null || row.observationTime().isAfter(asOf)) {
+                asOf = row.observationTime();
+            }
+            if ("STALE".equals(classify(row))) {
+                anyStale = true;
+            }
+        }
+        Long newestAge = rows.isEmpty() ? null : latestSeconds;
+        Long oldestAge = rows.isEmpty() ? null : oldestSeconds;
+        String state;
+        if (rows.isEmpty() || (missingObservation && asOf == null)) {
+            state = "UNKNOWN";
+        } else if (anyStale || (policySeconds != null && newestAge != null && newestAge > policySeconds)) {
+            state = "STALE";
+        } else {
+            state = "FRESH";
+        }
+        String basis = policySeconds == null
+                ? "No backend freshness policy is configured; state uses the engine observation classification."
+                : "Compared against the configured M5 freshness bound.";
+        return new FeatureDiagnosticsResponse.Freshness(
+                state, sessionContext, newestAge, oldestAge, policySeconds, asOf, basis);
+    }
+
+    /**
+     * Groups availability issues by metric + state + reason and counts unique affected instruments.
+     * Overlapping metric counts are never summed into a watchlist total.
+     */
+    private static List<FeatureDiagnosticsResponse.MetricAvailability> metricAvailability(
+            List<FeatureDashboardRow> rows) {
+        Map<String, Map<Long, Boolean>> groups = new LinkedHashMap<>();
+        Map<String, String[]> keyMeta = new LinkedHashMap<>();
+        for (FeatureDashboardRow row : rows) {
+            for (Map.Entry<String, String> entry : row.unavailableReasons().entrySet()) {
+                String metric = entry.getKey();
+                String state = row.unavailableStates().getOrDefault(metric, "UNKNOWN");
+                String reason = entry.getValue() == null || entry.getValue().isBlank()
+                        ? "Reason unavailable"
+                        : entry.getValue();
+                String key = metric + "\u0000" + state + "\u0000" + reason;
+                keyMeta.putIfAbsent(key, new String[] {metric, state, reason});
+                groups.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).put(row.instrumentId(), true);
+            }
+        }
+        return groups.entrySet().stream()
+                .map(entry -> {
+                    String[] meta = keyMeta.get(entry.getKey());
+                    return new FeatureDiagnosticsResponse.MetricAvailability(
+                            meta[0], meta[1], meta[2], entry.getValue().size());
+                })
+                .sorted(java.util.Comparator
+                        .comparing(FeatureDiagnosticsResponse.MetricAvailability::metric)
+                        .thenComparing(FeatureDiagnosticsResponse.MetricAvailability::state)
+                        .thenComparing(FeatureDiagnosticsResponse.MetricAvailability::reason))
+                .toList();
     }
 
     /**
@@ -236,7 +345,8 @@ public class FeatureDashboardService {
         FeatureSnapshot daily = snapshots.snapshot(entry.instrumentId(), DAILY, now, false, seriesCache);
 
         Map<String, String> unavailable = new LinkedHashMap<>();
-        Double atr = metric(snapshot, FeatureKeys.ATR, unavailable);
+        Map<String, String> unavailableStates = new LinkedHashMap<>();
+        Double atr = metric(snapshot, FeatureKeys.ATR, unavailable, unavailableStates);
         // Reuse the series already loaded for the snapshots rather than re-reading the price.
         Double lastPrice = lastClose(
                 snapshots.subjectCandles(entry.instrumentId(), DEFAULT_TIMEFRAME, now, seriesCache));
@@ -250,6 +360,7 @@ public class FeatureDashboardService {
         Double atrPercent = atr != null && lastPrice != null && lastPrice != 0.0 ? atr / lastPrice * 100.0 : null;
         Double vwapDistanceAtr = null;
         unavailable.put("VWAP_DISTANCE_ATR", "VWAP feature is not implemented");
+        unavailableStates.put("VWAP_DISTANCE_ATR", "NOT_IMPLEMENTED");
 
         Map<String, String> versions = new LinkedHashMap<>();
         snapshot.features().forEach((key, value) -> versions.put(key, value.version().displayVersion()));
@@ -269,21 +380,21 @@ public class FeatureDashboardService {
                 previousClose,
                 priceChange,
                 priceChangePercent,
-                metric(snapshot, FeatureKeys.RRS_RAW, unavailable),
-                metric(snapshot, FeatureKeys.RRS_FAST, unavailable),
-                metric(snapshot, FeatureKeys.RRS_SLOW, unavailable),
-                metric(snapshot, FeatureKeys.RRS_PERSISTENCE, unavailable),
-                label(snapshot, null, FeatureKeys.RRS_TREND_STATE, unavailable),
-                dailyRrsState(daily, unavailable),
-                metric(snapshot, FeatureKeys.RVOL_INTERVAL, unavailable),
-                metric(snapshot, FeatureKeys.RVOL_CUMULATIVE, unavailable),
-                metric(snapshot, FeatureKeys.RVE, unavailable),
+                metric(snapshot, FeatureKeys.RRS_RAW, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RRS_FAST, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RRS_SLOW, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RRS_PERSISTENCE, unavailable, unavailableStates),
+                label(snapshot, null, FeatureKeys.RRS_TREND_STATE, unavailable, unavailableStates),
+                dailyRrsState(daily, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RVOL_INTERVAL, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RVOL_CUMULATIVE, unavailable, unavailableStates),
+                metric(snapshot, FeatureKeys.RVE, unavailable, unavailableStates),
                 atr,
                 atrPercent,
                 vwapDistanceAtr,
-                label(snapshot, snapshot.market(), FeatureKeys.MARKET_PRICE_STRUCTURE, unavailable),
-                label(snapshot, snapshot.sector(), FeatureKeys.SECTOR_PRICE_STRUCTURE, unavailable),
-                contextMetric(snapshot.sector(), FeatureKeys.SECTOR_RRS_RAW, unavailable),
+                label(snapshot, snapshot.market(), FeatureKeys.MARKET_PRICE_STRUCTURE, unavailable, unavailableStates),
+                label(snapshot, snapshot.sector(), FeatureKeys.SECTOR_PRICE_STRUCTURE, unavailable, unavailableStates),
+                contextMetric(snapshot.sector(), FeatureKeys.SECTOR_RRS_RAW, unavailable, unavailableStates),
                 snapshot.quality().name(),
                 snapshot.availability().name(),
                 reasonOf(snapshot),
@@ -292,7 +403,8 @@ public class FeatureDashboardService {
                         : Math.max(0L, Duration.between(snapshot.anchorTimestamp(), now).getSeconds()),
                 snapshot.featureSchemaVersion(),
                 versions,
-                unavailable);
+                unavailable,
+                unavailableStates);
     }
 
     private static FeatureDashboardRow unavailableRow(WatchlistEntry entry, Instant now, String message) {
@@ -315,6 +427,10 @@ public class FeatureDashboardService {
         }
         reasons.put("DAILY_RRS_STATE", reason);
         reasons.put("VWAP_DISTANCE_ATR", "VWAP feature is not implemented");
+        Map<String, String> states = new LinkedHashMap<>();
+        for (String key : reasons.keySet()) {
+            states.put(key, "VWAP_DISTANCE_ATR".equals(key) ? "NOT_IMPLEMENTED" : "MISSING_INPUT");
+        }
         return new FeatureDashboardRow(
                 entry.instrumentId(),
                 entry.instrumentKey() == null ? null : entry.instrumentKey().toString(),
@@ -351,7 +467,8 @@ public class FeatureDashboardService {
                 null,
                 FeatureSchemaVersions.CURRENT,
                 Map.of(),
-                reasons);
+                reasons,
+                states);
     }
 
     /**
@@ -383,56 +500,74 @@ public class FeatureDashboardService {
         return gaps;
     }
 
-    private static Double metric(FeatureSnapshot snapshot, String key, Map<String, String> unavailable) {
-        return value(snapshot.features().get(key), key, unavailable);
+    private static Double metric(
+            FeatureSnapshot snapshot, String key, Map<String, String> unavailable, Map<String, String> states) {
+        return value(snapshot.features().get(key), key, unavailable, states);
     }
 
-    private static Double contextMetric(ContextSnapshot context, String key, Map<String, String> unavailable) {
+    private static Double contextMetric(
+            ContextSnapshot context, String key, Map<String, String> unavailable, Map<String, String> states) {
         if (context == null) {
             unavailable.putIfAbsent(key, "sector benchmark not resolved");
+            states.putIfAbsent(key, "BENCHMARK_UNRESOLVED");
             return null;
         }
-        return value(context.features().get(key), key, unavailable);
+        return value(context.features().get(key), key, unavailable, states);
     }
 
-    private static Double value(FeatureValue value, String key, Map<String, String> unavailable) {
+    private static Double value(
+            FeatureValue value, String key, Map<String, String> unavailable, Map<String, String> states) {
         if (value == null) {
             unavailable.putIfAbsent(key, "not calculated");
+            states.putIfAbsent(key, "NOT_CALCULATED");
             return null;
         }
         if (!value.availability().hasValue() || value.value() == null) {
             unavailable.putIfAbsent(key, reason(value));
+            states.putIfAbsent(key, availabilityState(value));
             return null;
         }
         return value.value();
     }
 
     private static String label(
-            FeatureSnapshot snapshot, ContextSnapshot context, String key, Map<String, String> unavailable) {
+            FeatureSnapshot snapshot,
+            ContextSnapshot context,
+            String key,
+            Map<String, String> unavailable,
+            Map<String, String> states) {
         FeatureValue value = key.equals(FeatureKeys.RRS_TREND_STATE)
                 ? snapshot.features().get(key)
                 : context == null ? null : context.features().get(key);
         if (value == null || !value.availability().hasValue() || value.label() == null) {
             String reason;
+            String state;
             if (value != null) {
                 reason = reason(value);
+                state = availabilityState(value);
             } else if (key.startsWith("MARKET")) {
                 reason = "broad-market benchmark not resolved";
+                state = "BENCHMARK_UNRESOLVED";
             } else if (key.startsWith("SECTOR")) {
                 reason = "sector benchmark not resolved";
+                state = "BENCHMARK_UNRESOLVED";
             } else {
                 reason = "not calculated";
+                state = "NOT_CALCULATED";
             }
             unavailable.putIfAbsent(key, reason);
+            states.putIfAbsent(key, state);
             return null;
         }
         return value.label();
     }
 
-    private static String dailyRrsState(FeatureSnapshot daily, Map<String, String> unavailable) {
+    private static String dailyRrsState(
+            FeatureSnapshot daily, Map<String, String> unavailable, Map<String, String> states) {
         FeatureValue raw = daily.features().get(FeatureKeys.RRS_RAW);
         if (raw == null || !raw.availability().hasValue() || raw.value() == null) {
             unavailable.putIfAbsent("DAILY_RRS_STATE", raw == null ? "not calculated" : reason(raw));
+            states.putIfAbsent("DAILY_RRS_STATE", raw == null ? "NOT_CALCULATED" : availabilityState(raw));
             return null;
         }
         if (raw.value() > 0) {
@@ -468,6 +603,19 @@ public class FeatureDashboardService {
         return value.availability() == FeatureAvailability.VALID
                 ? value.quality().name()
                 : value.availability().name();
+    }
+
+    private static String availabilityState(FeatureValue value) {
+        return switch (value.availability()) {
+            case VALID -> "INVALID";
+            case WARMING_UP -> "WARMING_UP";
+            case INSUFFICIENT_HISTORY -> "INSUFFICIENT_HISTORY";
+            case MISSING_INPUT -> "MISSING_INPUT";
+            case STALE -> "STALE";
+            case INCOMPLETE -> "INCOMPLETE";
+            case INVALID -> "INVALID";
+            case NOT_APPLICABLE -> "NOT_APPLICABLE";
+        };
     }
 
     private static String reasonOf(FeatureSnapshot snapshot) {

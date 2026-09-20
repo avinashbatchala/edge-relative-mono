@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import {
-  Activity,
-  Clock,
-  Layers,
-  TrendingDown,
-  TrendingUp,
-  Waves,
-} from '@lucide/vue'
+import { Activity, Layers, TrendingDown, TrendingUp, Waves } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -18,7 +11,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import type { FeatureDashboardRow } from '@/api/features'
-import { isStale, isTrustworthy } from '@/lib/feature-presentation'
 
 const props = defineProps<{ rows: FeatureDashboardRow[]; timeframe: string }>()
 
@@ -35,19 +27,10 @@ const expanding = computed(
 const contracting = computed(
   () => props.rows.filter((row) => (row.rve ?? 0) < 0).length,
 )
-const healthy = computed(
-  () =>
-    props.rows.filter((row) => isTrustworthy(row.quality, row.availability))
-      .length,
-)
-const stale = computed(
-  () =>
-    props.rows.filter((row) => isStale(row.quality, row.availability)).length,
-)
 </script>
 
 <template>
-  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
     <Card
       class="gap-2 overflow-hidden bg-gradient-to-t from-primary/5 to-card py-5 shadow-xs"
     >
@@ -111,28 +94,6 @@ const stale = computed(
           Volume expanding <Waves class="size-4 text-sky-600" />
         </div>
         <div class="text-muted-foreground">RVE expanding vs contracting</div>
-      </CardFooter>
-    </Card>
-
-    <Card
-      class="gap-2 overflow-hidden bg-gradient-to-t from-primary/5 to-card py-5 shadow-xs"
-    >
-      <CardHeader>
-        <CardDescription>Data trust</CardDescription>
-        <CardTitle class="text-2xl font-semibold tabular-nums">
-          {{ healthy }}<span class="text-muted-foreground">/{{ total }}</span>
-        </CardTitle>
-        <CardAction>
-          <Badge variant="outline"><Clock class="size-3" /> {{ stale }}</Badge>
-        </CardAction>
-      </CardHeader>
-      <CardFooter class="flex-col items-start gap-1 text-sm">
-        <div class="flex items-center gap-2 font-medium">
-          Trustworthy rows <Clock class="size-4 text-amber-600" />
-        </div>
-        <div class="text-muted-foreground">
-          Fresh, fully-warmed observations
-        </div>
       </CardFooter>
     </Card>
   </div>
