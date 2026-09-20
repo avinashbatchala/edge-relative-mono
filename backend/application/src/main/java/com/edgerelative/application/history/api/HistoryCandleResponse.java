@@ -9,6 +9,9 @@ import java.time.Instant;
  * <p>{@code partial} marks a bar truncated by the session boundary; {@code complete} marks a
  * finalized historical bar; {@code qualityState} is {@code INCOMPLETE} when a required minute is
  * missing from the underlying base. {@code definitionVersion} records how the bar was constructed.
+ *
+ * <p>{@code cumulativeAdjustmentFactor} is present only for the adjusted analytical series (DD-05
+ * §113): the product of the price factors applied to this bar. Raw reads leave it null.
  */
 public record HistoryCandleResponse(
         Instant openTime,
@@ -24,5 +27,6 @@ public record HistoryCandleResponse(
         boolean partial,
         boolean complete,
         String qualityState,
-        String definitionVersion) {
+        String definitionVersion,
+        BigDecimal cumulativeAdjustmentFactor) {
 }

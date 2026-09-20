@@ -3,160 +3,145 @@
 Status: executed against the running application and the persisted reference/candle store.
 Scope classification: Core / inspect implementation. This label does not assert the feature exists.
 
-## Headline finding
+## Headline
 
-Corporate-action handling is **NOT_IMPLEMENTED** end to end. `reference.corporate_action` exists as a
-physical table but **no code reads or writes it**, there is no adjustment factor, no adjusted
-analytical series or dataset, no as-of/point-in-time read, and no API surface. The only preserved
-invariant is the one the design protects most strongly: **canonical candles hold raw tradable prices
-and nothing adjusts them** (DD-05 §112). Every scenario that requires an adjustment is therefore
-reported NOT_IMPLEMENTED rather than fabricated.
+A **versioned split/bonus adjusted analytical series** now exists alongside raw history, with
+point-in-time as-of reads and a **fail-closed guard**, while raw canonical candles remain untouched
+(DD-05 §112). Dividends, rights, mergers/demergers, symbol changes and delistings are still
+**NOT_IMPLEMENTED** (their factor semantics differ — additive vs multiplicative — and are a policy
+decision, DD-05 §260; DD01 §132). Features and backtests still read the raw series; adopting the
+adjusted series there is a scoped next action.
 
 ## Environment and provenance
 
 | Item | Value |
 | --- | --- |
-| Base commit | working tree on top of `3500613` |
+| Base commit | working tree on top of `3d87890` |
 | Backend | Spring Boot 4.0.8, `http://localhost:8080` |
-| Persistence | PostgreSQL 18.4 (`edge-relative-mono-postgres-1`), `edge_relative` |
-| Fixtures | `reference.corporate_action` rows inserted in a rolled-back transaction; instrument SBIN `id=1` |
-| Instrument store | `reference.instrument` (symbol-keyed identity), `reference.instrument_identifier` (0 rows) |
-| Candle store | `market.candle` (raw OHLCV; no adjusted columns) |
+| Persistence | PostgreSQL 18.4 (`edge-relative-mono-postgres-1`), `edge_relative`; Flyway `V021` applied |
+| Factor model | `reference.corporate_action_factor` (explicit `price_factor`, `quantity_factor`, `available_at`, `factor_version`, `definition`) |
+| API | `GET /api/v1/history/candles?...&adjustment=NONE|SPLIT_BONUS&asOf=…` |
+| Fixtures | `CorporateActionAdjustmentTest` (pure math), `CorporateActionAdjustmentIntegrationTest` (Testcontainers + real HTTP) |
 | Rerunnable script | `scripts/corporate-action-audit.sh` (`BASE=… scripts/corporate-action-audit.sh`) |
-| Clock / account scope | no clock dependence; read-only plus rolled-back fixtures; no orders |
 
-Sources: DD01 §132 (splits, bonuses, dividends, rights, mergers, symbol changes), DD-05 §43
-(corporate-action reference data), DD-05 §§112–114 (raw vs adjusted, adjustment factors, overnight
-gap), DD-05 §260 (corporate-action leakage: raw and adjusted series remain separate and auditable),
-DD04B §7.2/§7.4 (symbol history separate from economic identity; corporate actions are first-class
-reference data).
+Sources: DD01 §132; DD-05 §43 (reference data), §§112–114 (raw vs adjusted, factors), §260
+(no future knowledge; raw/adjusted separate); DD04B §7.4. The support boundary is an explicit
+Edge formalization: **SPLIT and BONUS are multiplicative; dividend is additive and not yet modelled.**
 
 ## Boundary and endpoint map
 
 | Surface | Path / object | Status | Notes |
 | --- | --- | --- | --- |
-| Corporate-action table | `reference.corporate_action` (V002:264–288) | SCHEMA_ONLY | 0 rows; no Java reference; `action_type` enum, ratio/cash checks |
-| Symbol/alias history | `reference.instrument_identifier` (V002:74–91) | SCHEMA_ONLY | 0 rows; temporal validity + exclusion constraints |
-| Instrument identity | `reference.instrument.canonical_symbol` | IMPLEMENTED | identity key = exchange+segment+type+symbol (mutable symbol) |
-| Raw candles | `market.candle` / `GET /api/v1/history/candles` | IMPLEMENTED | raw prices; no adjusted columns; M1 base only |
-| Adjusted series / factors | — | NOT_IMPLEMENTED | no table, service, dataset or API |
-| Corporate-action ingestion | Groww clients | NOT_IMPLEMENTED | no corporate-action endpoint in the broker matrix |
-| As-of / point-in-time reads | — | NOT_IMPLEMENTED | no `available_at` on the action table |
-| Backtest execution prices | `BacktestEngine` fills | IMPLEMENTED (raw) | `adjustedFill` is slippage only; `BacktestTrade` documents raw tradable prices |
+| Raw candles | `GET /api/v1/history/candles` (default `adjustment=NONE`) | IMPLEMENTED | raw vertabim; `cumulativeAdjustmentFactor` null |
+| Adjusted candles | same path, `adjustment=SPLIT_BONUS` (+ optional `asOf`) | IMPLEMENTED | back-adjusted, versioned `er-ca-adjusted-v1` |
+| Factor model | `reference.corporate_action_factor` (V021) | IMPLEMENTED | explicit, versioned, `available_at` |
+| Actions reference | `reference.corporate_action` (V002) | SCHEMA + repository writes | `CorporateActionFactorRepository.insertAction/insertFactor` |
+| Guard | `CorporateActionAdjustmentService` | IMPLEMENTED | unsupported type or missing factor → `CORPORATE_ACTION_ADJUSTMENT_UNSUPPORTED` (409) |
+| Point-in-time | `asOf` filter on `available_at` | IMPLEMENTED | a later-announced factor is excluded, never leaks |
+| Dividend / rights / merger / symbol change / delisting | — | NOT_IMPLEMENTED | fail closed on the adjusted path |
+| Feature / backtest adoption | `HistoricalDataReader` | NOT_IMPLEMENTED | still raw; next action |
+| Position/quantity adjustment | — | NOT_IMPLEMENTED | no positions subsystem |
 
 ## Scenario table
 
-Live/HTTP+persistence evidence: `scripts/corporate-action-audit.sh` (6 PASS / 0 FAIL / 8 NOT_IMPLEMENTED).
+Live/HTTP+persistence evidence: `scripts/corporate-action-audit.sh` (5 PASS / 0 FAIL / 4 NOT_IMPLEMENTED).
+Deterministic fixture evidence: `CorporateActionAdjustmentTest` (4/4),
+`CorporateActionAdjustmentIntegrationTest` (3/3).
 
-### S1 — apply isolated action fixtures; raw and adjusted on both sides
+### S1 — isolated fixtures; raw and adjusted on both sides
 
 | ID | Requirement / source | Input | Expected (math) | Observed | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CA09-1 | Split adjustment (DD01 §132, DD05 §113) | SPLIT 1:2, ex 2026-10-01 | pre-ex prices × 1/2; quantity × 2 | no adjustment; schema model only | NOT_IMPLEMENTED | `split-bonus-adjustment`; `corporate-action-schema-semantics` |
-| CA09-2 | Bonus adjustment | BONUS 1:1 | pre-ex prices × 1/2; quantity × 2 (capitalisation, not face-value change) | no adjustment | NOT_IMPLEMENTED | `split-bonus-adjustment` |
-| CA09-3 | Dividend adjustment (must not equal split semantics) | DIVIDEND ₹5.00 cash | additive: pre-ex price − 5 (or factor (P−5)/P); quantity unchanged | no adjustment; ratio vs cash modelled distinctly in schema | NOT_IMPLEMENTED | `dividend-adjustment-distinct` |
-| CA09-4 | Symbol change (DD05 §43, DD04B §7.2) | symbol rename | economic instrument stable, symbol versioned alias | identity is symbol-keyed; `instrument_identifier` 0 rows | NOT_IMPLEMENTED | `instrument-symbol-history` |
-| CA09-5 | Merger / demerger / delisting | MERGER/DELISTING | continuity mapping to successor/termination | types allowed by schema; no target columns, no handling | NOT_IMPLEMENTED | schema check; report |
-| CA09-6 | Raw prices preserved (DD05 §112) | SBIN M1 bar | stored value unchanged, never overwritten | API close `989.7` == stored raw `989.70000000` | PASS | `raw-prices-preserved` |
-| CA09-7 | No adjusted substitution (DD05 §107) | `adjust=true` query | raw bars returned; no hidden adjustment | identical output | PASS | `adjust-param-ignored` |
-| CA09-8 | No adjusted API surface | OpenAPI | no adjust/corporate paths | 0 of 67 paths | PASS | `no-adjusted-api-surface` |
+| CA09-1 | Split adjustment (DD01 §132, DD05 §113) | SPLIT 1→2, ex 2026-09-16, factor 0.5/2 | pre-ex price ×0.5, volume ×2; ex-date unchanged | exactly that; factor 0.5 recorded | PASS | `adjustedSeriesHalvesPricesAndDoublesVolumeBeforeTheExDate…`; `splitOfOneIntoTwo…` |
+| CA09-2 | Bonus adjustment | BONUS factor 0.5/2 after a split | factors compose once each (0.25/4) | 0.25 price, ×4 volume | PASS | `successiveActionsComposeExactlyOnceEach` |
+| CA09-3 | Dividend ≠ split semantics (DD05 §113) | additive cash ₹5 | `(P−5)/P`, quantity unchanged | split stays multiplicative; dividend not encoded as split | PASS (semantics) / NOT_IMPLEMENTED (dividend) | `aDividendCashFactorIsNotAMultiplicativePriceFactor`; `dividend-adjustment-semantics` |
+| CA09-4 | Symbol change (DD05 §43, DD04B §7.2) | rename | stable identity + versioned alias | identity symbol-keyed; `instrument_identifier` 0 rows | NOT_IMPLEMENTED | report; CA09-D4 |
+| CA09-5 | Merger / demerger / delisting | continuity mapping | target/successor handling | types allowed by schema; no target columns or handling; guard rejects | NOT_IMPLEMENTED | `dividend-rights-merger-symbol-delisting` |
+| CA09-6 | Raw preserved (DD05 §112) | raw read vs adjusted read | raw unchanged | raw `100/10/factor null`; adjusted `50/20/0.5` | PASS | `raw-default-preserved`; integration test |
+| CA09-7 | Adjust applies exactly once | repeated adjusted reads | idempotent, no mutation | repeated calls identical; raw untouched | PASS | `repeatedCallsAreIdenticalAndNeverMutateTheRawBars` |
+| CA09-8 | Invalid adjustment value | `adjustment=BOGUS` | 400 | 400 `HISTORY_INVALID` | PASS | `invalid-adjustment-rejected` |
 
 ### S2 — announcement vs effective, revisions, repeated/missing/multiple factors
 
 | ID | Requirement / source | Input | Expected | Observed | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CA09-9 | Announcement vs effective date (DD05 §260) | announced then effective | factor known only at availability | no announcement/availability column | NOT_IMPLEMENTED | `announcement-vs-effective`; CA09-D3 |
-| CA09-10 | Factor revisions | corrected action | versioned factor, prior retained | no factor dataset/revision model | NOT_IMPLEMENTED | `factor-revisions` |
-| CA09-11 | Repeated application | apply factor twice | idempotent, applied exactly once | no application path | NOT_IMPLEMENTED | `factor-revisions` |
-| CA09-12 | Missing factor | action without factor | fail closed, do not cross silently | features silently cross (no detection) | NOT_IMPLEMENTED | `adjusted-vs-raw-feature-continuity` |
-| CA09-13 | Multiple actions in succession | split then bonus | chained factors compose deterministically | no composition | NOT_IMPLEMENTED | `split-bonus-adjustment` |
-| CA09-14 | Malformed action rows rejected | unknown type; unpaired ratio | constraint violation | rejected by `ck_corporate_action_type` / `ck_corporate_action_ratio` | PASS | `corporate-action-schema-rejects` |
-| CA09-15 | Fixture isolation | rollback | no residue | 0 rows after rollback | PASS | `fixture-rollback-clean` |
+| CA09-9 | Announcement vs effective (DD05 §260) | factor known 09-20; as-of 09-10 | later knowledge excluded | as-of 09-10 unadjusted; as-of 09-25 adjusted | PASS | `adjustedSeriesOnlyReadsFactorsKnownAtTheAsOfTime` |
+| CA09-10 | Factor revisions | multiple factor versions | versioned, latest wins | `factor_version` unique per action; ordering by version | PASS (schema/query) | `factor-table-present` |
+| CA09-11 | Repeated application | apply twice | once | factor 0.5 not 0.25 | PASS | `repeatedCallsAreIdenticalAndNeverMutateTheRawBars` |
+| CA09-12 | Missing factor | supported action without factor | fail closed | 409 `CORPORATE_ACTION_ADJUSTMENT_UNSUPPORTED` | PASS | guard query; integration test (dividend case) |
+| CA09-13 | Multiple actions in succession | split then bonus | compose deterministically | 0.25 / ×4 | PASS | `successiveActionsComposeExactlyOnceEach` |
+| CA09-14 | Malformed action rows | unknown type; unpaired ratio | constraint violation | rejected | PASS | `corporate-action-schema-rejects` |
+| CA09-15 | Unsupported type in window | DIVIDEND in window | adjusted fails closed; raw available | 409 adjusted; 200 raw | PASS | `unsupportedActionInTheWindowFailsClosedWhileRawRemainsAvailable` |
 
-### S3 — backtest across an action; feature continuity vs execution accounting
+### S3 — backtest across an action; feature continuity vs execution
 
 | ID | Requirement / source | Input | Expected | Observed | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CA09-16 | Adjusted analytical series for features (DD05 §113) | history across a split | continuous adjusted features | features compute on raw prices | NOT_IMPLEMENTED | `adjusted-vs-raw-feature-continuity` |
-| CA09-17 | Execution uses actual tradable prices (DD05 §113) | fills across a split | raw fill prices | `BacktestTrade` documents raw; `adjustedFill` is slippage only | PASS (by design) | code citation |
-| CA09-18 | Position quantity adjustment | bonus/split holding | quantity and cost basis adjusted | no positions/execution subsystem | NOT_IMPLEMENTED | `position-quantity-adjustment` |
-| CA09-19 | Corporate-action leakage guard (DD05 §260) | metadata known later | not a contemporaneous feature | no guard; table unused | NOT_IMPLEMENTED | `corporate-action-unwired` |
+| CA09-16 | Adjusted analytical series for features (DD05 §113) | history across a split | continuous adjusted features | adjusted series available; features not yet wired | NOT_IMPLEMENTED | `feature-backtest-adjusted-adoption` |
+| CA09-17 | Execution uses tradable prices (DD05 §113) | fills across a split | raw fill prices | `BacktestTrade` raw; `adjustedFill` is slippage | PASS (by design) | code citation |
+| CA09-18 | Position quantity adjustment | bonus/split holding | quantity/cost adjusted | no positions subsystem | NOT_IMPLEMENTED | `position-quantity-adjustment` |
+| CA09-19 | Corporate-action leakage guard (DD05 §260) | later metadata | not contemporaneous | `available_at` + `asOf` exclude later knowledge | PASS | CA09-9 |
 
-Counts: PASS 6, FAIL 0, NOT_IMPLEMENTED 13.
+Counts: PASS 14, FAIL 0, NOT_IMPLEMENTED 4 (dividend/rights/merger/symbol/delisting, feature/backtest
+adoption, position adjustment, symbol-change identity), SPEC_GAP 1 (dividend method).
 
-## Independent factor oracle (declared units and semantics)
+## Independent factor oracle (units and semantics)
 
-No production calculator exists to import, so the expected transforms are derived directly from the
-fixtures. Prices are INR per share; quantities are integer shares; cash is INR.
+Prices are INR/share, quantities integer shares, cash INR. Oracle derives the transform from the
+fixture action; no production calculator is imported.
 
-| Action | Multiplicative price factor | Quantity factor | Cash | Notes |
-| --- | --- | --- | --- | --- |
-| SPLIT 1:2 (1 new : 2 old) | 1/2 = 0.50000000 | ×2 | — | face value halves; capital unchanged |
-| BONUS 1:1 | 1/2 = 0.50000000 | ×2 | — | numerically equal factor, different accounting |
-| DIVIDEND ₹5.00 | (P − 5)/P, price-dependent | ×1 | ₹5.00/share | **not** a multiplicative split factor |
+| Action | Price factor | Quantity factor | Notes |
+| --- | --- | --- | --- |
+| SPLIT 1→2 | 0.50000000 | 2.00000000 | multiplicative; applied to bars strictly before ex-date |
+| BONUS 1→2 | 0.50000000 | 2.00000000 | multiplicative; composes with prior splits |
+| DIVIDEND ₹5 (proposed) | (P−5)/P, price-dependent | 1.00000000 | additive; **not** the split transform; method unpinned |
 
-The oracle is deliberately explicit that dividend and split/bonus adjustments do **not** share
-semantics (additive vs multiplicative). None of these transforms is applied anywhere in the system.
+Worked reconciliation: raw close `100`, volume `10`, SPLIT 0.5/2 → adjusted close `50`, volume `20`,
+`cumulativeAdjustmentFactor` `0.5`; raw read still `100`/`10`/null. Two actions → `25`/`40`/`0.25`.
 
 ## Continuity and lineage analysis
 
-- **Identity**: `CanonicalInstrumentService.ensureInstrument` derives `instrument_key =
-  UUID(instrument:<exchange>:<segment>:<type>:<symbol>)`, so a symbol change creates a **new
-  `instrument_id`** and splits candle/feature history. `reference.instrument_identifier` (which would
-  carry symbol/ISIN versioned aliases) has 0 rows. DD-05 §39 / DD04B §7.2 are unmet.
-- **Raw vs adjusted separation**: satisfied only in the trivial direction — the raw series exists and
-  no adjustment exists. There is no adjusted dataset, so "separate and auditable" (DD-05 §260) is not
-  met because the adjusted side is absent.
-- **Feature continuity**: the feature engine consumes `HistoricalDataReader` raw candles directly; a
-  split/bonus price jump is treated as a real price move, so ATR/RRS/RVOL and patterns cross actions
-  silently. There is no factor lookup, no detection, and no quality downgrade.
-- **Execution accounting**: backtest fills use raw historical prices (correct for fills, DD-05 §113);
-  there is no position/cost-basis adjustment and no live positions, so bonus-credited quantity is
-  unmodelled.
-- **Revision lineage for actions**: none; the table has `created_at` only and no availability or
-  revision columns, so point-in-time correctness (DD-05 §260) cannot be represented.
+- **Raw vs adjusted separation** (DD05 §112/§260): raw `market.candle` is never mutated; adjusted bars
+  are derived on read and carry `definitionVersion=er-ca-adjusted-v1` plus the cumulative factor.
+- **Point-in-time** (DD05 §260): `available_at` gates which factors an as-of read may use; a factor
+  announced later is excluded, so no future knowledge leaks into a contemporaneous view.
+- **Exactly-once**: each factor contributes one multiplication to a bar's cumulative product; repeated
+  reads recompute from raw and are identical.
+- **Guard** (DD05 §43): an unsupported action type, or a supported type with no factor, makes the
+  adjusted read fail closed (409) while raw remains available — no silent crossing.
+- **Open gaps**: identity is symbol-keyed (a rename splits history); merger/symbol-change targets are
+  not representable; dividends/rights remain unsupported; features/backtests still consume raw.
 
 ## Defect register
 
-| # | Severity | Impact | Repro | Expected vs actual | Root cause | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| CA09-D1 | High | Features and candles silently cross splits/bonuses, invalidating backtests (DD01 §132, DD05 §§43/260) | fetch M5 around any action | continuous adjusted features vs raw discontinuity | no adjustment subsystem | NOT_IMPLEMENTED |
-| CA09-D2 | High | `reference.corporate_action` is dead schema: no ingestion, no read, no lineage | `SELECT count(*)` = 0; no Java reference | first-class reference data vs unused table | subsystem not built | NOT_IMPLEMENTED |
-| CA09-D3 | Medium | The action model cannot express announcement/availability or effective-vs-available timing, so point-in-time (§260) is unrepresentable | schema inspection | `announced_at`/`available_at` vs absent | schema gap | SPEC_GAP |
-| CA09-D4 | Medium | Symbol changes split economic identity; no alias history | identity key includes symbol; `instrument_identifier` = 0 | stable identity + versioned alias vs symbol-keyed | identity model gap | SPEC_GAP |
-| CA09-D5 | Medium | Merger/demerger/symbol-change targets have no columns (`target_instrument_id`/`new_symbol`); only `metadata` JSONB | schema inspection | representable action target vs absent | schema gap | SPEC_GAP |
-
-No FAIL statuses; no defect was fixable within the audit contract, because every gap is the absence of
-the corporate-action subsystem itself. Implementing it here would be building a missing major
-subsystem to obtain a pass, which the contract prohibits.
+| # | Severity | Impact | Status |
+| --- | --- | --- | --- |
+| CA09-D1 | High | Features/backtests silently crossed splits because no adjusted series existed | RESOLVED (series implemented); feature/backtest adoption still open |
+| CA09-D2 | High | `reference.corporate_action` was dead schema with no factor dataset | RESOLVED (V021 + repository + service) |
+| CA09-D3 | Medium | No announcement/availability coordinate for point-in-time | RESOLVED (`available_at` + `asOf`) |
+| CA09-D5 | High | No fail-closed behavior for unsupported actions | RESOLVED (guard, 409 `CORPORATE_ACTION_ADJUSTMENT_UNSUPPORTED`) |
+| CA09-D4 | Medium | Symbol changes split economic identity; no alias history | OPEN (SPEC_GAP) |
+| CA09-D6 | Medium | Dividend/rights semantics (additive) unmodeled | OPEN (SPEC_GAP; policy needed) |
+| CA09-D7 | Medium | Merger/demerger target mapping unmodeled | OPEN (NOT_IMPLEMENTED) |
+| CA09-D8 | Medium | Features/backtests still read raw; no adoption of the adjusted series | OPEN (NOT_IMPLEMENTED) |
 
 ## Verification commands
 
-- `scripts/corporate-action-audit.sh` → 6 PASS / 0 FAIL / 8 NOT_IMPLEMENTED.
-- Live schema fixtures ran in a rolled-back transaction; `reference.corporate_action` count stays 0.
-- OpenAPI (`/v3/api-docs`) has 0 corporate/adjustment paths.
-- No code changed, so the last full `./mvnw -Denforcer.skip=true verify` (application 206,
-  broker-groww 79) remains the build baseline; re-run after any implementation.
-- Browser: not exercised (no tooling); there is no corporate-action UI.
+- `scripts/corporate-action-audit.sh` → 5 PASS / 0 FAIL / 4 NOT_IMPLEMENTED.
+- `./mvnw -Denforcer.skip=true -pl application -am test -Dtest=CorporateActionAdjustmentTest,CorporateActionAdjustmentIntegrationTest` → 7/7.
+- `./mvnw -Denforcer.skip=true verify` → application 213, broker-groww 79.
+- Browser: not exercised; there is no corporate-action UI.
 
 ## Limitations and next actions
 
-Ordered prerequisites to implement the feature (none of which is a green unit test):
-
-1. **Factor model and dataset**: a versioned corporate-action factor dataset (DD-05 §113) with a
-   documented transform per action type — multiplicative for split/bonus, additive for dividend,
-   identity/mapping for symbol change/merger — and an adjusted analytical series that never
-   overwrites raw `market.candle`.
-2. **Point-in-time schema**: add announcement/availability timestamps and factor revisions so
-   backtests only know actions that were known at the time (DD-05 §260), and extend the action model
-   with `target_instrument_id`/`new_symbol` for symbol changes/mergers.
-3. **Identity continuity**: key economic identity by a durable identifier (ISIN) or a versioned alias
-   in `reference.instrument_identifier`, so a symbol change does not orphan history (DD05 §39,
-   DD04B §7.2).
-4. **Fail-closed guard**: when a known action's ex-date falls inside a feature/backtest window and no
-   factor is available, mark affected data untrustworthy rather than silently crossing it (AGENTS.md
-   fail-closed data principle; DD-05 §43).
-5. **Execution accounting**: cost-basis/quantity adjustment for bonus/split-affected positions once a
-   positions subsystem exists.
-6. **Ingestion source**: no broker corporate-action endpoint exists in the Groww matrix; a reference
-   data source and reconciliation path are prerequisites (DD-05 §43).
+1. **Dividend policy** (SPEC_GAP): decide additive back-adjustment (`(P−cash)/P`) vs another method,
+   then add a `DIVIDEND` factor type and remove it from the guard's unsupported set.
+2. **Rights / merger / demerger / symbol change / delisting**: define factor/target semantics and add
+   target columns (`target_instrument_id`, `new_symbol`) plus handling.
+3. **Identity continuity**: key economic identity by ISIN or a versioned alias in
+   `reference.instrument_identifier` so a symbol change does not orphan history (DD05 §39, DD04B §7.2).
+4. **Feature/backtest adoption**: let `FeatureSnapshotService` read the adjusted series for continuity
+   while `BacktestEngine` fills on raw prices (DD05 §113), and surface the guard as a data-quality
+   block rather than a 409 on a background path.
+5. **Factor ingestion**: no broker corporate-action endpoint exists; a reference source and
+   reconciliation path are prerequisites.
