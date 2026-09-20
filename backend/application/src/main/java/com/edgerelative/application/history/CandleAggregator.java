@@ -3,6 +3,7 @@ package com.edgerelative.application.history;
 import com.edgerelative.application.reference.NseTradingCalendar;
 import com.edgerelative.application.reference.TimeframeCatalog;
 import com.edgerelative.application.reference.TimeframeCatalog.Spec;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;

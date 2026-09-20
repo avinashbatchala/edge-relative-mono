@@ -2,7 +2,9 @@ package com.edgerelative.application.history;
 
 import com.edgerelative.application.history.HistoryRepository.ClaimedChunk;
 import com.edgerelative.broker.api.model.BrokerCandle;
+
 import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +27,18 @@ public class BackfillChunkWriter {
     @Transactional
     public int apply(ClaimedChunk chunk, List<BrokerCandle> candles) {
         repository.lockSeries(chunk.instrumentId(), chunk.timeframeId());
+        List<NewCandle> canonical = candles.stream()
+                .map(candle -> new NewCandle(
+                        candle.openTime(),
+                        candle.open(),
+                        candle.high(),
+                        candle.low(),
+                        candle.close(),
+                        candle.volume(),
+                        candle.openInterest()))
+                .toList();
         int written = repository.upsertCandles(
-                chunk.instrumentId(), chunk.timeframeId(), candles, properties.getInsertBatchSize());
+                chunk.instrumentId(), chunk.timeframeId(), canonical, properties.getInsertBatchSize());
         repository.markCoverageCompleted(chunk.coverageId(), written);
         return written;
     }

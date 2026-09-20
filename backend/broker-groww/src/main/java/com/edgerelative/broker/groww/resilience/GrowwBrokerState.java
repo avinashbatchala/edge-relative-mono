@@ -1,6 +1,8 @@
 package com.edgerelative.broker.groww.resilience;
 
-/** Broker interaction health, distinct from Groww's own health. */
+/**
+ * Broker interaction health, distinct from Groww's own health.
+ */
 public enum GrowwBrokerState {
     ACTIVE,
     RATE_LIMITED,

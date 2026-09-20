@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.math.BigDecimal;
 
-/** Broker-neutral smart-order modification intent (represented, not executable in this change). */
+/**
+ * Broker-neutral smart-order modification intent (represented, not executable in this change).
+ */
 public record BrokerSmartOrderModifyRequest(
         BrokerSmartOrderType smartOrderType,
         BrokerSegment segment,

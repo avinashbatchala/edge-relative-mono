@@ -2,9 +2,12 @@ package com.edgerelative.broker.groww.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.math.BigDecimal;
 
-/** {@code POST /v1/order/create} body. Represented only; no adapter executes it in this change. */
+/**
+ * {@code POST /v1/order/create} body. Represented only; no adapter executes it in this change.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GrowwPlaceOrderRequest(
         @JsonProperty("trading_symbol") String tradingSymbol,

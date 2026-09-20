@@ -5,7 +5,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Enables strongly typed backfill configuration and the canonical aggregation beans. */
+/**
+ * Enables strongly typed backfill configuration and the canonical aggregation beans.
+ */
 @Configuration
 @EnableConfigurationProperties(HistoryProperties.class)
 public class HistoryConfiguration {

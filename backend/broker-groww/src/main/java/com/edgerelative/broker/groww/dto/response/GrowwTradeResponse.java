@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** One Groww trade. */
+/**
+ * One Groww trade.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwTradeResponse(
         @JsonProperty("price") JsonNode price,

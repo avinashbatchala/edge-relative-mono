@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.time.Instant;
 
-/** Filter/pagination for smart order listing. */
+/**
+ * Filter/pagination for smart order listing.
+ */
 public record SmartOrderListQuery(
         BrokerSegment segment,
         BrokerSmartOrderType smartOrderType,

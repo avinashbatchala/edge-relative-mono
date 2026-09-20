@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** Maps historical-data failures to stable application errors. */
+/**
+ * Maps historical-data failures to stable application errors.
+ */
 @RestControllerAdvice
 public class HistoryExceptionHandler {
 

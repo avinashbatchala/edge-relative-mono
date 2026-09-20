@@ -62,17 +62,25 @@ public final class FeatureEngine {
     private final SectorContextFeature sectorContextFeature = new SectorContextFeature();
 
     public FeatureSnapshot snapshot(FeatureContext context) {
-        List<FeatureSnapshot> snapshots = snapshots(context);
-        if (snapshots.isEmpty()) {
+        List<FeatureSnapshot> onlyLast = snapshots(context, true);
+        if (onlyLast.isEmpty()) {
             throw new IllegalArgumentException("Feature context has no subject candles");
         }
-        return snapshots.get(snapshots.size() - 1);
+        return onlyLast.get(0);
     }
 
     /**
      * Produces one snapshot per subject bar; every value is causal.
      */
     public List<FeatureSnapshot> snapshots(FeatureContext context) {
+        return snapshots(context, false);
+    }
+
+    /**
+     * When {@code lastOnly} is true only the final anchor is materialised, so the live/at-anchor
+     * query path does not build and discard a snapshot for every warmup bar.
+     */
+    private List<FeatureSnapshot> snapshots(FeatureContext context, boolean lastOnly) {
         BarSeries subject = BarSeries.of(context.subjectCandles());
         BarSeries market = BarSeries.of(context.marketCandles());
         BarSeries sector = BarSeries.of(context.sectorCandles());
@@ -108,8 +116,9 @@ public final class FeatureEngine {
                         ? sectorContextFeature.compute(sector, market, policy, timeframe)
                         : null;
 
-        List<FeatureSnapshot> result = new ArrayList<>(subject.size());
-        for (int i = 0; i < subject.size(); i++) {
+        int firstIndex = lastOnly ? subject.size() - 1 : 0;
+        List<FeatureSnapshot> result = new ArrayList<>(lastOnly ? 1 : subject.size());
+        for (int i = firstIndex; i < subject.size(); i++) {
             Instant anchor = subject.closeTime(i);
             Map<String, FeatureValue> features = new LinkedHashMap<>();
             put(features, FeatureKeys.ATR, versions.atr(FeatureKeys.ATR, timeframe), anchor, timeframe,

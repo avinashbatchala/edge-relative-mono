@@ -2,7 +2,7 @@ package com.edgerelative.application.history;
 
 import com.edgerelative.application.history.api.BackfillRunResponse;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
-import com.edgerelative.broker.api.model.BrokerCandle;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -12,12 +12,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 import org.jooq.Query;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
-/** jOOQ persistence for canonical candles, coverage, and ingestion runs. */
+/**
+ * jOOQ persistence for canonical candles, coverage, and ingestion runs.
+ */
 @Repository
 public class HistoryRepository {
 
@@ -51,13 +54,13 @@ public class HistoryRepository {
      * (DD-05 §105/§106). Returns the number of rows written.
      */
     public int upsertCandles(
-            long instrumentId, long timeframeId, List<BrokerCandle> candles, int batchSize) {
+            long instrumentId, long timeframeId, List<NewCandle> candles, int batchSize) {
         if (candles.isEmpty()) {
             return 0;
         }
         Instant min = candles.get(0).openTime();
         Instant max = min;
-        for (BrokerCandle candle : candles) {
+        for (NewCandle candle : candles) {
             if (candle.openTime().isBefore(min)) {
                 min = candle.openTime();
             }
@@ -80,7 +83,7 @@ public class HistoryRepository {
 
         List<Query> inserts = new ArrayList<>();
         List<Long> superseded = new ArrayList<>();
-        for (BrokerCandle candle : candles) {
+        for (NewCandle candle : candles) {
             Instant openTime = candle.openTime();
             Instant closeTime = openTime.plusSeconds(M1_CLOSE_SECONDS);
             Record existing = current.get(openTime);
@@ -120,7 +123,7 @@ public class HistoryRepository {
     private Query insertCandle(
             long instrumentId,
             long timeframeId,
-            BrokerCandle candle,
+            NewCandle candle,
             Instant closeTime,
             int revisionNo,
             Integer previousRevisionNo) {
@@ -148,7 +151,7 @@ public class HistoryRepository {
                 previousRevisionNo);
     }
 
-    private static boolean sameValues(Record existing, BrokerCandle candle, Instant closeTime) {
+    private static boolean sameValues(Record existing, NewCandle candle, Instant closeTime) {
         return equal(existing.get("open", BigDecimal.class), candle.open())
                 && equal(existing.get("high", BigDecimal.class), candle.high())
                 && equal(existing.get("low", BigDecimal.class), candle.low())
@@ -165,13 +168,23 @@ public class HistoryRepository {
         return left.compareTo(right) == 0;
     }
 
+    /**
+     * Reads canonical candles ascending. When the range holds more than {@code limit} rows the
+     * <em>most recent</em> rows are returned, not the earliest: callers (charts, feature warmup,
+     * replay) always need the window ending at {@code to}. Returning the earliest rows would silently
+     * move a feature anchor into the past (DD-05 §128/§151).
+     */
     public List<HistoricalCandle> candles(
             long instrumentId, long timeframeId, Instant from, Instant to, int limit) {
         return dsl.fetch(
                         "SELECT open_time, close_time, open, high, low, close, volume, open_interest, trade_count, "
-                                + "vwap, is_complete, quality_state FROM market.candle "
-                                + "WHERE instrument_id = ? AND timeframe_id = ? AND is_current "
-                                + "AND open_time >= ?::timestamptz AND open_time <= ?::timestamptz ORDER BY open_time LIMIT ?",
+                                + "vwap, is_complete, quality_state FROM ("
+                                + "  SELECT open_time, close_time, open, high, low, close, volume, open_interest, "
+                                + "         trade_count, vwap, is_complete, quality_state FROM market.candle "
+                                + "  WHERE instrument_id = ? AND timeframe_id = ? AND is_current "
+                                + "  AND open_time >= ?::timestamptz AND open_time <= ?::timestamptz "
+                                + "  ORDER BY open_time DESC LIMIT ?"
+                                + ") recent ORDER BY open_time",
                         instrumentId,
                         timeframeId,
                         utc(from),
@@ -465,7 +478,9 @@ public class HistoryRepository {
         return error.length() <= MAX_ERROR_LENGTH ? error : error.substring(0, MAX_ERROR_LENGTH);
     }
 
-    /** One claimed chunk plus everything needed to call the broker. */
+    /**
+     * One claimed chunk plus everything needed to call the broker.
+     */
     public record ClaimedChunk(
             long coverageId,
             long instrumentId,

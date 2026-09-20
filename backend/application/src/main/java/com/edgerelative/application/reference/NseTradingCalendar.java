@@ -30,7 +30,9 @@ public final class NseTradingCalendar {
         this.holidays = Set.copyOf(holidays);
     }
 
-    /** Weekends-only calendar; suitable until a dated holiday source is wired in. */
+    /**
+     * Weekends-only calendar; suitable until a dated holiday source is wired in.
+     */
     public static NseTradingCalendar weekendsOnly() {
         return new NseTradingCalendar(Set.of());
     }
@@ -44,7 +46,9 @@ public final class NseTradingCalendar {
         return instant.atZone(EXCHANGE_ZONE).toLocalDate();
     }
 
-    /** Number of one-minute slots in a normal session (375 for 09:15–15:30). */
+    /**
+     * Number of one-minute slots in a normal session (375 for 09:15–15:30).
+     */
     public long sessionMinutes() {
         return Duration.between(SESSION_OPEN, SESSION_CLOSE).toMinutes();
     }

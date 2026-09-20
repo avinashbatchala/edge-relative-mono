@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-/** Enforces the broker boundary: broker-neutral and domain code must not depend on the Groww adapter. */
+/**
+ * Enforces the broker boundary: broker-neutral and domain code must not depend on the Groww adapter.
+ */
 class BrokerArchitectureTest {
 
     private static final ClassFileImporter IMPORTER = new ClassFileImporter()

@@ -3,8 +3,10 @@ package com.edgerelative.application.history;
 import com.edgerelative.application.history.api.CoverageResponse;
 import com.edgerelative.application.history.api.HistoryCandleResponse;
 import com.edgerelative.application.history.query.HistoricalDataReader;
+
 import java.time.Instant;
 import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,7 +28,9 @@ public class HistoryQueryController {
         this.reader = reader;
     }
 
-    /** Canonical candles for a timeframe; M1 is read, higher timeframes are derived. */
+    /**
+     * Canonical candles for a timeframe; M1 is read, higher timeframes are derived.
+     */
     @GetMapping("/candles")
     public List<HistoryCandleResponse> candles(
             @RequestParam long instrumentId,

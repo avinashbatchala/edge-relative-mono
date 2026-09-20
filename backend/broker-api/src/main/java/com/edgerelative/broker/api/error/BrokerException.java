@@ -59,7 +59,9 @@ public class BrokerException extends RuntimeException {
         return retryable;
     }
 
-    /** Safe, single-line description without secrets for logs. */
+    /**
+     * Safe, single-line description without secrets for logs.
+     */
     public String safeDescription() {
         return "%s broker=%s operation=%s endpoint=%s code=%s http=%s retryable=%s"
                 .formatted(

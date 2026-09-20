@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Authenticated caller is not permitted to perform the operation. */
+/**
+ * Authenticated caller is not permitted to perform the operation.
+ */
 public final class BrokerAuthorizationException extends BrokerException {
     public BrokerAuthorizationException(
             String message,

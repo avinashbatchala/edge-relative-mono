@@ -2,7 +2,9 @@ package com.edgerelative.application.history.api;
 
 import java.time.Instant;
 
-/** Progress/state of one backfill run. */
+/**
+ * Progress/state of one backfill run.
+ */
 public record BackfillRunResponse(
         String runKey,
         long instrumentId,

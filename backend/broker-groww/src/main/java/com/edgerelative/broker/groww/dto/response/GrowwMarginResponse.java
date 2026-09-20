@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** {@code GET /v1/margins/detail/user} payload. */
+/**
+ * {@code GET /v1/margins/detail/user} payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwMarginResponse(
         @JsonProperty("clear_cash") JsonNode clearCash,

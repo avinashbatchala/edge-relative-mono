@@ -3,7 +3,9 @@ package com.edgerelative.broker.api.model;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** One execution against an order. */
+/**
+ * One execution against an order.
+ */
 public record BrokerTrade(
         String brokerTradeId,
         String exchangeTradeId,

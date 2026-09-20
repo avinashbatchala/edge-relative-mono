@@ -8,16 +8,20 @@ import com.edgerelative.broker.api.model.BrokerOptionGreeks;
 import com.edgerelative.broker.api.model.BrokerQuote;
 import com.edgerelative.broker.api.model.BrokerSegment;
 import com.edgerelative.broker.api.port.MarketDataBroker;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Read-only Groww market data. */
+/**
+ * Read-only Groww market data.
+ */
 @RestController
 @RequestMapping("/api/v1/brokers/groww/market-data")
 public class GrowwMarketDataController {

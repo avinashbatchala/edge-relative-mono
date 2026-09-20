@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.util.Set;
 
-/** Broker account profile and enabled capabilities. */
+/**
+ * Broker account profile and enabled capabilities.
+ */
 public record BrokerUserProfile(
         String userId,
         String uniqueClientCode,

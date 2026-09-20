@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Service;
@@ -114,7 +115,22 @@ public class CanonicalInstrumentService {
                 token);
     }
 
-    /** Ensures the registry row exists and returns its id; rejects unregistered codes. */
+    /**
+     * Read-only timeframe lookup for the canonical read path. Registration is a write owned by
+     * ingestion/reference startup, so readers must not mutate reference data.
+     */
+    public java.util.OptionalLong findTimeframeId(String code) {
+        TimeframeCatalog.Spec spec = TimeframeCatalog.require(code);
+        Record record = dsl.fetchOne("SELECT timeframe_id FROM reference.timeframe WHERE code = ?", spec.code());
+        if (record == null) {
+            return java.util.OptionalLong.empty();
+        }
+        return java.util.OptionalLong.of(record.get("timeframe_id", Long.class));
+    }
+
+    /**
+     * Ensures the registry row exists and returns its id; rejects unregistered codes.
+     */
     public long ensureTimeframe(String code) {
         TimeframeCatalog.Spec spec = TimeframeCatalog.require(code);
         Record record = dsl.fetchOne(

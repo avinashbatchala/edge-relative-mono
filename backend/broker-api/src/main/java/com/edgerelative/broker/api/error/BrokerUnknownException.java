@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Unclassified broker failure. Treated conservatively as non-retryable. */
+/**
+ * Unclassified broker failure. Treated conservatively as non-retryable.
+ */
 public final class BrokerUnknownException extends BrokerException {
     public BrokerUnknownException(
             String message,

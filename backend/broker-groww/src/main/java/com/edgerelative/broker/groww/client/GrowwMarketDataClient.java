@@ -18,14 +18,18 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.mapper.GrowwMapper;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import tools.jackson.databind.JsonNode;
 
-/** Groww live-data (snapshot) implementation. Batching is encapsulated here, not by callers. */
+/**
+ * Groww live-data (snapshot) implementation. Batching is encapsulated here, not by callers.
+ */
 public class GrowwMarketDataClient implements MarketDataBroker {
 
     private static final int MAX_BATCH = 50;

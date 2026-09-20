@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** One Groww position. */
+/**
+ * One Groww position.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwPositionResponse(
         @JsonProperty("trading_symbol") String tradingSymbol,

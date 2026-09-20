@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
-/** Session semantics used by higher-timeframe candle construction. */
+/**
+ * Session semantics used by higher-timeframe candle construction.
+ */
 class NseTradingCalendarTest {
 
     private final NseTradingCalendar calendar = new NseTradingCalendar(Set.of(LocalDate.of(2026, 1, 26)));

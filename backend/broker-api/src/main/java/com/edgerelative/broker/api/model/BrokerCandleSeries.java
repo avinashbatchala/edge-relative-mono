@@ -3,7 +3,9 @@ package com.edgerelative.broker.api.model;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Deterministically ordered historical candles plus the resolved request window. */
+/**
+ * Deterministically ordered historical candles plus the resolved request window.
+ */
 public record BrokerCandleSeries(
         String exchangeSymbol,
         BrokerCandleInterval interval,

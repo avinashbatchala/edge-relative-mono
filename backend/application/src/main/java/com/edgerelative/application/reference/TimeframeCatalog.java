@@ -18,7 +18,9 @@ public final class TimeframeCatalog {
     private TimeframeCatalog() {
     }
 
-    /** One registered timeframe. Intraday timeframes have a fixed duration; D1/W1 are calendar-based. */
+    /**
+     * One registered timeframe. Intraday timeframes have a fixed duration; D1/W1 are calendar-based.
+     */
     public record Spec(String code, Integer durationSeconds, boolean calendarBased) {
 
         public Duration duration() {

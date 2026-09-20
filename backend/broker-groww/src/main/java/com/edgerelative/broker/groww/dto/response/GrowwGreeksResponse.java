@@ -3,7 +3,9 @@ package com.edgerelative.broker.groww.dto.response;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** {@code GET /v1/live-data/greeks/...} payload. */
+/**
+ * {@code GET /v1/live-data/greeks/...} payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwGreeksResponse(@JsonProperty("greeks") Greeks greeks) {
 

@@ -3,7 +3,9 @@ package com.edgerelative.broker.api.model;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** Normalised order view. */
+/**
+ * Normalised order view.
+ */
 public record BrokerOrder(
         String brokerOrderId,
         String orderReferenceId,

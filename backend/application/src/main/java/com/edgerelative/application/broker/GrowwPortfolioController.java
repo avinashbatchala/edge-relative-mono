@@ -11,8 +11,10 @@ import com.edgerelative.broker.api.port.MarginBroker;
 import com.edgerelative.broker.api.port.PortfolioBroker;
 import com.edgerelative.application.broker.api.BrokerApiEnums;
 import com.edgerelative.application.broker.api.RequiredMarginApiRequest;
+
 import java.util.ArrayList;
 import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Read-only Groww portfolio and margin information. The required-margin call is a pure calculation. */
+/**
+ * Read-only Groww portfolio and margin information. The required-margin call is a pure calculation.
+ */
 @RestController
 @RequestMapping("/api/v1/brokers/groww")
 public class GrowwPortfolioController {

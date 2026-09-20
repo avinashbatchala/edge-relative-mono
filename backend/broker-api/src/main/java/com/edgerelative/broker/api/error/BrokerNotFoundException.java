@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Requested entity does not exist at the broker. */
+/**
+ * Requested entity does not exist at the broker.
+ */
 public final class BrokerNotFoundException extends BrokerException {
     public BrokerNotFoundException(
             String message,

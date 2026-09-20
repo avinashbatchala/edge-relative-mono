@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** One Groww demat holding. */
+/**
+ * One Groww demat holding.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwHoldingResponse(
         @JsonProperty("isin") String isin,

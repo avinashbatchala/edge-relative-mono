@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.model;
 
-/** Broker order type. */
+/**
+ * Broker order type.
+ */
 public enum BrokerOrderType {
     LIMIT,
     MARKET,

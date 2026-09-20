@@ -9,8 +9,10 @@ import com.edgerelative.application.history.HistoryProperties;
 import com.edgerelative.application.history.HistoryRepository;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.TimeframeCatalog;
+
 import java.time.Instant;
 import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 /**
@@ -48,7 +50,7 @@ public class HistoricalDataQueryService implements HistoricalDataReader {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new HistoryException(HistoryException.INVALID, "'from' must be before 'to'");
         }
-        long m1TimeframeId = canonical.ensureTimeframe(TimeframeCatalog.M1);
+        long m1TimeframeId = timeframeId(TimeframeCatalog.M1);
         int requested = Math.min(Math.max(limit, 1), MAX_LIMIT);
         if (TimeframeCatalog.M1.equals(spec.code())) {
             return aggregator.aggregate(
@@ -56,14 +58,26 @@ public class HistoricalDataQueryService implements HistoricalDataReader {
         }
         List<HistoricalCandle> source =
                 repository.candles(instrumentId, m1TimeframeId, from, to, properties.getMaxSourceCandles());
-        return aggregator.aggregate(source, spec.code()).stream().limit(requested).toList();
+        List<AggregatedCandle> derived = aggregator.aggregate(source, spec.code());
+        // Keep the most recent `requested` bars; taking the first N would drop the window ending at
+        // `to` and silently move every anchor backwards (DD-05 §128/§151).
+        if (derived.size() <= requested) {
+            return derived;
+        }
+        return List.copyOf(derived.subList(derived.size() - requested, derived.size()));
     }
 
     @Override
     public HistoricalCoverage coverage(long instrumentId, String timeframeCode) {
         TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
-        long timeframeId = canonical.ensureTimeframe(spec.code());
-        return repository.coverage(instrumentId, timeframeId, spec.code());
+        return repository.coverage(instrumentId, timeframeId(spec.code()), spec.code());
+    }
+
+    /** Read-only: the registry is seeded by migrations, so the read path never mutates reference data. */
+    private long timeframeId(String code) {
+        return canonical.findTimeframeId(code)
+                .orElseThrow(() -> new HistoryException(
+                        HistoryException.NOT_FOUND, "Timeframe not registered: " + code));
     }
 
     private static TimeframeCatalog.Spec requireTimeframe(String timeframeCode) {

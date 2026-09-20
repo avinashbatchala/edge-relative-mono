@@ -2,6 +2,7 @@ package com.edgerelative.broker.groww.config;
 
 import java.time.Duration;
 import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -131,7 +132,9 @@ public class GrowwProperties {
         return credentials;
     }
 
-    /** Per-category sliding windows. A category is limited by every configured window. */
+    /**
+     * Per-category sliding windows. A category is limited by every configured window.
+     */
     public static class RateLimits {
         private List<Window> authentication =
                 List.of(Window.of(Duration.ofSeconds(1), 5), Window.of(Duration.ofMinutes(1), 30), Window.of(Duration.ofHours(24), 150));
@@ -347,7 +350,9 @@ public class GrowwProperties {
         }
     }
 
-    /** Authentication flows documented by Groww. {@code AUTO} infers from the credentials present. */
+    /**
+     * Authentication flows documented by Groww. {@code AUTO} infers from the credentials present.
+     */
     public enum AuthMode {
         AUTO,
         ACCESS_TOKEN,
@@ -409,7 +414,9 @@ public class GrowwProperties {
         return value != null && !value.isBlank();
     }
 
-    /** Fails fast on safety-critical misconfiguration. Credentials are validated at call time. */
+    /**
+     * Fails fast on safety-critical misconfiguration. Credentials are validated at call time.
+     */
     public void validate() {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("broker.groww.base-url must be configured");

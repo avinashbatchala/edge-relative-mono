@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.math.BigDecimal;
 
-/** Available account margin across cash and F&O. All amounts in rupees. */
+/**
+ * Available account margin across cash and F&O. All amounts in rupees.
+ */
 public record BrokerMargin(
         BigDecimal clearCash,
         BigDecimal netMarginUsed,

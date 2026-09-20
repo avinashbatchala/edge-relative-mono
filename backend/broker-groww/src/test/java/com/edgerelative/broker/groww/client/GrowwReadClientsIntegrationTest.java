@@ -30,11 +30,13 @@ import com.edgerelative.broker.api.model.OrderListQuery;
 import com.edgerelative.broker.api.model.SmartOrderListQuery;
 import com.edgerelative.broker.api.model.TradeListQuery;
 import com.edgerelative.broker.groww.support.GrowwTestFixture;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -142,7 +144,7 @@ class GrowwReadClientsIntegrationTest {
     @Test
     void orderListRejectsPageSizeAboveDocumentedMaximumWithoutCallingGroww() {
         assertThatThrownBy(() -> fixture.orderQuery()
-                        .orders(new OrderListQuery(BrokerSegment.CASH, 0, 101)))
+                .orders(new OrderListQuery(BrokerSegment.CASH, 0, 101)))
                 .isInstanceOf(BrokerValidationException.class);
         fixture.server().verify(0, getRequestedFor(urlPathEqualTo("/v1/order/list")));
     }
@@ -150,7 +152,7 @@ class GrowwReadClientsIntegrationTest {
     @Test
     void tradesRejectPageSizeAboveFifty() {
         assertThatThrownBy(() -> fixture.orderQuery()
-                        .trades("GMK1", new TradeListQuery(BrokerSegment.CASH, 0, 51)))
+                .trades("GMK1", new TradeListQuery(BrokerSegment.CASH, 0, 51)))
                 .isInstanceOf(BrokerValidationException.class);
     }
 
@@ -365,7 +367,7 @@ class GrowwReadClientsIntegrationTest {
                 BrokerSegment.CASH, BrokerSmartOrderType.GTT, null, 0, 10, null, null));
         assertThat(smartOrders).hasSize(1);
         assertThat(fixture.smartOrders().smartOrder(BrokerSegment.CASH, BrokerSmartOrderType.GTT, "gtt_1")
-                        .smartOrderId())
+                .smartOrderId())
                 .isEqualTo("gtt_1");
     }
 

@@ -6,8 +6,10 @@ import com.edgerelative.broker.api.model.BrokerExchange;
 import com.edgerelative.broker.api.model.BrokerInstrument;
 import com.edgerelative.broker.api.model.BrokerInstrumentType;
 import com.edgerelative.broker.api.model.BrokerSegment;
+
 import java.util.List;
 import java.util.stream.IntStream;
+
 import org.junit.jupiter.api.Test;
 
 class InstrumentSearchTest {

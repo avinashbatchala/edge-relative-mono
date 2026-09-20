@@ -1,6 +1,7 @@
 package com.edgerelative.broker.groww.resilience;
 
 import com.edgerelative.broker.groww.observability.GrowwMetrics;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,7 +30,9 @@ public class GrowwCooldownManager {
         this.defaultDuration = defaultDuration;
     }
 
-    /** Activates/extend cooldown. Concurrent 429s extend to the furthest safe retry. */
+    /**
+     * Activates/extend cooldown. Concurrent 429s extend to the furthest safe retry.
+     */
     public void activate(GrowwRateLimitCategory category, Duration retryAfter) {
         Duration effective = (retryAfter == null || retryAfter.isZero() || retryAfter.isNegative())
                 ? defaultDuration
@@ -65,7 +68,9 @@ public class GrowwCooldownManager {
         return remaining;
     }
 
-    /** Blocks the calling virtual thread until the cooldown lifts (bounded by the cooldown itself). */
+    /**
+     * Blocks the calling virtual thread until the cooldown lifts (bounded by the cooldown itself).
+     */
     public void awaitExpiry() {
         Duration remaining = remaining();
         while (remaining.compareTo(Duration.ZERO) > 0) {

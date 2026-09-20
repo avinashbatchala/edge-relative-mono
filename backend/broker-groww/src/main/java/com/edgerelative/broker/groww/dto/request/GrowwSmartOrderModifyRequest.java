@@ -3,7 +3,9 @@ package com.edgerelative.broker.groww.dto.request;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** {@code PUT /v1/order-advance/modify/{id}} body. Represented only; not executed in this change. */
+/**
+ * {@code PUT /v1/order-advance/modify/{id}} body. Represented only; not executed in this change.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GrowwSmartOrderModifyRequest(
         @JsonProperty("smart_order_type") String smartOrderType,

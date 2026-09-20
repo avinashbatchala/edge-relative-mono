@@ -4,12 +4,14 @@ import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.watchlist.api.AddWatchlistItemRequest;
 import com.edgerelative.application.watchlist.api.WatchlistEntry;
 import com.edgerelative.application.watchlist.api.WatchlistResponse;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Service;
@@ -88,10 +90,10 @@ public class WatchlistService {
      */
     public boolean isWatched(long instrumentId) {
         return dsl.fetchOne(
-                        "SELECT 1 AS present FROM operational.watchlist_item wi "
-                                + "JOIN operational.watchlist w ON w.watchlist_id = wi.watchlist_id "
-                                + "WHERE w.active = TRUE AND wi.instrument_id = ?",
-                        instrumentId)
+                "SELECT 1 AS present FROM operational.watchlist_item wi "
+                        + "JOIN operational.watchlist w ON w.watchlist_id = wi.watchlist_id "
+                        + "WHERE w.active = TRUE AND wi.instrument_id = ?",
+                instrumentId)
                 != null;
     }
 
@@ -224,9 +226,9 @@ public class WatchlistService {
 
     private boolean containsInstrument(long watchlistId, long instrumentId) {
         return dsl.fetchOne(
-                        "SELECT 1 AS present FROM operational.watchlist_item WHERE watchlist_id = ? AND instrument_id = ?",
-                        watchlistId,
-                        instrumentId)
+                "SELECT 1 AS present FROM operational.watchlist_item WHERE watchlist_id = ? AND instrument_id = ?",
+                watchlistId,
+                instrumentId)
                 != null;
     }
 

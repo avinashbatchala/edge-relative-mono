@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.math.BigDecimal;
 
-/** Normalised net position. */
+/**
+ * Normalised net position.
+ */
 public record BrokerPosition(
         String tradingSymbol,
         String isin,

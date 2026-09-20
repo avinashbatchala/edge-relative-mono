@@ -2,6 +2,7 @@ package com.edgerelative.application.history.query;
 
 import com.edgerelative.application.history.AggregatedCandle;
 import com.edgerelative.application.history.HistoricalCoverage;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -14,7 +15,9 @@ import java.util.List;
  */
 public interface HistoricalDataReader {
 
-    /** Canonical candles for a timeframe; M1 is read, higher timeframes are derived. */
+    /**
+     * Canonical candles for a timeframe; M1 is read, higher timeframes are derived.
+     */
     List<AggregatedCandle> candles(
             long instrumentId, String timeframeCode, Instant from, Instant to, int limit);
 

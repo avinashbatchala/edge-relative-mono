@@ -1,6 +1,8 @@
 package com.edgerelative.application.history;
 
-/** Typed historical-data failure mapped to a stable application error code. */
+/**
+ * Typed historical-data failure mapped to a stable application error code.
+ */
 public class HistoryException extends RuntimeException {
 
     public static final String INVALID = "HISTORY_INVALID";

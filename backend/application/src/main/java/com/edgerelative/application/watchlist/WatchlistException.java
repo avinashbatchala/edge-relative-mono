@@ -1,6 +1,8 @@
 package com.edgerelative.application.watchlist;
 
-/** Typed watchlist constraint failure mapped to a stable application error code. */
+/**
+ * Typed watchlist constraint failure mapped to a stable application error code.
+ */
 public class WatchlistException extends RuntimeException {
 
     public static final String FULL = "WATCHLIST_FULL";

@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.math.BigDecimal;
 
-/** One leg of a margin calculation request. */
+/**
+ * One leg of a margin calculation request.
+ */
 public record BrokerMarginOrder(
         String tradingSymbol,
         long quantity,

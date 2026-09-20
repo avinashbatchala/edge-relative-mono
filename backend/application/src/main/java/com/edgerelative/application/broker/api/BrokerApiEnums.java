@@ -9,7 +9,9 @@ import com.edgerelative.broker.api.model.BrokerSmartOrderType;
 import com.edgerelative.broker.api.model.BrokerTransactionType;
 import com.edgerelative.broker.api.model.BrokerValidity;
 
-/** Case-insensitive conversion of application strings to broker-neutral enums. */
+/**
+ * Case-insensitive conversion of application strings to broker-neutral enums.
+ */
 public final class BrokerApiEnums {
 
     private BrokerApiEnums() {

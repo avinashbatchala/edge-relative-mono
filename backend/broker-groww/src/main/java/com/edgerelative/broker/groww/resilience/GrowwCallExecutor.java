@@ -9,6 +9,7 @@ import com.edgerelative.broker.api.error.BrokerUnavailableException;
 import com.edgerelative.broker.api.error.BrokerValidationException;
 import com.edgerelative.broker.groww.health.GrowwHealthMonitor;
 import com.edgerelative.broker.groww.observability.GrowwMetrics;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,7 +28,7 @@ import java.util.function.Supplier;
  *   <li>a bounded, fair in-flight semaphore caps concurrent downstream connections;
  *   <li>retries re-enter the whole pipeline.
  * </ol>
- *
+ * <p>
  * Virtual threads provide the concurrency; this class provides permission. Locks protect only small
  * state and are never held across the HTTP call.
  */

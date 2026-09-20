@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.model;
 
-/** Smart order family. */
+/**
+ * Smart order family.
+ */
 public enum BrokerSmartOrderType {
     GTT,
     OCO

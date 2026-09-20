@@ -3,6 +3,7 @@ package com.edgerelative.application.reference;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -15,7 +16,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "market.calendar")
 public class MarketCalendarProperties {
 
-    /** Trading holidays (ISO dates) for NSE cash equities. */
+    /**
+     * Trading holidays (ISO dates) for NSE cash equities.
+     */
     private List<LocalDate> holidays = new ArrayList<>();
 
     public List<LocalDate> getHolidays() {

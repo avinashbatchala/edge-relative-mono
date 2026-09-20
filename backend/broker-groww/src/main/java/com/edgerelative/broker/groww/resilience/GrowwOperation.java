@@ -1,10 +1,13 @@
 package com.edgerelative.broker.groww.resilience;
 
 import com.edgerelative.broker.groww.config.GrowwProperties;
+
 import java.time.Duration;
 import java.util.List;
 
-/** Bounded-cardinality operation tags for metrics, rate-limit selection and retry classification. */
+/**
+ * Bounded-cardinality operation tags for metrics, rate-limit selection and retry classification.
+ */
 public enum GrowwOperation {
     INSTRUMENT_MASTER(GrowwRateLimitCategory.NON_TRADING, true),
     QUOTE(GrowwRateLimitCategory.LIVE_DATA, true),
@@ -48,7 +51,9 @@ public enum GrowwOperation {
         return category;
     }
 
-    /** True only for read-only/idempotent operations that may be replayed on transient failure. */
+    /**
+     * True only for read-only/idempotent operations that may be replayed on transient failure.
+     */
     public boolean retrySafe() {
         return retrySafe;
     }
@@ -64,7 +69,9 @@ public enum GrowwOperation {
         };
     }
 
-    /** The bound the limiter may block for before returning a typed rate-limit failure. */
+    /**
+     * The bound the limiter may block for before returning a typed rate-limit failure.
+     */
     public static Duration maxWaitFor(GrowwProperties properties) {
         return properties.getOperationTimeout();
     }

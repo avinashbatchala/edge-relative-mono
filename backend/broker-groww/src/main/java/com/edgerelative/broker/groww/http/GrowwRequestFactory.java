@@ -1,12 +1,15 @@
 package com.edgerelative.broker.groww.http;
 
 import com.edgerelative.broker.groww.config.GrowwProperties;
+
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import tools.jackson.databind.json.JsonMapper;
+
 import java.net.http.HttpRequest;
 
 /**
@@ -61,7 +64,9 @@ public class GrowwRequestFactory {
                 .build();
     }
 
-    /** Token generation uses the API key as the bearer and does not send X-API-VERSION. */
+    /**
+     * Token generation uses the API key as the bearer and does not send X-API-VERSION.
+     */
     public HttpRequest authRequest(Object body, String apiKey) {
         return HttpRequest.newBuilder(uri("/v1/token/api/access", Map.of()))
                 .header("Accept", "application/json")

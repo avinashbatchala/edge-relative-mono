@@ -12,9 +12,11 @@ import com.edgerelative.broker.api.model.BrokerSegment;
 import com.edgerelative.broker.api.model.BrokerTransactionType;
 import com.edgerelative.broker.groww.dto.response.GrowwOrderResponse;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -107,7 +109,7 @@ class GrowwMapperTest {
     void mapsValidCandleRows() {
         JsonNode good = json.readTree("[\"2025-09-24T10:30:00\", 1.5, 2.0, 1.0, 1.8, 1000]");
         assertThat(mapper.toCandle(List.of(
-                        good.get(0), good.get(1), good.get(2), good.get(3), good.get(4), good.get(5))))
+                good.get(0), good.get(1), good.get(2), good.get(3), good.get(4), good.get(5))))
                 .isNotNull();
     }
 
@@ -131,22 +133,22 @@ class GrowwMapperTest {
 
         JsonNode nullPrices = json.readTree("[\"2025-09-24T10:30:00\", null, null, null, null, 0]");
         assertThat(mapper.toCandle(List.of(
-                        nullPrices.get(0),
-                        nullPrices.get(1),
-                        nullPrices.get(2),
-                        nullPrices.get(3),
-                        nullPrices.get(4),
-                        nullPrices.get(5))))
+                nullPrices.get(0),
+                nullPrices.get(1),
+                nullPrices.get(2),
+                nullPrices.get(3),
+                nullPrices.get(4),
+                nullPrices.get(5))))
                 .isNull();
 
         JsonNode stringPrice = json.readTree("[\"2025-09-24T10:30:00\", 1.5, \"not-a-price\", 1.0, 1.8, 1000]");
         assertThat(mapper.toCandle(List.of(
-                        stringPrice.get(0),
-                        stringPrice.get(1),
-                        stringPrice.get(2),
-                        stringPrice.get(3),
-                        stringPrice.get(4),
-                        stringPrice.get(5))))
+                stringPrice.get(0),
+                stringPrice.get(1),
+                stringPrice.get(2),
+                stringPrice.get(3),
+                stringPrice.get(4),
+                stringPrice.get(5))))
                 .isNull();
     }
 

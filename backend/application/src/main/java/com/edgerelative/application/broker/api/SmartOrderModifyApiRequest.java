@@ -2,7 +2,9 @@ package com.edgerelative.application.broker.api;
 
 import java.math.BigDecimal;
 
-/** Application contract for modifying a GTT/OCO. Deliberately not executable in this change. */
+/**
+ * Application contract for modifying a GTT/OCO. Deliberately not executable in this change.
+ */
 public record SmartOrderModifyApiRequest(
         String smartOrderType,
         String segment,

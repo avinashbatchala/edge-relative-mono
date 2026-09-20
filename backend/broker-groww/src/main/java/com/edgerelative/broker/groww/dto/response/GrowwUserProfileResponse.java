@@ -2,9 +2,12 @@ package com.edgerelative.broker.groww.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 
-/** {@code GET /v1/user/detail} payload. */
+/**
+ * {@code GET /v1/user/detail} payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwUserProfileResponse(
         @JsonProperty("vendor_user_id") String vendorUserId,

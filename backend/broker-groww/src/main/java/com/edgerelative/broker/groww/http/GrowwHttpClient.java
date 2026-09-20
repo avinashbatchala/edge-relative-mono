@@ -5,11 +5,13 @@ import com.edgerelative.broker.api.error.BrokerProtocolException;
 import com.edgerelative.broker.api.error.BrokerTimeoutException;
 import com.edgerelative.broker.api.error.BrokerUnavailableException;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -28,7 +30,9 @@ public class GrowwHttpClient {
         this.decoder = decoder;
     }
 
-    /** Sends a request and returns the {@code payload} node, mapping failures to typed exceptions. */
+    /**
+     * Sends a request and returns the {@code payload} node, mapping failures to typed exceptions.
+     */
     public JsonNode exchange(HttpRequest request, GrowwOperation operation) {
         HttpResponse<String> response = send(request, operation);
         String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
@@ -36,7 +40,9 @@ public class GrowwHttpClient {
                 response.statusCode(), retryAfter, response.body(), operation, request.uri().getPath());
     }
 
-    /** For non-JSON responses such as the instrument CSV. */
+    /**
+     * For non-JSON responses such as the instrument CSV.
+     */
     public String getText(HttpRequest request, GrowwOperation operation) {
         HttpResponse<String> response = send(request, operation);
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -58,10 +64,22 @@ public class GrowwHttpClient {
                     "Groww request interrupted", "groww", operation.name(), request.uri().getPath(), e);
         } catch (IOException e) {
             throw new BrokerUnavailableException(
-                    "Groww request failed", "groww", operation.name(), request.uri().getPath(), null, e);
+                    "Groww request failed: " + describe(e),
+                    "groww",
+                    operation.name(),
+                    request.uri().getPath(),
+                    null,
+                    e);
         } catch (RuntimeException e) {
             throw new BrokerProtocolException(
                     "Groww response could not be processed", "groww", operation.name(), request.uri().getPath(), e);
         }
+    }
+
+    /** Surface the transport root cause so {@code last_error} is actionable (token rotation, TLS, reset). */
+    private static String describe(IOException exception) {
+        Throwable cause = exception.getCause() == null ? exception : exception.getCause();
+        String message = cause.getMessage();
+        return message == null ? cause.getClass().getSimpleName() : cause.getClass().getSimpleName() + ": " + message;
     }
 }

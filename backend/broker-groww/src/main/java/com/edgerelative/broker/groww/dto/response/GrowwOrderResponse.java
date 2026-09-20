@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** Groww order status/details/list item. */
+/**
+ * Groww order status/details/list item.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwOrderResponse(
         @JsonProperty("groww_order_id") String growwOrderId,

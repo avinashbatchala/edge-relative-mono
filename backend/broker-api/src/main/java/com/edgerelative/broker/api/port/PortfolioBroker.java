@@ -4,9 +4,12 @@ import com.edgerelative.broker.api.model.BrokerHolding;
 import com.edgerelative.broker.api.model.BrokerPosition;
 import com.edgerelative.broker.api.model.BrokerSegment;
 import com.edgerelative.broker.api.model.BrokerUserProfile;
+
 import java.util.List;
 
-/** Positions, holdings and account profile. */
+/**
+ * Positions, holdings and account profile.
+ */
 public interface PortfolioBroker {
 
     List<BrokerHolding> holdings();

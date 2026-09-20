@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** Maps watchlist constraint failures to stable application errors. */
+/**
+ * Maps watchlist constraint failures to stable application errors.
+ */
 @RestControllerAdvice
 public class WatchlistExceptionHandler {
 

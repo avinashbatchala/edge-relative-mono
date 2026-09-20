@@ -10,7 +10,7 @@ import com.edgerelative.application.feature.persistence.FeatureSnapshotWriter;
 import com.edgerelative.application.history.HistoryRepository;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.NseTradingCalendar;
-import com.edgerelative.broker.api.model.BrokerCandle;
+import com.edgerelative.application.history.NewCandle;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 
@@ -190,6 +190,25 @@ class FeatureSnapshotIntegrationTest {
                 .isInstanceOf(DataAccessException.class);
     }
 
+    @Test
+    void canonicalHistoryWindowKeepsTheMostRecentBars() throws Exception {
+        long subjectId = watchEquity("FEATWIN" + System.nanoTime());
+        seedSession(subjectId, D1, 100, 100.0);
+        seedSession(subjectId, D2, 120, 100.5);
+        Instant from = calendar.sessionOpen(D1);
+        Instant to = calendar.sessionClose(D2);
+
+        JsonNode m1 = getJson("/api/v1/history/candles?instrumentId=" + subjectId
+                + "&timeframe=M1&from=" + from + "&to=" + to + "&limit=3");
+        assertThat(m1.size()).isEqualTo(3);
+        assertThat(Instant.parse(m1.get(2).path("closeTime").asString())).isEqualTo(to);
+
+        JsonNode m5 = getJson("/api/v1/history/candles?instrumentId=" + subjectId
+                + "&timeframe=M5&from=" + from + "&to=" + to + "&limit=3");
+        assertThat(m5.size()).isEqualTo(3);
+        assertThat(Instant.parse(m5.get(2).path("closeTime").asString())).isEqualTo(to);
+    }
+
     private long watchEquity(String symbol) {
         return canonical.ensureInstrument("NSE", "CASH", "EQUITY", symbol, "Feature Test " + symbol, null, null);
     }
@@ -201,12 +220,12 @@ class FeatureSnapshotIntegrationTest {
     private void seedSession(long instrumentId, LocalDate date, long volume, double basePrice) {
         long timeframeId = canonical.ensureTimeframe("M1");
         Instant open = calendar.sessionOpen(date);
-        List<BrokerCandle> candles = new ArrayList<>();
+        List<NewCandle> candles = new ArrayList<>();
         int minutes = (int) calendar.sessionMinutes();
         for (int minute = 0; minute < minutes; minute++) {
             Instant barOpen = open.plusSeconds(60L * minute);
             double price = basePrice + minute * 0.001;
-            candles.add(new BrokerCandle(
+            candles.add(new NewCandle(
                     barOpen,
                     BigDecimal.valueOf(price),
                     BigDecimal.valueOf(price + 0.002),

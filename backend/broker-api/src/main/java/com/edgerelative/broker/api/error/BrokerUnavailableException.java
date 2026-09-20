@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Broker is unreachable or returned persistent server failures. */
+/**
+ * Broker is unreachable or returned persistent server failures.
+ */
 public final class BrokerUnavailableException extends BrokerTransientException {
     public BrokerUnavailableException(
             String message,

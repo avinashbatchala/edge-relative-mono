@@ -13,10 +13,12 @@ import com.edgerelative.broker.api.model.BrokerExchange;
 import com.edgerelative.broker.api.model.BrokerSegment;
 import com.edgerelative.broker.api.model.HistoricalCandleRequest;
 import com.edgerelative.broker.api.port.HistoricalDataBroker;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

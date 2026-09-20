@@ -7,11 +7,14 @@ import com.edgerelative.broker.api.model.BrokerOptionChain;
 import com.edgerelative.broker.api.model.BrokerOptionGreeks;
 import com.edgerelative.broker.api.model.BrokerQuote;
 import com.edgerelative.broker.api.model.BrokerSegment;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-/** Live (snapshot) market data. */
+/**
+ * Live (snapshot) market data.
+ */
 public interface MarketDataBroker {
 
     BrokerQuote quote(BrokerExchange exchange, BrokerSegment segment, String tradingSymbol);

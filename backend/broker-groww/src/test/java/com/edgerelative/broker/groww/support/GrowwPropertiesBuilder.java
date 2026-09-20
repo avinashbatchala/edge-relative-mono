@@ -1,10 +1,13 @@
 package com.edgerelative.broker.groww.support;
 
 import com.edgerelative.broker.groww.config.GrowwProperties;
+
 import java.time.Duration;
 import java.util.List;
 
-/** Builds validated test configuration without Spring binding. */
+/**
+ * Builds validated test configuration without Spring binding.
+ */
 public final class GrowwPropertiesBuilder {
 
     private GrowwPropertiesBuilder() {

@@ -9,11 +9,13 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.resilience.GrowwCallExecutor;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.HexFormat;
+
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -101,13 +103,29 @@ public class GrowwAuthenticationClient {
     }
 
     private java.time.Instant parseExpiry(String expiry) {
+        return parseExpiry(expiry, clock.instant().plus(java.time.Duration.ofHours(12)));
+    }
+
+    /**
+     * Groww returns a zone-less {@code expiry}; an NSE operator's token is issued in IST, so treating
+     * it as UTC would keep a dead token "valid" for +05:30 and defeat proactive refresh at the daily
+     * rotation. An explicit offset is honoured when present.
+     */
+    static java.time.Instant parseExpiry(String expiry, java.time.Instant fallback) {
         if (expiry == null || expiry.isBlank()) {
-            return clock.instant().plus(java.time.Duration.ofHours(12));
+            return fallback;
         }
+        String normalized = expiry.trim().replace(' ', 'T');
         try {
-            return java.time.LocalDateTime.parse(expiry).atZone(java.time.ZoneOffset.UTC).toInstant();
-        } catch (RuntimeException _) {
-            return clock.instant().plus(java.time.Duration.ofHours(12));
+            return java.time.OffsetDateTime.parse(normalized).toInstant();
+        } catch (RuntimeException notOffset) {
+            try {
+                return java.time.LocalDateTime.parse(normalized)
+                        .atZone(java.time.ZoneId.of("Asia/Kolkata"))
+                        .toInstant();
+            } catch (RuntimeException unparsable) {
+                return fallback;
+            }
         }
     }
 

@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.model;
 
-/** Normalised order lifecycle status. */
+/**
+ * Normalised order lifecycle status.
+ */
 public enum BrokerOrderStatus {
     NEW,
     ACKED,

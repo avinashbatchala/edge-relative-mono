@@ -1,9 +1,13 @@
 package com.edgerelative.broker.groww.auth;
 
 import com.edgerelative.broker.api.error.BrokerAuthenticationException;
+import com.edgerelative.broker.api.error.BrokerException;
+import com.edgerelative.broker.api.error.BrokerUnavailableException;
 import com.edgerelative.broker.groww.resilience.GrowwCallExecutor;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
+import java.io.IOException;
 import java.util.function.Function;
 
 /**
@@ -27,11 +31,20 @@ public class GrowwAuthorizedExecutor {
     public <T> T executeAuthorized(GrowwOperation operation, GrowwCallPriority priority, Function<String, T> call) {
         try {
             return callExecutor.execute(operation, priority, () -> call.apply(tokenProvider.bearerToken()));
-        } catch (BrokerAuthenticationException first) {
-            if (!tokenProvider.recoverFromAuthenticationFailure()) {
+        } catch (BrokerAuthenticationException | BrokerUnavailableException first) {
+            // A rotated Groww token is observed as a connection reset (IOException), not a clean 401.
+            // Treat that as a recoverable token failure too, once, so the daily rotation self-heals.
+            if (!isTokenRecoverable(first) || !tokenProvider.recoverFromAuthenticationFailure()) {
                 throw first;
             }
             return callExecutor.execute(operation, priority, () -> call.apply(tokenProvider.bearerToken()));
         }
+    }
+
+    private static boolean isTokenRecoverable(BrokerException failure) {
+        if (failure instanceof BrokerAuthenticationException) {
+            return true;
+        }
+        return failure.getCause() instanceof IOException;
     }
 }

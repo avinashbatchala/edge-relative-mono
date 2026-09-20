@@ -2,7 +2,9 @@ package com.edgerelative.broker.api.model;
 
 import java.math.BigDecimal;
 
-/** Demat holding. */
+/**
+ * Demat holding.
+ */
 public record BrokerHolding(
         String isin,
         String tradingSymbol,

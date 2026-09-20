@@ -47,6 +47,14 @@ class FeatureEngineTest {
     }
 
     @Test
+    void snapshotEqualsTheLastOfSnapshots() {
+        FeatureContext context = FeatureTestSupport.context(
+                1, sessions(D1, D2, 100), sessions(D1, D2, 500), sessions(D1, D2, 300),
+                FeatureTestSupport.policy(), "M5");
+        assertThat(ENGINE.snapshot(context)).isEqualTo(ENGINE.snapshots(context).getLast());
+    }
+
+    @Test
     void staleMarketBarDegradesStockRrsQuality() {
         List<AggregatedCandle> subject = sessions(D1, D2, 100);
         List<AggregatedCandle> staleMarket = new ArrayList<>();

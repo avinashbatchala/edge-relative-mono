@@ -2,7 +2,9 @@ package com.edgerelative.broker.groww.resilience;
 
 import java.time.Duration;
 
-/** Production waiter. No busy-spin: it blocks the virtual thread until the window frees capacity. */
+/**
+ * Production waiter. No busy-spin: it blocks the virtual thread until the window frees capacity.
+ */
 public final class ThreadSleepingGrowwWaiter implements GrowwWaiter {
 
     @Override

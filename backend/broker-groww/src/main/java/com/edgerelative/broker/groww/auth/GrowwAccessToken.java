@@ -2,7 +2,9 @@ package com.edgerelative.broker.groww.auth;
 
 import java.time.Instant;
 
-/** Cached access token. Never logged. */
+/**
+ * Cached access token. Never logged.
+ */
 public record GrowwAccessToken(String value, Instant expiresAt, String tokenRefId) {
 
     public boolean isExpiringAt(Instant threshold) {

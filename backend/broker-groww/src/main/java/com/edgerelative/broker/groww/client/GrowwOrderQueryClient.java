@@ -16,13 +16,17 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.mapper.GrowwMapper;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import tools.jackson.databind.JsonNode;
 
-/** Groww read-only order and trade queries. */
+/**
+ * Groww read-only order and trade queries.
+ */
 public class GrowwOrderQueryClient implements OrderQueryBroker {
 
     static final int MAX_TRADES_PAGE_SIZE = 50;

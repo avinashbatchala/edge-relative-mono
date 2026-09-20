@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/** Full market quote snapshot for one instrument. */
+/**
+ * Full market quote snapshot for one instrument.
+ */
 public record BrokerQuote(
         BigDecimal lastPrice,
         BigDecimal averagePrice,

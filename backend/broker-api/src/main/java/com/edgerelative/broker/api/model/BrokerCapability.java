@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.model;
 
-/** Capabilities a broker adapter may or may not support. */
+/**
+ * Capabilities a broker adapter may or may not support.
+ */
 public enum BrokerCapability {
     INSTRUMENT_MASTER,
     LIVE_QUOTE,

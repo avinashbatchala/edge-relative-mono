@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Transient broker/network failure that may be retried when the operation is safe to retry. */
+/**
+ * Transient broker/network failure that may be retried when the operation is safe to retry.
+ */
 public class BrokerTransientException extends BrokerException {
     public BrokerTransientException(
             String message,

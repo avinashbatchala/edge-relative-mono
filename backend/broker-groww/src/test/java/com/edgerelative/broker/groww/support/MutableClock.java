@@ -6,7 +6,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
-/** Deterministic clock for time-based resilience tests. Not thread-safe by accident: synchronized. */
+/**
+ * Deterministic clock for time-based resilience tests. Not thread-safe by accident: synchronized.
+ */
 public final class MutableClock extends Clock {
 
     private final ZoneId zone;

@@ -8,10 +8,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.edgerelative.application.reference.NseTradingCalendar;
-import com.edgerelative.broker.api.model.BrokerCandle;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** End-to-end coverage of the historical backfill pipeline against a mock Groww server. */
+/**
+ * End-to-end coverage of the historical backfill pipeline against a mock Groww server.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 class HistoryBackfillIntegrationTest {
@@ -51,7 +54,9 @@ class HistoryBackfillIntegrationTest {
               ["2026-09-01T09:15:00", 100, 101, 99, 100.5, 1000, null]
             ]}}""";
 
-    /** Five M1 bars spanning 09:15–09:19 IST (03:45–03:49 UTC). */
+    /**
+     * Five M1 bars spanning 09:15–09:19 IST (03:45–03:49 UTC).
+     */
     private static final String MINUTES = """
             {"status":"SUCCESS","payload":{"candles":[
               ["2026-09-01T09:15:00", 100, 100.5, 99.5, 100.25, 10, null],
@@ -61,7 +66,9 @@ class HistoryBackfillIntegrationTest {
               ["2026-09-01T09:19:00", 104, 104.5, 103.5, 104.25, 10, null]
             ]}}""";
 
-    /** Corrected version of {@link #MINUTES} for testing candle revisions. */
+    /**
+     * Corrected version of {@link #MINUTES} for testing candle revisions.
+     */
     private static final String MINUTES_CORRECTED = """
             {"status":"SUCCESS","payload":{"candles":[
               ["2026-09-01T09:15:00", 100, 100.5, 99.5, 100.4, 10, null],
@@ -325,7 +332,7 @@ class HistoryBackfillIntegrationTest {
         long instrumentId = watchInstrument("HIST9");
         Long timeframeId = jdbc.queryForObject(
                 "SELECT timeframe_id FROM reference.timeframe WHERE code = 'M1'", Long.class);
-        List<BrokerCandle> candles = List.of(new BrokerCandle(
+        List<NewCandle> candles = List.of(new NewCandle(
                 Instant.parse("2026-09-01T03:45:00Z"),
                 new BigDecimal("100"),
                 new BigDecimal("101"),
@@ -404,7 +411,9 @@ class HistoryBackfillIntegrationTest {
 
     // --- helpers ------------------------------------------------------------------
 
-    /** Persistence is limited to the active watchlist, so the instrument must be watched first. */
+    /**
+     * Persistence is limited to the active watchlist, so the instrument must be watched first.
+     */
     private long watchInstrument(String symbol) throws Exception {
         String body = JSON.writeValueAsString(Map.of(
                 "exchange", "NSE",

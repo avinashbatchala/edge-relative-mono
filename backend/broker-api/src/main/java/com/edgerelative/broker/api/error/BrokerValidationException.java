@@ -1,6 +1,8 @@
 package com.edgerelative.broker.api.error;
 
-/** Deterministic request/validation failure. Never retried as an infrastructure fault. */
+/**
+ * Deterministic request/validation failure. Never retried as an infrastructure fault.
+ */
 public final class BrokerValidationException extends BrokerException {
     public BrokerValidationException(
             String message,

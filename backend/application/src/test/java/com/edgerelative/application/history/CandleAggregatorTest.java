@@ -3,14 +3,18 @@ package com.edgerelative.application.history;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.edgerelative.application.reference.NseTradingCalendar;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
-/** Deterministic construction of higher timeframes from the M1 base. */
+/**
+ * Deterministic construction of higher timeframes from the M1 base.
+ */
 class CandleAggregatorTest {
 
     private static final LocalDate SESSION = LocalDate.of(2026, 9, 18);

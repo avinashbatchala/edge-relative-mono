@@ -3,10 +3,13 @@ package com.edgerelative.broker.groww.support;
 import com.edgerelative.broker.groww.resilience.GrowwPermit;
 import com.edgerelative.broker.groww.resilience.GrowwRateLimitCategory;
 import com.edgerelative.broker.groww.resilience.GrowwRateLimiter;
+
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Test rate limiter that records how many permits were consumed. */
+/**
+ * Test rate limiter that records how many permits were consumed.
+ */
 public final class CountingRateLimiter implements GrowwRateLimiter {
 
     private final AtomicInteger permits = new AtomicInteger();

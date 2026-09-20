@@ -1,6 +1,7 @@
 package com.edgerelative.broker.groww.resilience;
 
 import com.edgerelative.broker.groww.observability.GrowwMetrics;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,7 +41,9 @@ public class GrowwCircuitBreaker {
         this.halfOpenProbes = halfOpenProbes;
     }
 
-    /** Returns true if a bounded probe/call is permitted. */
+    /**
+     * Returns true if a bounded probe/call is permitted.
+     */
     public synchronized boolean allowCall() {
         Instant now = clock.instant();
         if (state == State.OPEN) {

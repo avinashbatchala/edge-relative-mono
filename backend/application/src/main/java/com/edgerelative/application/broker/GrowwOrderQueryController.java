@@ -11,8 +11,10 @@ import com.edgerelative.broker.api.model.SmartOrderListQuery;
 import com.edgerelative.broker.api.model.TradeListQuery;
 import com.edgerelative.broker.api.port.OrderQueryBroker;
 import com.edgerelative.broker.api.port.SmartOrderQueryBroker;
+
 import java.time.Instant;
 import java.util.List;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Read-only Groww order, trade and smart-order queries. */
+/**
+ * Read-only Groww order, trade and smart-order queries.
+ */
 @RestController
 @RequestMapping("/api/v1/brokers/groww")
 public class GrowwOrderQueryController {

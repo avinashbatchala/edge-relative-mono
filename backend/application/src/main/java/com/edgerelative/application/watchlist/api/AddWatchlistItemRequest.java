@@ -2,7 +2,9 @@ package com.edgerelative.application.watchlist.api;
 
 import java.math.BigDecimal;
 
-/** Broker-neutral request to watch a canonical instrument. */
+/**
+ * Broker-neutral request to watch a canonical instrument.
+ */
 public record AddWatchlistItemRequest(
         String exchange,
         String segment,

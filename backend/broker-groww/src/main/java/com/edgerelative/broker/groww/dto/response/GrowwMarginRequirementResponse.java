@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
-/** {@code POST /v1/margins/detail/orders} payload. */
+/**
+ * {@code POST /v1/margins/detail/orders} payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwMarginRequirementResponse(
         @JsonProperty("exposure_required") JsonNode exposureRequired,

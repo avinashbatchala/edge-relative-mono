@@ -3,7 +3,9 @@ package com.edgerelative.broker.groww.auth;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Wire response for {@code POST /v1/token/api/access}. */
+/**
+ * Wire response for {@code POST /v1/token/api/access}.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GrowwTokenResponse(
         @JsonProperty("token") String token,

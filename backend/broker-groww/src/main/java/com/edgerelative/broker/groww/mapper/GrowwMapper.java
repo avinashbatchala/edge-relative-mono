@@ -37,6 +37,7 @@ import com.edgerelative.broker.groww.dto.response.GrowwSmartOrderResponse;
 import com.edgerelative.broker.groww.dto.response.GrowwTradeResponse;
 import com.edgerelative.broker.groww.dto.response.GrowwUserProfileResponse;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -184,20 +186,20 @@ public class GrowwMapper {
                 dto.fnoMarginDetails() == null
                         ? new BrokerMargin.FnoMarginDetails(zero, zero, zero, zero, zero, zero)
                         : new BrokerMargin.FnoMarginDetails(
-                                decimal(dto.fnoMarginDetails().netFnoMarginUsed()),
-                                decimal(dto.fnoMarginDetails().spanMarginUsed()),
-                                decimal(dto.fnoMarginDetails().exposureMarginUsed()),
-                                decimal(dto.fnoMarginDetails().futureBalanceAvailable()),
-                                decimal(dto.fnoMarginDetails().optionBuyBalanceAvailable()),
-                                decimal(dto.fnoMarginDetails().optionSellBalanceAvailable())),
+                        decimal(dto.fnoMarginDetails().netFnoMarginUsed()),
+                        decimal(dto.fnoMarginDetails().spanMarginUsed()),
+                        decimal(dto.fnoMarginDetails().exposureMarginUsed()),
+                        decimal(dto.fnoMarginDetails().futureBalanceAvailable()),
+                        decimal(dto.fnoMarginDetails().optionBuyBalanceAvailable()),
+                        decimal(dto.fnoMarginDetails().optionSellBalanceAvailable())),
                 dto.equityMarginDetails() == null
                         ? new BrokerMargin.EquityMarginDetails(zero, zero, zero, zero, zero)
                         : new BrokerMargin.EquityMarginDetails(
-                                decimal(dto.equityMarginDetails().netEquityMarginUsed()),
-                                decimal(dto.equityMarginDetails().cncMarginUsed()),
-                                decimal(dto.equityMarginDetails().misMarginUsed()),
-                                decimal(dto.equityMarginDetails().cncBalanceAvailable()),
-                                decimal(dto.equityMarginDetails().misBalanceAvailable())));
+                        decimal(dto.equityMarginDetails().netEquityMarginUsed()),
+                        decimal(dto.equityMarginDetails().cncMarginUsed()),
+                        decimal(dto.equityMarginDetails().misMarginUsed()),
+                        decimal(dto.equityMarginDetails().cncBalanceAvailable()),
+                        decimal(dto.equityMarginDetails().misBalanceAvailable())));
     }
 
     public BrokerMarginRequirement toMarginRequirement(GrowwMarginRequirementResponse dto) {
@@ -461,7 +463,9 @@ public class GrowwMapper {
         };
     }
 
-    /** Order status is open-ended, so unknown values degrade safely to {@code UNKNOWN}. */
+    /**
+     * Order status is open-ended, so unknown values degrade safely to {@code UNKNOWN}.
+     */
     public BrokerOrderStatus orderStatus(String raw) {
         if (raw == null) {
             return BrokerOrderStatus.UNKNOWN;

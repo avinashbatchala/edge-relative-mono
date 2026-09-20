@@ -1,6 +1,7 @@
 package com.edgerelative.application.history;
 
 import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -10,15 +11,25 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "history.backfill")
 public class HistoryProperties {
 
-    /** Small, fixed worker count. */
+    /**
+     * Small, fixed worker count.
+     */
     private int workers = 2;
-    /** Bounded queue; submission blocks/rejects to apply backpressure. */
+    /**
+     * Bounded queue; submission blocks/rejects to apply backpressure.
+     */
     private int queueCapacity = 50;
-    /** How often the dispatcher retries when no work is available. */
+    /**
+     * How often the dispatcher retries when no work is available.
+     */
     private Duration sweepInterval = Duration.ofSeconds(2);
-    /** Max candles written per database batch. */
+    /**
+     * Max candles written per database batch.
+     */
     private int insertBatchSize = 1000;
-    /** Max M1 rows loaded to build a derived series; bounds a single read-path request. */
+    /**
+     * Max M1 rows loaded to build a derived series; bounds a single read-path request.
+     */
     private int maxSourceCandles = 500_000;
 
     public int getWorkers() {

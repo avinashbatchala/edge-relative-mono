@@ -14,6 +14,7 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.mapper.GrowwMapper;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -21,9 +22,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import tools.jackson.databind.JsonNode;
 
-/** Groww read-only GTT/OCO queries. */
+/**
+ * Groww read-only GTT/OCO queries.
+ */
 public class GrowwSmartOrderQueryClient implements SmartOrderQueryBroker {
 
     private static final int MAX_PAGE = 500;

@@ -14,9 +14,11 @@ import com.edgerelative.broker.groww.support.CountingRateLimiter;
 import com.edgerelative.broker.groww.support.GrowwPropertiesBuilder;
 import com.edgerelative.broker.groww.support.MutableClock;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.random.RandomGenerator;
+
 import org.junit.jupiter.api.Test;
 
 class GrowwCallExecutorTest {
@@ -55,9 +57,9 @@ class GrowwCallExecutorTest {
         int[] calls = {0};
 
         assertThatThrownBy(() -> executor.execute(GrowwOperation.PLACE_ORDER, GrowwCallPriority.INTERACTIVE, () -> {
-                    calls[0]++;
-                    throw new BrokerTransientException("boom", "groww", "PLACE_ORDER", "/v1/order/create", 503, null);
-                }))
+            calls[0]++;
+            throw new BrokerTransientException("boom", "groww", "PLACE_ORDER", "/v1/order/create", 503, null);
+        }))
                 .isInstanceOf(BrokerTransientException.class);
         assertThat(calls[0]).isEqualTo(1);
         assertThat(permits.permits()).isEqualTo(1);
@@ -68,9 +70,9 @@ class GrowwCallExecutorTest {
         GrowwCallExecutor executor = executor(retryProperties(1, false));
 
         assertThatThrownBy(() -> executor.execute(GrowwOperation.QUOTE, GrowwCallPriority.INTERACTIVE, () -> {
-                    throw new BrokerRateLimitException(
-                            "slow down", "groww", "QUOTE", "/v1/live-data/quote", null, 429, Duration.ofSeconds(2));
-                }))
+            throw new BrokerRateLimitException(
+                    "slow down", "groww", "QUOTE", "/v1/live-data/quote", null, 429, Duration.ofSeconds(2));
+        }))
                 .isInstanceOf(BrokerRateLimitException.class);
 
         assertThat(circuitBreaker.state()).isEqualTo(GrowwCircuitBreaker.State.CLOSED);
@@ -82,8 +84,8 @@ class GrowwCallExecutorTest {
         GrowwCallExecutor executor = executor(retryProperties(1, false));
 
         assertThatThrownBy(() -> executor.execute(GrowwOperation.QUOTE, GrowwCallPriority.INTERACTIVE, () -> {
-                    throw new BrokerAuthenticationException("nope", "groww", "QUOTE", "/v1/live-data/quote", 401, null);
-                }))
+            throw new BrokerAuthenticationException("nope", "groww", "QUOTE", "/v1/live-data/quote", 401, null);
+        }))
                 .isInstanceOf(BrokerAuthenticationException.class);
 
         assertThat(health.health().state()).isEqualTo(com.edgerelative.broker.groww.resilience.GrowwBrokerState.AUTH_FAILURE);

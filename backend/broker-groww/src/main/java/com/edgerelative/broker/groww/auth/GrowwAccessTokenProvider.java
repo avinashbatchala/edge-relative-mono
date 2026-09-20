@@ -3,6 +3,7 @@ package com.edgerelative.broker.groww.auth;
 import com.edgerelative.broker.api.error.BrokerAuthenticationException;
 import com.edgerelative.broker.groww.config.GrowwProperties;
 import com.edgerelative.broker.groww.observability.GrowwMetrics;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,8 +25,12 @@ public class GrowwAccessTokenProvider {
     private final GrowwAuthenticationClient authenticationClient;
     private final Clock clock;
     private final GrowwMetrics metrics;
+    private static final Duration RECOVERY_COOLDOWN = Duration.ofSeconds(30);
+
     private final AtomicReference<GrowwAccessToken> cached = new AtomicReference<>();
     private final ReentrantLock refreshLock = new ReentrantLock();
+    private final java.util.concurrent.atomic.AtomicLong lastRecoveryAtMillis =
+            new java.util.concurrent.atomic.AtomicLong(Long.MIN_VALUE);
 
     public GrowwAccessTokenProvider(
             GrowwProperties properties,
@@ -38,7 +43,9 @@ public class GrowwAccessTokenProvider {
         this.metrics = metrics;
     }
 
-    /** Returns the bearer token, refreshing once (single-flight) when necessary. */
+    /**
+     * Returns the bearer token, refreshing once (single-flight) when necessary.
+     */
     public String bearerToken() {
         GrowwProperties.Credentials credentials = properties.getCredentials();
         if (properties.resolvedAuthMode() == GrowwProperties.AuthMode.ACCESS_TOKEN) {
@@ -88,6 +95,16 @@ public class GrowwAccessTokenProvider {
      */
     public boolean recoverFromAuthenticationFailure() {
         if (properties.resolvedAuthMode() == GrowwProperties.AuthMode.ACCESS_TOKEN) {
+            return false;
+        }
+        // Bound recovery so a broker that resets every connection cannot hammer token generation
+        // (and its daily quota); one invalidation per cooldown window is enough to re-enter.
+        long now = clock.millis();
+        long last = lastRecoveryAtMillis.get();
+        if (last != Long.MIN_VALUE && now - last < RECOVERY_COOLDOWN.toMillis()) {
+            return false;
+        }
+        if (!lastRecoveryAtMillis.compareAndSet(last, now)) {
             return false;
         }
         cached.set(null);

@@ -6,14 +6,19 @@ import com.edgerelative.broker.api.model.BrokerExchange;
 import com.edgerelative.broker.api.model.BrokerExpiry;
 import com.edgerelative.broker.api.model.BrokerCandleInterval;
 import com.edgerelative.broker.api.model.HistoricalCandleRequest;
+
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Historical candles and derivative reference data. */
+/**
+ * Historical candles and derivative reference data.
+ */
 public interface HistoricalDataBroker {
 
-    /** Returns a deterministic, ascending-by-time series, splitting ranges when the broker requires it. */
+    /**
+     * Returns a deterministic, ascending-by-time series, splitting ranges when the broker requires it.
+     */
     BrokerCandleSeries candles(HistoricalCandleRequest request);
 
     /**

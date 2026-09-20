@@ -14,13 +14,17 @@ import com.edgerelative.broker.groww.http.GrowwRequestFactory;
 import com.edgerelative.broker.groww.mapper.GrowwMapper;
 import com.edgerelative.broker.groww.resilience.GrowwCallPriority;
 import com.edgerelative.broker.groww.resilience.GrowwOperation;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import tools.jackson.databind.JsonNode;
 
-/** Groww positions, holdings and account profile. */
+/**
+ * Groww positions, holdings and account profile.
+ */
 public class GrowwPortfolioClient implements PortfolioBroker {
 
     private final GrowwAuthorizedExecutor executor;
