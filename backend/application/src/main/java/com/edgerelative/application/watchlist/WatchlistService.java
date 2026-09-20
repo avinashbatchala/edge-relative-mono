@@ -63,16 +63,18 @@ public class WatchlistService {
                 request.tickSize(),
                 request.lotSize());
         long watchlistId = ensureWatchlist(tenantId);
+        // Duplicate detection precedes the cap check: re-adding an existing symbol is a duplicate,
+        // not a capacity problem, even when the watchlist is full.
+        if (containsInstrument(watchlistId, instrumentId)) {
+            throw new WatchlistException(
+                    WatchlistException.DUPLICATE, "%s is already on the active watchlist".formatted(request.symbol()));
+        }
         int count = countItems(watchlistId);
         if (count >= CAPACITY) {
             throw new WatchlistException(
                     WatchlistException.FULL,
                     "Active watchlist is full (%d/%d). Remove an instrument first."
                             .formatted(CAPACITY, CAPACITY));
-        }
-        if (containsInstrument(watchlistId, instrumentId)) {
-            throw new WatchlistException(
-                    WatchlistException.DUPLICATE, "%s is already on the active watchlist".formatted(request.symbol()));
         }
         // Reference mutation happens only after the watchlist guards pass: a duplicate/full rejection
         // must not roll back (or pretend to apply) a broker-token change.

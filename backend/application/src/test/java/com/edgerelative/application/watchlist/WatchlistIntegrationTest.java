@@ -87,6 +87,25 @@ class WatchlistIntegrationTest {
     }
 
     @Test
+    void duplicateTakesPrecedenceWhenTheWatchlistIsFull() throws Exception {
+        for (int i = 1; i <= 20; i++) {
+            var response = addInstrument("ERWL%02d".formatted(i), "fixture", "NSE_ERWL%02d".formatted(i));
+            assertThat(response.statusCode()).isEqualTo(201);
+        }
+        assertThat(get("/api/v1/watchlist").path("count").asInt()).isEqualTo(20);
+
+        // Re-adding an existing symbol is a duplicate, not a capacity error, even when full.
+        var duplicate = addInstrument("ERWL01", "fixture", "NSE_ERWL01");
+        assertThat(duplicate.statusCode()).isEqualTo(409);
+        assertThat(JSON.readTree(duplicate.body()).path("code").asString()).isEqualTo("WATCHLIST_DUPLICATE");
+
+        // The 21st distinct symbol is a capacity error.
+        var over = addInstrument("ERWL21", "fixture", "NSE_ERWL21");
+        assertThat(over.statusCode()).isEqualTo(409);
+        assertThat(JSON.readTree(over.body()).path("code").asString()).isEqualTo("WATCHLIST_FULL");
+    }
+
+    @Test
     void rejectsMissingSegmentAndNonPositiveTickOrLot() throws Exception {
         // The reference schema requires segment/tick_size/lot_size; the API must reject at the
         // boundary with 400 rather than NPE, 500 or silent coercion.
