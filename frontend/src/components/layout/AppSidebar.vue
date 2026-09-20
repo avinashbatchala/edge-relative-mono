@@ -4,7 +4,6 @@ import {
   Database,
   Gauge,
   LayoutDashboard,
-  LineChart,
   ListChecks,
   Settings,
   Wrench,
@@ -32,15 +31,12 @@ const route = useRoute()
 const tools = [
   { title: 'Overview', to: '/overview', icon: LayoutDashboard },
   { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
-  { title: 'Feature Dashboard', to: '/features', icon: Gauge },
+  { title: 'Opportunities', to: '/opportunities', icon: Gauge },
   { title: 'Market Data', to: '/market', icon: Activity },
   { title: 'Research Data', to: '/research', icon: Database },
 ] as const
 
-const upcoming = [
-  { title: 'Setups', icon: LineChart },
-  { title: 'Trades', icon: Wrench },
-] as const
+const upcoming = [{ title: 'Trades', icon: Wrench }] as const
 
 function isActive(to: string): boolean {
   if (to === '/market') {

@@ -2,6 +2,7 @@ package com.edgerelative.application.risk;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.risk.api.RiskCandidateRequest;
@@ -156,7 +157,24 @@ class RiskDecisionIntegrationTest {
         assertThat(service.release(f.accountId, first.decisionKey(), "CANCELLED")).isFalse();
         assertThat(money("SELECT reserved_risk FROM operational.risk_account_state WHERE broker_account_id = ? AND trading_date = ?", f.accountId, SESSION))
                 .isEqualByComparingTo("0");
-        assertThat(count("SELECT count(*) c FROM operational.trade_plan")).isZero();
+        // The approved decision created exactly one immutable plan with matching ceilings.
+        assertThat(count("SELECT count(*) c FROM operational.trade_plan tp JOIN operational.risk_decision rd "
+                + "ON rd.risk_decision_id = tp.risk_decision_id WHERE rd.decision_key = ?", UUID.fromString(first.decisionKey())))
+                .isEqualTo(1L);
+        assertThat(money("SELECT tp.planned_quantity FROM operational.trade_plan tp JOIN operational.risk_decision rd "
+                + "ON rd.risk_decision_id = tp.risk_decision_id WHERE rd.decision_key = ?", UUID.fromString(first.decisionKey())))
+                .isEqualByComparingTo("2000");
+        assertThat(money("SELECT tp.planned_risk FROM operational.trade_plan tp JOIN operational.risk_decision rd "
+                + "ON rd.risk_decision_id = tp.risk_decision_id WHERE rd.decision_key = ?", UUID.fromString(first.decisionKey())))
+                .isEqualByComparingTo("4400");
+        // A repeated approval returns the same plan; creation is idempotent (scoped to this account).
+        assertThat(count("SELECT count(*) c FROM operational.trade_plan tp JOIN operational.risk_decision rd "
+                + "ON rd.risk_decision_id = tp.risk_decision_id WHERE rd.broker_account_id = ?", f.accountId))
+                .isEqualTo(1L);
+        // Immutable original intent: the row cannot be rewritten.
+        assertThatThrownBy(() -> dsl.execute("UPDATE operational.trade_plan SET planned_quantity = 1"))
+                .isInstanceOf(org.jooq.exception.DataAccessException.class);
+
         assertThat(count("SELECT count(*) c FROM operational.trade")).isZero();
         assertThat(count("SELECT count(*) c FROM operational.order_record")).isZero();
         assertThat(count("SELECT count(*) c FROM operational.position_projection")).isZero();
@@ -182,6 +200,9 @@ class RiskDecisionIntegrationTest {
         // Two approvals of 4400 each; the session budget is 30,000 and the invariant holds.
         assertThat(reserved).isEqualByComparingTo("8800");
         assertThat(reserved).isLessThanOrEqualTo(new BigDecimal("30000"));
+        assertThat(count("SELECT count(*) c FROM operational.trade_plan tp JOIN operational.risk_decision rd "
+                + "ON rd.risk_decision_id = tp.risk_decision_id WHERE rd.broker_account_id = ?", f.accountId))
+                .isEqualTo(2L);
     }
 
     private long count(String sql, Object... args) {

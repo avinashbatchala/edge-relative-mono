@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { title: 'Watchlist' },
     },
     {
+      path: '/opportunities',
+      name: 'opportunities',
+      component: () => import('@/views/OpportunitiesView.vue'),
+      meta: { title: 'Opportunities' },
+    },
+    {
       path: '/features',
       name: 'feature-dashboard',
       component: () => import('@/views/FeatureDashboardView.vue'),

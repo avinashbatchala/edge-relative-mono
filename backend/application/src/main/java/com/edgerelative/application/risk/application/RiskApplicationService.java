@@ -10,6 +10,7 @@ import com.edgerelative.application.risk.domain.RiskPolicy;
 import com.edgerelative.application.risk.domain.RiskReasonCode;
 import com.edgerelative.application.risk.persistence.RiskDecisionRepository;
 import com.edgerelative.application.risk.persistence.RiskPolicyRepository;
+import com.edgerelative.application.tradeplan.application.TradePlanService;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -36,6 +37,7 @@ public class RiskApplicationService {
     private final RiskDecisionRepository repository;
     private final RiskEvaluator evaluator;
     private final NseTradingCalendar calendar;
+    private final TradePlanService tradePlanService;
     private final Clock clock;
 
     public RiskApplicationService(
@@ -44,12 +46,14 @@ public class RiskApplicationService {
             RiskDecisionRepository repository,
             RiskEvaluator evaluator,
             NseTradingCalendar calendar,
+            TradePlanService tradePlanService,
             Clock clock) {
         this.contextProvider = contextProvider;
         this.policyRepository = policyRepository;
         this.repository = repository;
         this.evaluator = evaluator;
         this.calendar = calendar;
+        this.tradePlanService = tradePlanService;
         this.clock = clock;
     }
 
@@ -94,6 +98,8 @@ public class RiskApplicationService {
         repository.ensureReservation(proposal, decisionId, tradingDate).ifPresent(reservationId -> repository
                 .reserveCapacity(auth.brokerAccountId(), tradingDate, proposal.executionAdjustedRisk(),
                         proposal.approvedNotional()));
+        // Same transaction: approval, reservation, and plan creation commit or roll back together.
+        tradePlanService.createFromApproval(proposal, decisionId, auth.tenantId());
         return proposal;
     }
 
