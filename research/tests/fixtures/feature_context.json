@@ -1,0 +1,100 @@
+{
+  "feature_schema_version": "er-feature-schema-v1",
+  "calculation_version": "er-feature-calc-v1",
+  "snapshot_quality": "GOOD",
+  "snapshot_availability": "VALID",
+  "source_data_revision": "canonical-m1-v1",
+  "stock": {
+    "context_type": "STOCK",
+    "anchor_timestamp": "2026-09-01T04:05:00Z",
+    "timeframe": "M5",
+    "quality": "GOOD",
+    "availability": "VALID",
+    "features": {
+      "ATR": {
+        "feature_key": "ATR",
+        "anchor_timestamp": "2026-09-01T04:05:00Z",
+        "timeframe": "M5",
+        "availability": "VALID",
+        "quality": "GOOD",
+        "value": 2.0,
+        "version": {
+          "feature_key": "ATR",
+          "semantic_version": "ATR_V1",
+          "calculation_version": "er-feature-calc-v1",
+          "parameters": {
+            "atrLength": "3",
+            "smoothing": "WILDER",
+            "timeframe": "M5"
+          },
+          "parameter_hash": "abc123def456"
+        }
+      },
+      "RRS_RAW": {
+        "feature_key": "RRS_RAW",
+        "anchor_timestamp": "2026-09-01T04:05:00Z",
+        "timeframe": "M5",
+        "availability": "WARMING_UP",
+        "quality": "INCOMPLETE",
+        "value": null,
+        "lineage": { "reason": "insufficient history" },
+        "version": {
+          "feature_key": "RRS_RAW",
+          "semantic_version": "RRS_V1",
+          "calculation_version": "er-feature-calc-v1",
+          "parameters": {
+            "atrLength": "1",
+            "atrSmoothing": "SIMPLE",
+            "priceChange": "CLOSE_TO_CLOSE"
+          },
+          "parameter_hash": "deadbeef1234"
+        }
+      }
+    }
+  },
+  "market": {
+    "context_type": "MARKET",
+    "reference_code": "NIFTY50",
+    "context_instrument_id": 2,
+    "anchor_timestamp": "2026-09-01T04:05:00Z",
+    "timeframe": "M5",
+    "quality": "GOOD",
+    "availability": "VALID",
+    "features": {
+      "MARKET_DIRECTIONAL_EFFICIENCY": {
+        "feature_key": "MARKET_DIRECTIONAL_EFFICIENCY",
+        "anchor_timestamp": "2026-09-01T04:05:00Z",
+        "timeframe": "M5",
+        "availability": "VALID",
+        "quality": "GOOD",
+        "value": 0.42,
+        "version": {
+          "feature_key": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "semantic_version": "STRUCTURE_V1",
+          "calculation_version": "er-feature-calc-v1",
+          "parameters": { "pivotWidth": "2", "efficiencyWindow": "20" },
+          "parameter_hash": "1a2b3c4d5e6f"
+        }
+      }
+    }
+  },
+  "sector": {
+    "context_type": "SECTOR",
+    "reference_code": "NIFTYENERGY",
+    "context_instrument_id": 3,
+    "sector_id": 7,
+    "anchor_timestamp": "2026-09-01T04:05:00Z",
+    "timeframe": "M5",
+    "quality": "GOOD",
+    "availability": "VALID",
+    "features": {}
+  },
+  "time_of_day": {
+    "session_date": "2026-09-01",
+    "session_open": "2026-09-01T03:45:00Z",
+    "session_close": "2026-09-01T10:00:00Z",
+    "minutes_since_open": 20,
+    "minutes_to_close": 355,
+    "day_of_week": 2
+  }
+}

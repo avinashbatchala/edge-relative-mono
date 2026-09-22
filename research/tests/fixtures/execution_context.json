@@ -1,0 +1,64 @@
+{
+  "trade_key": "66666666-6666-6666-6666-666666666666",
+  "direction": "LONG",
+  "instrument": {
+    "instrument_id": 1,
+    "instrument_key": "11111111-1111-1111-1111-111111111111",
+    "symbol": "RELIANCE"
+  },
+  "planned_entry_low": "100.00",
+  "planned_entry_high": "101.00",
+  "structural_invalidation": "99.00",
+  "protective_stop": "98.00",
+  "target_reference": "110.00",
+  "entry_reference_price": "100.50",
+  "planned_slippage": "0.05",
+  "planned_quantity": 100,
+  "filled_entry_quantity": 100,
+  "filled_exit_quantity": 100,
+  "average_entry_price": "100.75",
+  "average_exit_price": "110.20",
+  "actual_slippage": "0.25",
+  "entry_fills": [
+    {
+      "fill_key": "77777777-7777-7777-7777-777777777771",
+      "side": "BUY",
+      "quantity": 60,
+      "price": "100.70",
+      "exchange_timestamp": "2026-09-01T04:06:00Z",
+      "received_timestamp": "2026-09-01T04:06:01Z"
+    },
+    {
+      "fill_key": "77777777-7777-7777-7777-777777777772",
+      "side": "BUY",
+      "quantity": 40,
+      "price": "100.825",
+      "exchange_timestamp": "2026-09-01T04:06:30Z",
+      "received_timestamp": "2026-09-01T04:06:31Z"
+    }
+  ],
+  "exit_fills": [
+    {
+      "fill_key": "77777777-7777-7777-7777-777777777773",
+      "side": "SELL",
+      "quantity": 100,
+      "price": "110.20",
+      "exchange_timestamp": "2026-09-01T05:30:00Z",
+      "received_timestamp": "2026-09-01T05:30:01Z"
+    }
+  ],
+  "realized_gross_pnl": "945.00",
+  "explicit_costs": {
+    "brokerage": "20.00",
+    "exchange": "2.00",
+    "stt": "15.00",
+    "gst": "3.60",
+    "sebi": "0.20",
+    "stamp_duty": "0.30",
+    "other": "0.00"
+  },
+  "net_pnl": "903.90",
+  "realized_r": "3.2869",
+  "holding_seconds": 5040,
+  "exit_reason": "TARGET"
+}

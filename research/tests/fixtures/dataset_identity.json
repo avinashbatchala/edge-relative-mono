@@ -1,0 +1,17 @@
+{
+  "dataset_code": "FEATURES_SETUP_M5",
+  "dataset_type": "FEATURE",
+  "version": 1,
+  "status": "COMMITTED",
+  "code_version": "er-feature-calc-v1",
+  "dataset_key": "88888888-8888-8888-8888-888888888888",
+  "dataset_version_key": "99999999-9999-9999-9999-999999999999",
+  "feature_schema_version": "er-feature-schema-v1",
+  "point_in_time_cutoff": "2026-09-01T10:00:00Z",
+  "parent_dataset_versions": ["CANONICAL_M5@1"],
+  "storage_uri": "file:///var/lib/edge-relative/research/features_setup_m5/v1",
+  "partition_manifest_uri": "file:///var/lib/edge-relative/research/features_setup_m5/v1/manifest.json",
+  "row_count": 1234,
+  "checksum": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+  "committed_at": "2026-09-02T00:00:00Z"
+}

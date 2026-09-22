@@ -3,7 +3,11 @@ name = "edge-relative-research"
 version = "0.1.0"
 description = "Research package for Edge Relative."
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "polars==1.44.2",
+    "psycopg[binary]==3.3.6",
+    "pydantic==2.13.5",
+]
 
 [build-system]
 requires = ["uv_build==0.12.10"]
@@ -13,6 +17,7 @@ build-backend = "uv_build"
 dev = [
     "pytest==9.0.2",
     "ruff==0.15.6",
+    "testcontainers==4.15.0",
 ]
 
 [tool.pytest.ini_options]
@@ -21,7 +26,8 @@ addopts = "--import-mode=importlib"
 
 [tool.ruff]
 target-version = "py313"
-line-length = 88
+# 100 accommodates explicit SQL column lists without degrading readability.
+line-length = 100
 src = ["src"]
 
 [tool.ruff.lint]
