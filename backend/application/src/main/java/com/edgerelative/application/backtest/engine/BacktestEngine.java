@@ -867,7 +867,7 @@ public final class BacktestEngine {
         }
 
         RiskContext context(BacktestSpec spec, Instant anchor, FeatureSnapshot snapshot) {
-            BigDecimal equity = startingCapital.add(realized);
+            BigDecimal equity = startingCapital.add(realized).add(unrealized());
             LocalDate sessionDate = calendar.sessionDate(anchor);
             boolean tradingDay = calendar.isTradingDay(sessionDate);
             boolean inSession = calendar.isSessionMinute(anchor);
@@ -877,7 +877,9 @@ public final class BacktestEngine {
                     .equity(equity, equity)
                     .funding(equity, equity, BigDecimal.ZERO)
                     .exposures(grossExposure(), netExposure())
-                    .risk(reservedRisk(), BigDecimal.ZERO, reservedRisk(), reservedNotional())
+                    // Open-position risk and unfilled-order reserve are distinct capacity, never the
+                    // same number passed twice (that would double-count against the open-risk limit).
+                    .risk(openRisk(), BigDecimal.ZERO, pendingReservedRisk(), pendingReservedNotional())
                     .losses(realized.min(BigDecimal.ZERO).abs(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
                     .state(RiskState.NORMAL)
                     .counters(positions.size(), 0)
@@ -892,27 +894,45 @@ public final class BacktestEngine {
             return anchor.atZone(NseTradingCalendar.EXCHANGE_ZONE).toLocalDate();
         }
 
-        private BigDecimal reservedRisk() {
+        /** Risk committed by open positions (initial risk per unit times quantity). */
+        private BigDecimal openRisk() {
             return positions.values().stream()
                     .map(p -> p.initialRiskPerUnit.multiply(BigDecimal.valueOf(p.quantity)))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
-        private BigDecimal reservedNotional() {
+        /** Risk reserved by orders that are still pending a next-bar fill. */
+        private BigDecimal pendingReservedRisk() {
+            return pending.values().stream()
+                    .map(order -> order.plan().plannedRisk())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        private BigDecimal pendingReservedNotional() {
+            return pending.values().stream()
+                    .map(order -> order.plan().plannedNotional())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        /** Unrealized P&L of open positions at their last mark. */
+        private BigDecimal unrealized() {
             return positions.values().stream()
-                    .map(p -> p.entryPrice.multiply(BigDecimal.valueOf(p.quantity)))
+                    .map(p -> grossPnl(p, p.markPrice, p.quantity))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         private BigDecimal grossExposure() {
-            return reservedNotional();
+            return positions.values().stream()
+                    .map(p -> p.markPrice.multiply(BigDecimal.valueOf(p.quantity)))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         private BigDecimal netExposure() {
             return positions.values().stream()
-                    .map(p -> p.direction.isLong()
-                            ? p.entryPrice.multiply(BigDecimal.valueOf(p.quantity))
-                            : p.entryPrice.multiply(BigDecimal.valueOf(p.quantity)).negate())
+                    .map(p -> {
+                        BigDecimal marked = p.markPrice.multiply(BigDecimal.valueOf(p.quantity));
+                        return p.direction.isLong() ? marked : marked.negate();
+                    })
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
     }
