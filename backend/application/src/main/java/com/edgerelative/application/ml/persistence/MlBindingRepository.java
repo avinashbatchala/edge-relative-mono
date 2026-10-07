@@ -49,6 +49,42 @@ public class MlBindingRepository {
                 .map(MlBindingRepository::map);
     }
 
+    public record Window(long bindingId, LocalDate effectiveFrom, LocalDate effectiveTo) {
+    }
+
+    /** Prior bindings whose window overlaps {@code [from, ∞)}. */
+    public List<Window> overlapping(long instrumentId, LocalDate from) {
+        return dsl.fetch(
+                        "SELECT binding_id, effective_from, effective_to FROM control.ml_model_binding "
+                                + "WHERE instrument_id = ? AND effective_from <= ? "
+                                + "AND (effective_to IS NULL OR effective_to > ?)",
+                        instrumentId, from, from)
+                .map(record -> new Window(
+                        record.get("binding_id", Long.class),
+                        record.get("effective_from", LocalDate.class),
+                        record.get("effective_to", LocalDate.class)));
+    }
+
+    /** Prior open/future bindings that start after {@code from} and would overlap a new open binding. */
+    public List<Window> startingAfter(long instrumentId, LocalDate from) {
+        return dsl.fetch(
+                        "SELECT binding_id, effective_from, effective_to FROM control.ml_model_binding "
+                                + "WHERE instrument_id = ? AND effective_from > ? "
+                                + "AND (effective_to IS NULL OR effective_to > ?)",
+                        instrumentId, from, from)
+                .map(record -> new Window(
+                        record.get("binding_id", Long.class),
+                        record.get("effective_from", LocalDate.class),
+                        record.get("effective_to", LocalDate.class)));
+    }
+
+    /** Closes a binding at {@code effectiveTo}; an empty window retires it without deleting history. */
+    public void close(long bindingId, LocalDate effectiveTo) {
+        dsl.execute(
+                "UPDATE control.ml_model_binding SET effective_to = ? WHERE binding_id = ?",
+                effectiveTo, bindingId);
+    }
+
     public long insert(
             long instrumentId,
             long modelVersionId,

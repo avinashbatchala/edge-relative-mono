@@ -50,12 +50,20 @@ public class MlBindingController {
         return service.list(instrumentId);
     }
 
-    @org.springframework.web.bind.annotation.ExceptionHandler({
-        IllegalArgumentException.class,
-        org.springframework.dao.DataIntegrityViolationException.class
-    })
+    @org.springframework.web.bind.annotation.ExceptionHandler(IllegalArgumentException.class)
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.BAD_REQUEST)
+    public Map<String, Object> invalid(IllegalArgumentException exception) {
+        return Map.of("message", exception.getMessage(), "code", "ML_BINDING_INVALID");
+    }
+
+    @org.springframework.web.bind.annotation.ExceptionHandler(
+        org.springframework.dao.DataIntegrityViolationException.class)
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CONFLICT)
-    public Map<String, Object> invalid(RuntimeException exception) {
-        return Map.of("error", "Binding rejected: invalid values or an overlapping effective window.");
+    public Map<String, Object> overlap(org.springframework.dao.DataIntegrityViolationException exception) {
+        return Map.of(
+                "message",
+                "A model binding for this instrument already covers that effective window.",
+                "code",
+                "ML_BINDING_OVERLAP");
     }
 }

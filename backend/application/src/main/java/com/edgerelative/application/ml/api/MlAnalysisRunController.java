@@ -89,6 +89,6 @@ public class MlAnalysisRunController {
     @org.springframework.web.bind.annotation.ExceptionHandler(IllegalArgumentException.class)
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.BAD_REQUEST)
     public Map<String, Object> invalid(IllegalArgumentException exception) {
-        return Map.of("error", exception.getMessage());
+        return Map.of("message", exception.getMessage(), "code", "ML_ANALYSIS_INVALID");
     }
 }

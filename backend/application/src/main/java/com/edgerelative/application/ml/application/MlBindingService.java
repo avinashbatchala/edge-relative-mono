@@ -7,10 +7,15 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Controlled write/read access to per-instrument ML model bindings. Append-only and effective-dated,
  * so promoting a survivor cannot rewrite history. Resolution is point-in-time.
+ *
+ * <p>Promoting a new model <em>supersedes</em> the current binding: prior bindings whose window
+ * overlaps the new effective date are closed at that date (an empty window retires a same-day binding
+ * without deleting it). Bindings that start after the new date cannot be superseded and are rejected.
  */
 @Service
 public class MlBindingService {
@@ -44,6 +49,7 @@ public class MlBindingService {
             LocalDate effectiveTo) {
     }
 
+    @Transactional
     public long create(CreateRequest request) {
         if (request.effectiveFrom() == null) {
             throw new IllegalArgumentException("effectiveFrom is required");
@@ -56,9 +62,22 @@ public class MlBindingService {
         if (!LIFECYCLE.contains(lifecycle)) {
             throw new IllegalArgumentException("invalid lifecycleState: " + lifecycle);
         }
+        LocalDate from = request.effectiveFrom();
+        // An open-ended binding can be superseded; a binding that starts on or after the new effective
+        // date has no earlier window to close and would still overlap, so it must be resolved first.
+        List<MlBindingRepository.Window> future = repository.startingAfter(request.instrumentId(), from);
+        if (!future.isEmpty()) {
+            MlBindingRepository.Window first = future.get(0);
+            throw new IllegalArgumentException(
+                    "A model binding for this instrument is already effective from " + first.effectiveFrom()
+                            + "; choose an effective date on or before it, or retire it first.");
+        }
+        for (MlBindingRepository.Window window : repository.overlapping(request.instrumentId(), from)) {
+            repository.close(window.bindingId(), from);
+        }
         return repository.insert(
                 request.instrumentId(), request.modelVersionId(), authority,
-                request.effectiveFrom(), request.effectiveTo(), lifecycle, request.source());
+                from, request.effectiveTo(), lifecycle, request.source());
     }
 
     public Optional<BindingView> effective(long instrumentId, LocalDate asOf) {
