@@ -138,10 +138,17 @@ def from_lightgbm(
         _flatten(tree_info["tree_structure"], nodes)
         trees.append(Tree(tuple(nodes)))
     base_score = _base_score(dump)
-    artifact = GbmArtifact(base_score=base_score, trees=tuple(trees), features=tuple(feature_names), objective=objective)
+    artifact = GbmArtifact(
+        base_score=base_score,
+        trees=tuple(trees),
+        features=tuple(feature_names),
+        objective=objective,
+    )
 
     if sample_features:
-        matrix = [[row.get(name, float("nan")) for name in feature_names] for row in sample_features]
+        matrix = [
+            [row.get(name, float("nan")) for name in feature_names] for row in sample_features
+        ]
         expected = list(booster.predict(matrix))
         for row, want in zip(sample_features, expected, strict=True):
             got = evaluate(artifact, row)

@@ -1,9 +1,9 @@
 """Queue worker: claim an ML analysis run, train, register the model.
 
-The worker polls the DB-backed queue through the API, exports the per-anchor training matrix from the
-backtest engine, trains a grouped ranker, verifies the frozen artifact reproduces LightGBM, writes the
-artifact to disk and registers a model version. It never approves a trade or writes a binding; a
-survivor is promoted by an explicit operator action.
+The worker polls the DB-backed queue through the API, exports the per-anchor training matrix from
+the backtest engine, trains a grouped ranker, verifies the frozen artifact reproduces LightGBM,
+writes the artifact to disk and registers a model version. It never approves a trade or writes a
+binding; a survivor is promoted by an explicit operator action.
 """
 
 from __future__ import annotations
@@ -109,8 +109,16 @@ def process_run(client: MlApiClient, store: ArtifactStore, run: Mapping[str, Any
         uri, checksum = store.write(str(config.get("modelCode", "er-ranker")), artifact)
 
         metrics: dict[str, Any] = {
-            "validation": {"rankIc": validation.rank_ic, "ndcg": validation.ndcg, "groups": validation.groups},
-            "outOfSample": {"rankIc": out_of_sample.rank_ic, "ndcg": out_of_sample.ndcg, "groups": out_of_sample.groups},
+            "validation": {
+                "rankIc": validation.rank_ic,
+                "ndcg": validation.ndcg,
+                "groups": validation.groups,
+            },
+            "outOfSample": {
+                "rankIc": out_of_sample.rank_ic,
+                "ndcg": out_of_sample.ndcg,
+                "groups": out_of_sample.groups,
+            },
             "thresholds": thresholds,
             "gatesPass": gates_pass,
             "rows": frame.height,

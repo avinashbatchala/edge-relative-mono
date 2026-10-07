@@ -1,6 +1,7 @@
 """Cross-language parity against the shared er-gbm-v1 fixture.
 
-The same fixture is evaluated by the Java GbmModelEvaluator; both must reproduce every expected value.
+The same fixture is evaluated by the Java GbmModelEvaluator; both must reproduce every expected
+value.
 """
 
 import json

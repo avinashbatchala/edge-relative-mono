@@ -1,9 +1,10 @@
 """Training-matrix assembly from backtest anchor exports.
 
-The Java backtest exports one row per VALID anchor: the exact production feature vector plus, when the
-opportunity was taken, its realized outcome (graded R). This module turns those rows into a columnar
-frame and ranker-ready (features, label, group) tuples. Missing feature values stay null — never zero —
-and an anchor without a realized outcome carries no label and is excluded from training.
+The Java backtest exports one row per VALID anchor: the exact production feature vector plus, when
+the opportunity was taken, its realized outcome (graded R). This module turns those rows into a
+columnar frame and ranker-ready (features, label, group) tuples. Missing feature values stay null —
+never zero — and an anchor without a realized outcome carries no label and is excluded from
+training.
 """
 
 from __future__ import annotations
@@ -95,7 +96,7 @@ def to_matrix(
     groups: list[str] = []
     for row in frame.iter_rows(named=True):
         vector = {
-            name: float(row[name])
+            name: float(row[row_name(name)])
             for name in feature_columns
             if row.get(row_name(name)) is not None
         }

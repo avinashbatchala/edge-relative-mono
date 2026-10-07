@@ -20,7 +20,9 @@ def _anchor(symbol: str, date: str, rrs: float, realized: float | None) -> dict:
 
 
 def test_builds_typed_frame_and_excludes_unlabelled_rows():
-    frame = build_frame([_anchor("SBIN", "2026-01-02", 0.4, 1.2), _anchor("SBIN", "2026-01-03", -0.2, None)])
+    frame = build_frame(
+        [_anchor("SBIN", "2026-01-02", 0.4, 1.2), _anchor("SBIN", "2026-01-03", -0.2, None)]
+    )
     assert feature_names(frame) == ["ATR", "RRS_RAW"]
     trainable = labelled(frame)
     assert trainable.height == 1

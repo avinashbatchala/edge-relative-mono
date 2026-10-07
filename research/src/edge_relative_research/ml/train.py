@@ -80,7 +80,6 @@ def train_regressor(
     seed: int = 7,
 ) -> Any:
     import lightgbm as lgb
-
     import numpy as np
 
     features = _matrix(matrix)
@@ -99,7 +98,9 @@ def predict(booster: Any, matrix: TrainingMatrix, indices: Sequence[int]) -> lis
     return [float(value) for value in booster.predict(features[indices])]
 
 
-def groups_for(matrix: TrainingMatrix, indices: Sequence[int], scores: Sequence[float]) -> list[Group]:
+def groups_for(
+    matrix: TrainingMatrix, indices: Sequence[int], scores: Sequence[float]
+) -> list[Group]:
     buckets: dict[str, tuple[list[float], list[float]]] = {}
     for position, index in enumerate(indices):
         name = matrix.groups[index]
@@ -126,4 +127,9 @@ def evaluate_split(
     groups = groups_for(matrix, indices, scores)
     ic, ic_groups = mean_spearman_ic(groups)
     ndcg, ndcg_groups = mean_ndcg_at_k(groups, k)
-    return Evaluation(rank_ic=ic, ndcg=ndcg, groups=len(groups), details={"icGroups": ic_groups, "ndcgGroups": ndcg_groups})
+    return Evaluation(
+        rank_ic=ic,
+        ndcg=ndcg,
+        groups=len(groups),
+        details={"icGroups": ic_groups, "ndcgGroups": ndcg_groups},
+    )

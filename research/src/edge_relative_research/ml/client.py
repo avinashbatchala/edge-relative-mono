@@ -1,8 +1,8 @@
 """HTTP client for the ML ops API.
 
 Reuses the standard-library transport from the backtest client; adds the analysis-run queue, model
-registration and per-instrument binding calls, plus the per-anchor training export. Read/execute only:
-it never holds broker credentials.
+registration and per-instrument binding calls, plus the per-anchor training export. Read/execute
+only: it never holds broker credentials.
 """
 
 from __future__ import annotations
@@ -34,9 +34,13 @@ class MlApiClient:
             raise BacktestApiError(status, text)
         return json.loads(text) if text else None
 
-    def enqueue(self, config: Mapping[str, Any], requested_by: str | None = None) -> Mapping[str, Any]:
+    def enqueue(
+        self, config: Mapping[str, Any], requested_by: str | None = None
+    ) -> Mapping[str, Any]:
         return self._call(
-            "POST", "/api/v1/ml/analysis-runs", {"config": dict(config), "requestedBy": requested_by}
+            "POST",
+            "/api/v1/ml/analysis-runs",
+            {"config": dict(config), "requestedBy": requested_by},
         )
 
     def claim(self, lease_owner: str, lease_seconds: int = 3600) -> Mapping[str, Any] | None:

@@ -1,8 +1,8 @@
 """Out-of-sample ranking evaluation.
 
 Ranking quality is measured per group (a session's VALID candidates) and averaged, so the metric
-reflects the model's ability to order the options actually on the board. Labels are graded realized R
-(from the managed trade); the grading is explicit and never invented from a probability.
+reflects the model's ability to order the options actually on the board. Labels are graded realized
+R (from the managed trade); the grading is explicit and never invented from a probability.
 """
 
 from __future__ import annotations
@@ -100,10 +100,14 @@ def _mean(values: list[float]) -> float | None:
 
 
 def mean_spearman_ic(groups: Sequence[Group]) -> tuple[float | None, int]:
-    values = [value for group in groups if (value := spearman_ic(group.scores, group.labels)) is not None]
+    values = [
+        value for group in groups if (value := spearman_ic(group.scores, group.labels)) is not None
+    ]
     return _mean(values), len(values)
 
 
 def mean_ndcg_at_k(groups: Sequence[Group], k: int) -> tuple[float | None, int]:
-    values = [value for group in groups if (value := ndcg_at_k(group.scores, group.labels, k)) is not None]
+    values = [
+        value for group in groups if (value := ndcg_at_k(group.scores, group.labels, k)) is not None
+    ]
     return _mean(values), len(values)
