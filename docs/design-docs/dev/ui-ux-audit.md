@@ -58,6 +58,9 @@ search (4 surfaces); `FeatureHistoryPanel` (3×); `FundamentalPanel` (2×); unus
    lineage), zero-trade debugging, consolidate duplicate run view and catalog keys.
 5. **Operations** — System health matrix, alerts, audit/config stubs.
 
+Status: phases 1–5 are implemented as UI-only changes. Where the gap table reads "Missing" or
+"Partial" the UI renders an honest derived or unavailable state rather than a fabricated value.
+
 ## 4. Verification
 
 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` after each phase. Tests cover decision
