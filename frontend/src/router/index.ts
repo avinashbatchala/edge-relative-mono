@@ -93,6 +93,25 @@ const router = createRouter({
       meta: { title: 'Data' },
     },
     {
+      path: '/research/ml',
+      name: 'ml-lab',
+      component: () => import('@/views/MlLabView.vue'),
+      meta: { title: 'ML Lab' },
+    },
+    {
+      path: '/research/ml/models',
+      name: 'ml-models',
+      component: () => import('@/views/MlModelsView.vue'),
+      meta: { title: 'Models & bindings' },
+    },
+    {
+      path: '/research/ml/:runKey',
+      name: 'ml-run',
+      component: () => import('@/views/MlRunView.vue'),
+      props: true,
+      meta: { title: 'ML analysis' },
+    },
+    {
       path: '/validate',
       name: 'backtests',
       component: () => import('@/views/BacktestsView.vue'),

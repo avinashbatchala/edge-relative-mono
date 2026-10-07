@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   Activity,
+  Boxes,
+  Brain,
   Database,
   FlaskConical,
   Gauge,
@@ -60,6 +62,8 @@ const research: NavItem[] = [
     icon: FlaskConical,
     prefix: '/validate',
   },
+  { title: 'ML Lab', to: '/research/ml', icon: Brain, prefix: '/research/ml' },
+  { title: 'Models', to: '/research/ml/models', icon: Boxes },
   { title: 'Strategies', to: '/catalog', icon: ShieldCheck },
   { title: 'Fundamentals', to: '/fundamentals', icon: LineChart },
 ]
