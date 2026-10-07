@@ -7,6 +7,7 @@ import { getSetups, setupKeys } from '@/api/setups'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { setupStateMeta, riskStateMeta } from '@/lib/opportunity-presentation'
 import WhyBreakdown from '@/components/trade/WhyBreakdown.vue'
+import { TriangleAlert } from '@lucide/vue'
 
 const props = defineProps<{ symbol: string }>()
 
@@ -103,10 +104,41 @@ const chips = computed<Chip[]>(() => {
     },
   ]
 })
+
+const DEGRADED_QUALITY = [
+  'STALE',
+  'DEGRADED',
+  'SUSPECT',
+  'INVALID',
+  'UNAVAILABLE',
+]
+const warning = computed(() => {
+  const row = feature.value
+  if (!row) return null
+  if (row.availability !== 'VALID') {
+    return `Measurements ${row.availability.toLowerCase()} — RRS-dependent gates cannot be evaluated.`
+  }
+  if (DEGRADED_QUALITY.includes(row.quality)) {
+    return `Data quality ${row.quality.toLowerCase()}${row.qualityReason ? ` — ${row.qualityReason}` : ''}.`
+  }
+  return null
+})
 </script>
 
 <template>
   <div class="space-y-4">
+    <div
+      v-if="warning"
+      class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs"
+      role="alert"
+      data-testid="instrument-warning"
+    >
+      <TriangleAlert
+        class="mt-0.5 size-3.5 text-amber-600 dark:text-amber-400"
+        aria-hidden="true"
+      />
+      <span>{{ warning }}</span>
+    </div>
     <div
       class="grid grid-cols-3 gap-2 rounded-lg border bg-card p-3 sm:grid-cols-6"
       data-testid="instrument-decision-summary"
