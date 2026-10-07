@@ -399,3 +399,28 @@ configuration; it changes parameters only — risk and setup gates remain author
 
 Verified live against the real database: create → effective-at-date resolution, 404 before the
 effective window, and 409 on overlap.
+
+---
+
+## Phase D — Walk-forward per-stock search (+ labels, ML deferred)
+
+Added to the research package:
+- `walkforward_search.py`: sweeps the grid on TRAIN / VALIDATION / OOS, selects the winner on
+  validation, and reports its out-of-sample result; `promotion_decision` requires the OOS metric to
+  clear a threshold.
+- `walkforward_cli.py`: `python -m edge_relative_research.backtest.walkforward_cli ...` runs the
+  walk-forward search and, only when the OOS threshold is met, can promote the winner as a
+  per-instrument binding via the Phase E API.
+- `labels.py`: columnar outcome labels (realized R, MFE/MAE, fees) for future modelling. Labels are
+  model targets only, never feature inputs.
+- Client gained `create_binding` / `effective_binding`.
+
+Sample run (SBIN M15, 2024, 2-config grid): TRAIN 2024-01-01..2024-08-07, VALIDATION 2024-08-08..
+2024-10-19, OOS 2024-10-20..2024-12-31. Validation winner net +1,968; out-of-sample net +774 →
+promotion eligible. Small samples, but the train→validate→OOS→promote pipeline is now automated.
+
+**Deliberately deferred:** actual ML meta-model training and Java promotion. That requires (a) the
+approved ML dependency, (b) a materially larger pooled sample across the watchlist, and (c) a model
+artifact loaded by Java (`control.model_version` + `operational.model_deployment`, authority
+OBSERVER/RANKER/FILTER). No model is trained or deployed; the schema, labels, walk-forward search and
+binding-promotion path are ready for it.

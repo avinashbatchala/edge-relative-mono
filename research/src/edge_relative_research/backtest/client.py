@@ -85,6 +85,40 @@ class BacktestApiClient:
             payload["maxConfigs"] = max_configs
         return self._call("POST", "/api/v1/backtests/sweep", payload)
 
+    def create_binding(
+        self,
+        instrument_id: int,
+        strategy_version_id: int,
+        parameters: Mapping[str, Any],
+        effective_from: str,
+        lifecycle_state: str = "RESEARCH",
+        effective_to: str | None = None,
+        source: str | None = None,
+    ) -> Mapping[str, Any]:
+        """Promote a per-instrument parameter set as a new effective-dated binding (append-only)."""
+        payload: dict[str, Any] = {
+            "instrumentId": instrument_id,
+            "strategyVersionId": strategy_version_id,
+            "parameters": dict(parameters),
+            "effectiveFrom": effective_from,
+            "lifecycleState": lifecycle_state,
+        }
+        if effective_to is not None:
+            payload["effectiveTo"] = effective_to
+        if source is not None:
+            payload["source"] = source
+        return self._call("POST", "/api/v1/strategy-bindings", payload)
+
+    def effective_binding(self, instrument_id: int, as_of: str) -> Mapping[str, Any] | None:
+        try:
+            return self._call(
+                "GET", f"/api/v1/strategy-bindings/{instrument_id}/effective?asOf={as_of}"
+            )
+        except BacktestApiError as error:
+            if error.status == 404:
+                return None
+            raise
+
     def wait(
         self,
         run_key: str,
