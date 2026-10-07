@@ -1,0 +1,5974 @@
+{
+  "baseScore": 0.0,
+  "features": [
+    "ATR",
+    "DERIVED_ATR_PERCENT",
+    "DERIVED_alignmentCount",
+    "DERIVED_dayOfWeek",
+    "DERIVED_distanceEntryToStopAtr",
+    "DERIVED_entryExtensionAtr",
+    "DERIVED_minutesSinceOpen",
+    "DERIVED_minutesToClose",
+    "DERIVED_priceVsSessionHighPct",
+    "DERIVED_priceVsSessionLowPct",
+    "DERIVED_rangePositionInSession",
+    "DIRECTIONAL_VOLUME_LONG",
+    "DIRECTIONAL_VOLUME_SHORT",
+    "MARKET_ATR",
+    "MARKET_DIRECTIONAL_EFFICIENCY",
+    "RRS_ACCELERATION",
+    "RRS_FAST",
+    "RRS_PERCENTILE",
+    "RRS_PERSISTENCE",
+    "RRS_RAW",
+    "RRS_SLOPE",
+    "RRS_SLOW",
+    "RVE",
+    "RVOL_CUMULATIVE",
+    "RVOL_D1",
+    "RVOL_INTERVAL",
+    "cat_direction_LONG",
+    "cat_direction_SHORT",
+    "cat_marketStructure_BEAR_STRUCTURE",
+    "cat_marketStructure_BULL_STRUCTURE",
+    "cat_rrsTrendState_NEGATIVE_FALLING",
+    "cat_rrsTrendState_NEGATIVE_RISING",
+    "cat_rrsTrendState_POSITIVE_FALLING",
+    "cat_rrsTrendState_POSITIVE_RISING",
+    "cat_setupFamily_M5_3_8_CONFIRMATION"
+  ],
+  "format": "er-gbm-v1",
+  "objective": "regression",
+  "trees": [
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.2986972673425589
+        },
+        {
+          "leaf": -0.6178153806115961
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.028621952960553917
+        },
+        {
+          "leaf": -0.6475761473721782
+        },
+        {
+          "leaf": -0.6729027629661752
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.39394347134056
+        },
+        {
+          "leaf": 0.005016329732130875
+        },
+        {
+          "leaf": -0.030439618500796236
+        },
+        {
+          "leaf": 0.018826836954270093
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19876888277825197
+        },
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.44000000000000006
+        },
+        {
+          "leaf": -0.00808815388855609
+        },
+        {
+          "leaf": 0.029334220103919506
+        },
+        {
+          "leaf": -0.024795843554394587
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07267482674722595
+        },
+        {
+          "leaf": -0.013643787320082389
+        },
+        {
+          "leaf": 0.029705995906676566
+        },
+        {
+          "leaf": -0.02410037072996299
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "leaf": -0.0017127802684193567
+        },
+        {
+          "leaf": 0.04113325496966189
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": -0.021069417041596126
+        },
+        {
+          "leaf": -0.00039339234076795124
+        },
+        {
+          "leaf": -0.024835263484198115
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19876888277825197
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.02851162671166308
+        },
+        {
+          "leaf": -0.007873587475882637
+        },
+        {
+          "leaf": -0.028663998984155205
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.39394347134056
+        },
+        {
+          "leaf": 0.0002375430911779404
+        },
+        {
+          "leaf": -0.029276876986026764
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.2739813210195874
+        },
+        {
+          "leaf": 0.029277377203106882
+        },
+        {
+          "leaf": -0.0020565625618804585
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.5902964764768069
+        },
+        {
+          "leaf": -0.025954412840879883
+        },
+        {
+          "leaf": -0.004932134564627301
+        },
+        {
+          "leaf": 0.011854307353496553
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.1724304558687578
+        },
+        {
+          "leaf": 0.00023820877752520823
+        },
+        {
+          "leaf": 0.035573878698050974
+        },
+        {
+          "feature": "ATR",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 2.3271988838737117
+        },
+        {
+          "leaf": -0.0038531336401190076
+        },
+        {
+          "leaf": -0.02607874062657356
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.19876888277825197
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.011646410763602365
+        },
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.6430000000000001
+        },
+        {
+          "leaf": 0.03610953502357006
+        },
+        {
+          "leaf": -0.004449416866356677
+        },
+        {
+          "leaf": -0.01975870238883155
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": -0.008467540653769796
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.017442383108631037
+        },
+        {
+          "leaf": 0.00020035582780838013
+        },
+        {
+          "leaf": 0.03308717917118754
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.3306676253680527
+        },
+        {
+          "leaf": -0.020079713988871803
+        },
+        {
+          "leaf": -0.0049556866598625985
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.02360899066293819
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.2452607456710258
+        },
+        {
+          "leaf": 0.031233320709155955
+        },
+        {
+          "leaf": -0.005317612023403247
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.01108338580880107
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 147.50000000000003
+        },
+        {
+          "leaf": -0.004725393444299698
+        },
+        {
+          "leaf": 0.02838680941898089
+        },
+        {
+          "leaf": -0.013676541429371214
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.103254351013981
+        },
+        {
+          "leaf": 0.028480633736952494
+        },
+        {
+          "leaf": -0.0031100289896130564
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.103254351013981
+        },
+        {
+          "leaf": -0.026810896467594877
+        },
+        {
+          "leaf": 0.0006112981714646925
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.015884443745017053
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.5064770875275643
+        },
+        {
+          "leaf": -0.02608301328229053
+        },
+        {
+          "leaf": 0.009216904259202156
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.01570719660360467
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.4504057228272494
+        },
+        {
+          "leaf": 0.0003776280925824092
+        },
+        {
+          "leaf": -0.02843518448727472
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "feature": "RVE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.01108338580880107
+        },
+        {
+          "leaf": -0.0007586678998036818
+        },
+        {
+          "leaf": -0.019204161045226185
+        },
+        {
+          "leaf": 0.012931803860575767
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.016458522963027158
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.5902964764768069
+        },
+        {
+          "leaf": -0.02309477378215109
+        },
+        {
+          "leaf": 0.0011543248780071737
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.34250074490575827
+        },
+        {
+          "leaf": -0.01589084811331261
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 23.981521789986996
+        },
+        {
+          "leaf": 0.03154111444018781
+        },
+        {
+          "leaf": -0.00328874571248889
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.015261569339782
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.4865884759302657
+        },
+        {
+          "leaf": -0.014444120209664109
+        },
+        {
+          "leaf": 0.01134340697012487
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.009215321391820908
+        },
+        {
+          "leaf": 0.017840126583066124
+        },
+        {
+          "leaf": -0.015605318588628013
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.12344427879809441
+        },
+        {
+          "leaf": 0.010154456530387204
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.2044564112458027
+        },
+        {
+          "leaf": 0.005488221638876459
+        },
+        {
+          "leaf": -0.02135123179265947
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.5527827587242218
+        },
+        {
+          "leaf": -0.02523878845903609
+        },
+        {
+          "leaf": 0.0005736663693650848
+        },
+        {
+          "feature": "ATR",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 2.108984013561715
+        },
+        {
+          "leaf": -0.007399999006355013
+        },
+        {
+          "leaf": 0.02170744069984981
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 257.50000000000006
+        },
+        {
+          "leaf": -0.024534023196800897
+        },
+        {
+          "leaf": 0.00555747673206497
+        },
+        {
+          "leaf": 0.014824502319097519
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.045871979342566524
+        },
+        {
+          "leaf": 0.0020746840607552305
+        },
+        {
+          "leaf": 0.027910162413040368
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.4023814975757625
+        },
+        {
+          "leaf": -0.022834659970942
+        },
+        {
+          "leaf": 0.012104629162820943
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.9672606891879385
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.013369638315158637
+        },
+        {
+          "leaf": -0.014606083763970268
+        },
+        {
+          "leaf": 0.020196436984198436
+        },
+        {
+          "leaf": -0.017355718687176707
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.34250074490575827
+        },
+        {
+          "leaf": -0.018005773370943803
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.33854832092848447
+        },
+        {
+          "leaf": 0.03211792504245585
+        },
+        {
+          "leaf": 0.003513806540033092
+        },
+        {
+          "leaf": -0.013450063419129169
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.46171513800189795
+        },
+        {
+          "leaf": -0.0074792195189123355
+        },
+        {
+          "leaf": 0.021697762512485497
+        },
+        {
+          "leaf": -0.015979079067707062
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.028684690742069748
+        },
+        {
+          "leaf": -0.006788661421248407
+        },
+        {
+          "leaf": 0.0179806602227947
+        },
+        {
+          "leaf": -0.014641892215287364
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07375828283063915
+        },
+        {
+          "leaf": -0.015692752836780115
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 1.0451206916978444
+        },
+        {
+          "leaf": 0.03265211693011224
+        },
+        {
+          "leaf": -0.002883125220735868
+        },
+        {
+          "leaf": -0.017620158127763057
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.25981248875224144
+        },
+        {
+          "leaf": 0.009527556423210737
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6562558627474574
+        },
+        {
+          "leaf": -0.0028078349593740246
+        },
+        {
+          "leaf": -0.022620428750372453
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.8099681577781824
+        },
+        {
+          "leaf": -0.009013303233818574
+        },
+        {
+          "leaf": 0.012857625720401606
+        },
+        {
+          "leaf": -0.012755140091405449
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 177.50000000000003
+        },
+        {
+          "leaf": 0.016943842438714846
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.012753700993552403
+        },
+        {
+          "leaf": 0.007133459396984267
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 227.50000000000003
+        },
+        {
+          "leaf": -0.01853120511486417
+        },
+        {
+          "leaf": -0.007157728856518156
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.2452607456710258
+        },
+        {
+          "leaf": 0.028954691510824932
+        },
+        {
+          "leaf": -0.005627612088774813
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.2861128927363477
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.5914039097161133
+        },
+        {
+          "leaf": -0.00412983110908306
+        },
+        {
+          "leaf": -0.02075989849244555
+        },
+        {
+          "leaf": 0.013637568920850754
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.34250074490575827
+        },
+        {
+          "leaf": -0.01511218086208986
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.9672606891879385
+        },
+        {
+          "leaf": 0.020829592086374762
+        },
+        {
+          "leaf": -0.011804374706000091
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.39394347134056
+        },
+        {
+          "leaf": 0.0062898972351104025
+        },
+        {
+          "leaf": -0.0288177814334631
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.2986972673425589
+        },
+        {
+          "leaf": 0.016862393454426812
+        },
+        {
+          "leaf": -0.001590327492782048
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.017133016139268875
+        },
+        {
+          "feature": "cat_rrsTrendState_POSITIVE_RISING",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "leaf": 0.015922015234828
+        },
+        {
+          "leaf": -0.010678540949117054
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.014898439372579257
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6779685950593327
+        },
+        {
+          "leaf": -0.02239916874416943
+        },
+        {
+          "leaf": 0.004179744342608111
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.015361461153423246
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "leaf": 0.026899847374962912
+        },
+        {
+          "leaf": -0.004757945107356195
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.013172520131900393
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6972109892061399
+        },
+        {
+          "leaf": 0.012649485937347918
+        },
+        {
+          "leaf": -0.012592916359149275
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.01304373803947653
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.5064770875275643
+        },
+        {
+          "leaf": -0.02295606847231587
+        },
+        {
+          "leaf": 0.005662132329529241
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 0.03825065915897518
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6145460835997915
+        },
+        {
+          "leaf": 0.0024642038957348894
+        },
+        {
+          "leaf": -0.016315756454555828
+        },
+        {
+          "leaf": 0.025079931212323055
+        },
+        {
+          "leaf": -0.014750001139261507
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.07918240358340867
+        },
+        {
+          "leaf": 0.015688732951398818
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": -0.4865884759302657
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 222.50000000000003
+        },
+        {
+          "leaf": -0.01985121105043661
+        },
+        {
+          "leaf": -0.006095335277773086
+        },
+        {
+          "leaf": 0.015382549867388748
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.012928459632464431
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.024882199863592785
+        },
+        {
+          "leaf": 0.0016498596698511392
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.019022582478903455
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.019339359356533914
+        },
+        {
+          "leaf": 0.007029809923343626
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6145460835997915
+        },
+        {
+          "leaf": 0.01674240432265732
+        },
+        {
+          "leaf": -0.007022027455662426
+        },
+        {
+          "leaf": -0.01643807001140279
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.1724304558687578
+        },
+        {
+          "leaf": -0.0030297695925193178
+        },
+        {
+          "leaf": 0.027024254202842712
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.004849211490225224
+        },
+        {
+          "leaf": -0.014804949870033722
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.46171513800189795
+        },
+        {
+          "leaf": -0.00772242455277592
+        },
+        {
+          "leaf": 0.031519072666803066
+        },
+        {
+          "leaf": -0.011600626625407201
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.7505227472876217
+        },
+        {
+          "leaf": 0.02206183235193121
+        },
+        {
+          "leaf": -0.001542049934397693
+        },
+        {
+          "leaf": -0.011460831010481343
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.3045986906010276
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.7505227472876217
+        },
+        {
+          "leaf": 0.017904359102431044
+        },
+        {
+          "leaf": -0.004524943033078065
+        },
+        {
+          "leaf": -0.011815560332709744
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.007063593614536028
+        },
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.083395951375674
+        },
+        {
+          "leaf": -0.004926888955136141
+        },
+        {
+          "leaf": -0.021837809398060754
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0020629139865649677
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.01433051881010345
+        },
+        {
+          "leaf": -0.0077171183457332
+        },
+        {
+          "leaf": -0.013590587657661394
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.016400109589099886
+        },
+        {
+          "leaf": -0.00010312732386713227
+        },
+        {
+          "leaf": 0.009658088203785676
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.19876888277825197
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 1.147984972017982
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.8951423015751919
+        },
+        {
+          "leaf": 0.031060272810005007
+        },
+        {
+          "leaf": -0.0008282050800820193
+        },
+        {
+          "leaf": -0.010854709239422599
+        },
+        {
+          "leaf": -0.01254915510830672
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.2861128927363477
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "leaf": -0.002513842466046649
+        },
+        {
+          "leaf": -0.025742424421367194
+        },
+        {
+          "leaf": 0.006504491730420678
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.011969968784720668
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.025801196321845056
+        },
+        {
+          "leaf": 0.0012980447119722764
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOW",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.09382884076687935
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 22.01083739526781
+        },
+        {
+          "leaf": 0.008760716695161094
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 26.591229778706943
+        },
+        {
+          "leaf": -0.024648483673279938
+        },
+        {
+          "leaf": -0.005265218454102675
+        },
+        {
+          "leaf": 0.013244246354415304
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.5430000000000001
+        },
+        {
+          "leaf": -0.012730963957523378
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.2044564112458027
+        },
+        {
+          "leaf": 0.01718921565583774
+        },
+        {
+          "leaf": -0.005603486922336743
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.011061066378735836
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.9455622671283
+        },
+        {
+          "leaf": -0.015225282272384053
+        },
+        {
+          "leaf": 0.003510524705052376
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.008944293254000299
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 25.309114815197095
+        },
+        {
+          "leaf": 0.01939001714948703
+        },
+        {
+          "leaf": -0.0004182637123198345
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.07095156423147454
+        },
+        {
+          "leaf": -0.009505517180595134
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "leaf": 0.026121465205436664
+        },
+        {
+          "leaf": -0.0005700893775635475
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.2861128927363477
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.3271988838737117
+        },
+        {
+          "leaf": 0.0026382947806268932
+        },
+        {
+          "leaf": -0.015528895547268568
+        },
+        {
+          "leaf": 0.013288140513002873
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.012666272367572501
+        },
+        {
+          "feature": "RVE",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.14038323506301084
+        },
+        {
+          "leaf": -0.0037974363531578675
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.030902016010474077
+        },
+        {
+          "leaf": 0.0022977063432335853
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.6341375397856773
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.018584188915789127
+        },
+        {
+          "leaf": -0.006752484619617462
+        },
+        {
+          "leaf": -0.012757358519250856
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.03406026740913906
+        },
+        {
+          "leaf": -0.0012721300550869535
+        },
+        {
+          "leaf": 0.01719398791478439
+        },
+        {
+          "leaf": -0.009821697411825881
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "cat_rrsTrendState_POSITIVE_RISING",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.02123685421665078
+        },
+        {
+          "leaf": -0.006648545811573665
+        },
+        {
+          "leaf": -0.010382143787437063
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.07808039828734738
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "leaf": 0.01723809395517622
+        },
+        {
+          "leaf": -0.00567851918142127
+        },
+        {
+          "leaf": -0.009419230035235806
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.218237254015395
+        },
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.11715975580995648
+        },
+        {
+          "leaf": 0.0017922721404050079
+        },
+        {
+          "leaf": -0.01684667378043135
+        },
+        {
+          "leaf": 0.010836328120168413
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.017853402062540963
+        },
+        {
+          "leaf": 0.0004882289817736995
+        },
+        {
+          "leaf": 0.008518724869459104
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.1724304558687578
+        },
+        {
+          "leaf": -0.012159592311152004
+        },
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.15757682753636948
+        },
+        {
+          "leaf": -0.005924022435371218
+        },
+        {
+          "leaf": 0.013154660519212486
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.013356023539717383
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.8099681577781824
+        },
+        {
+          "leaf": -0.010346715347397895
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.6972109892061399
+        },
+        {
+          "leaf": 0.031181125945988153
+        },
+        {
+          "leaf": -0.0014725658313735673
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.006705516425981409
+        },
+        {
+          "leaf": 0.01800566870952025
+        },
+        {
+          "leaf": -0.007205211334965295
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.0021755646701369967
+        },
+        {
+          "leaf": 0.016142168422711305
+        },
+        {
+          "leaf": -0.009854648672044278
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.6430000000000001
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6590660060028589
+        },
+        {
+          "leaf": 0.020237778340067184
+        },
+        {
+          "leaf": -0.0004475396126508713
+        },
+        {
+          "leaf": -0.004142121861086172
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.010756380422972143
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.2678618648032582
+        },
+        {
+          "leaf": -0.016063064243644478
+        },
+        {
+          "leaf": 0.004448656258838518
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.09901087768731044
+        },
+        {
+          "leaf": 0.010628416600891135
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.008496020683324931
+        },
+        {
+          "leaf": -0.01563773283209556
+        },
+        {
+          "leaf": 0.0031186466610857422
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.147984972017982
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "leaf": 0.017708712035360244
+        },
+        {
+          "leaf": -0.010193949000677095
+        },
+        {
+          "leaf": -0.015805774408259563
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": -0.040281968092077715
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.013369638315158637
+        },
+        {
+          "leaf": -0.0091699282150893
+        },
+        {
+          "leaf": 0.016271932157022613
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 227.50000000000003
+        },
+        {
+          "leaf": -0.0013288067653775216
+        },
+        {
+          "leaf": -0.014071605753685748
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.4886997762382264
+        },
+        {
+          "leaf": 0.0002628261321469357
+        },
+        {
+          "leaf": 0.030268592458395735
+        },
+        {
+          "leaf": -0.007796033173799515
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.009831762830061572
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.5527827587242218
+        },
+        {
+          "leaf": -0.00943997762090451
+        },
+        {
+          "leaf": 0.00910475705952748
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.16073751811455
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.3045986906010276
+        },
+        {
+          "leaf": -0.001883374442542462
+        },
+        {
+          "leaf": -0.021422930558522544
+        },
+        {
+          "leaf": 0.011011184652646383
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.3291600610854317
+        },
+        {
+          "leaf": -0.013669592958121075
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "leaf": 0.015508965239263116
+        },
+        {
+          "leaf": -0.008523227895299594
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 257.50000000000006
+        },
+        {
+          "leaf": -0.015376808935845341
+        },
+        {
+          "leaf": 0.0040985541889147666
+        },
+        {
+          "leaf": 0.010789410828759796
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.01295463838007139
+        },
+        {
+          "leaf": 0.01027297988046138
+        },
+        {
+          "leaf": 0.020656866114586593
+        },
+        {
+          "leaf": -0.01101431337052158
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.3291600610854317
+        },
+        {
+          "leaf": -0.013901311797755106
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.1056821052897527
+        },
+        {
+          "leaf": -0.003714429876590903
+        },
+        {
+          "leaf": 0.01861926133433978
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 167.50000000000003
+        },
+        {
+          "leaf": 0.012846737670210693
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.017876677284948527
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.1330979904945853
+        },
+        {
+          "leaf": -0.009020222501740569
+        },
+        {
+          "leaf": 0.01698910211297599
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 1.9121479719041257
+        },
+        {
+          "leaf": -0.014288075871410824
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.008255789033137262
+        },
+        {
+          "leaf": 0.018378134328743505
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 3.5000000000000004
+        },
+        {
+          "leaf": -0.007500453032553197
+        },
+        {
+          "leaf": 0.013916384933456297
+        },
+        {
+          "leaf": -0.013019503750230955
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.16073751811455
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.063130269990855
+        },
+        {
+          "leaf": 0.007307011045515538
+        },
+        {
+          "leaf": -0.01445173359205646
+        },
+        {
+          "leaf": 0.012645352135101954
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.2093366494392966
+        },
+        {
+          "leaf": -0.014494931484971727
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.018378415455420814
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 212.50000000000003
+        },
+        {
+          "leaf": -0.010792734119154159
+        },
+        {
+          "leaf": 0.004227152229710059
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.4023814975757625
+        },
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.11715975580995648
+        },
+        {
+          "leaf": -0.0009830125656567123
+        },
+        {
+          "leaf": -0.021637414412742313
+        },
+        {
+          "leaf": 0.0036931763589382175
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": -0.34588471883881305
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.2044564112458027
+        },
+        {
+          "leaf": 0.019226593572508405
+        },
+        {
+          "feature": "ATR",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 3.16073751811455
+        },
+        {
+          "leaf": -0.009827180501694482
+        },
+        {
+          "leaf": 0.01199109313033876
+        },
+        {
+          "leaf": -0.010999971140353454
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.99722355491722
+        },
+        {
+          "leaf": -0.013987588618571559
+        },
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.008680577781827499
+        },
+        {
+          "leaf": 0.013034248111002587
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.1852783732977874
+        },
+        {
+          "leaf": -0.020726794675619414
+        },
+        {
+          "leaf": 0.0072739220224320895
+        },
+        {
+          "leaf": 0.010722610048758678
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 3.5000000000000004
+        },
+        {
+          "leaf": -0.005511198327716055
+        },
+        {
+          "leaf": 0.01352941650768806
+        },
+        {
+          "leaf": -0.012889011763036251
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_FAST",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.04913733058639651
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.005146608728429546
+        },
+        {
+          "leaf": -0.017721999732070958
+        },
+        {
+          "leaf": 0.011854413628359052
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.017442383108631037
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.9754577072742944
+        },
+        {
+          "leaf": -0.00020006531476974489
+        },
+        {
+          "leaf": -0.016419164878739553
+        },
+        {
+          "leaf": 0.006330083317589015
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0020629139865649677
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.017442383108631037
+        },
+        {
+          "leaf": -0.006298130507947821
+        },
+        {
+          "leaf": 0.01644056768715382
+        },
+        {
+          "leaf": -0.011594565483656796
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.7414534395973078
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07267482674722595
+        },
+        {
+          "leaf": -0.015545396574518897
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.055748248860288334
+        },
+        {
+          "leaf": 0.018856429805358253
+        },
+        {
+          "leaf": -0.007113047260325402
+        },
+        {
+          "leaf": 0.014002355904085563
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.011471873102004105
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.03188602916345457
+        },
+        {
+          "leaf": 0.004245078608845219
+        },
+        {
+          "leaf": -0.021564821932803502
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.3793072038282344
+        },
+        {
+          "leaf": -0.011365392969714271
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "leaf": 0.017938902457374045
+        },
+        {
+          "leaf": -0.009433862313628198
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.011117526616435499
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.02914886596630473
+        },
+        {
+          "leaf": 0.0007590705444189636
+        },
+        {
+          "leaf": -0.014555744053079531
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.34250074490575827
+        },
+        {
+          "leaf": -0.014017274570853814
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 1.218237254015395
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.0018560544400166871
+        },
+        {
+          "leaf": -0.013110357580617779
+        },
+        {
+          "leaf": 0.01452773358850252
+        },
+        {
+          "leaf": 0.02025179064578631
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.00973924055935875
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.040281968092077715
+        },
+        {
+          "leaf": 0.004324096376481264
+        },
+        {
+          "leaf": -0.011353073572473867
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 2.5118271767421683
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 25.351979804653777
+        },
+        {
+          "leaf": 0.019788794033229352
+        },
+        {
+          "leaf": -0.005155984769087463
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.218237254015395
+        },
+        {
+          "leaf": -0.015867243927310815
+        },
+        {
+          "leaf": -0.0013331027193502947
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.7505227472876217
+        },
+        {
+          "leaf": 0.013176406005566771
+        },
+        {
+          "leaf": -0.005571357110007243
+        },
+        {
+          "leaf": -0.01019269942234342
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.25981248875224144
+        },
+        {
+          "leaf": 0.009247645267257186
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.041643992359111696
+        },
+        {
+          "leaf": 0.006576628681449663
+        },
+        {
+          "leaf": -0.012470541708171369
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.8836336254232031
+        },
+        {
+          "leaf": -0.01840261694576059
+        },
+        {
+          "leaf": 0.003308048475688944
+        },
+        {
+          "leaf": 0.0069153693767312245
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_CUMULATIVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.5893271506011668
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6227573078839296
+        },
+        {
+          "leaf": -0.0009266803360411099
+        },
+        {
+          "leaf": -0.016455594937388712
+        },
+        {
+          "leaf": 0.013199235611994351
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.39459647214287924
+        },
+        {
+          "leaf": -0.010766620256684045
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.011069583300162446
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "leaf": 0.027542651097544214
+        },
+        {
+          "leaf": -0.0031128682322560056
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.1724304558687578
+        },
+        {
+          "leaf": -0.014632278421650763
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6145460835997915
+        },
+        {
+          "leaf": 0.013571760295466943
+        },
+        {
+          "leaf": -0.005873906011853752
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.19876888277825197
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6341375397856773
+        },
+        {
+          "leaf": 0.014358810817494112
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": -0.525881285657288
+        },
+        {
+          "leaf": 0.003566044821803059
+        },
+        {
+          "leaf": -0.006706902331539564
+        },
+        {
+          "leaf": -0.010348165261426144
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 177.50000000000003
+        },
+        {
+          "leaf": 0.010237787788112959
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.0018215563819307607
+        },
+        {
+          "leaf": 0.0021221110516966416
+        },
+        {
+          "leaf": -0.014741339817244029
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.012502372535792264
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.5095060665283783
+        },
+        {
+          "leaf": -0.007363164761946314
+        },
+        {
+          "leaf": 0.017739828828988332
+        },
+        {
+          "leaf": -0.010283309237464615
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 3.2057874186318176
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.2044564112458027
+        },
+        {
+          "leaf": 0.010932532901113685
+        },
+        {
+          "leaf": -0.009067931941345982
+        },
+        {
+          "leaf": -0.01627775767648762
+        },
+        {
+          "leaf": 0.012109900768036428
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07267482674722595
+        },
+        {
+          "leaf": -0.0073944586126700705
+        },
+        {
+          "leaf": 0.011433088198559984
+        },
+        {
+          "leaf": -0.011742570519447326
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.12344427879809441
+        },
+        {
+          "leaf": 0.005929718100754866
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.3840521509362809
+        },
+        {
+          "leaf": -0.014312913696117261
+        },
+        {
+          "leaf": 0.0037398753244252433
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": -0.34588471883881305
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.46171513800189795
+        },
+        {
+          "leaf": -0.00493068717730542
+        },
+        {
+          "feature": "ATR",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 2.3271988838737117
+        },
+        {
+          "leaf": 0.01949718799442053
+        },
+        {
+          "leaf": 0.004376479255204851
+        },
+        {
+          "leaf": -0.011458166200845015
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.017442383108631037
+        },
+        {
+          "leaf": -0.005149807771177669
+        },
+        {
+          "leaf": 0.012124125607311726
+        },
+        {
+          "leaf": -0.012126595890996131
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 26.34588048918193
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.2557340391180074
+        },
+        {
+          "leaf": -0.006805093932364669
+        },
+        {
+          "leaf": -0.0168417403274881
+        },
+        {
+          "leaf": 0.011375847628170795
+        },
+        {
+          "leaf": 0.010751780206637999
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.8951423015751919
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.46171513800189795
+        },
+        {
+          "leaf": -0.0009892046481611268
+        },
+        {
+          "leaf": 0.018711194302886727
+        },
+        {
+          "leaf": -0.00946069003807174
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.39459647214287924
+        },
+        {
+          "leaf": -0.01279598375161489
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.8099681577781824
+        },
+        {
+          "leaf": -0.005854317259330016
+        },
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.6430000000000001
+        },
+        {
+          "leaf": 0.016933855627264297
+        },
+        {
+          "leaf": 0.004997524490491265
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.0023473597103447624
+        },
+        {
+          "leaf": -0.013331996384923432
+        },
+        {
+          "leaf": 0.008897903114557267
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.21332306320970845
+        },
+        {
+          "leaf": -0.010475681737131839
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": -0.34588471883881305
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": -0.040281968092077715
+        },
+        {
+          "leaf": 0.017850638961508163
+        },
+        {
+          "leaf": -0.00037955502949414715
+        },
+        {
+          "leaf": -0.009117140842690356
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.1724304558687578
+        },
+        {
+          "leaf": -0.014735734323039651
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.017756406450644135
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": -0.02914886596630473
+        },
+        {
+          "leaf": 0.008844999720652898
+        },
+        {
+          "leaf": -0.00990928177877019
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "leaf": 0.0047684123185840815
+        },
+        {
+          "leaf": -0.012869701170993429
+        },
+        {
+          "leaf": 0.01489099427498877
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.013795753178948706
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.007583241504819496
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.6562558627474574
+        },
+        {
+          "leaf": 0.018815937519750813
+        },
+        {
+          "leaf": -0.00248436804395169
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "RVE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07918240358340867
+        },
+        {
+          "leaf": 0.007199740948687707
+        },
+        {
+          "leaf": -0.011147193685173988
+        },
+        {
+          "leaf": 0.01249311841700388
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.007099707966501063
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.108984013561715
+        },
+        {
+          "leaf": -0.006136333794953923
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.063130269990855
+        },
+        {
+          "leaf": 0.020681024653216206
+        },
+        {
+          "leaf": 0.0034738180142911998
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07095156423147454
+        },
+        {
+          "leaf": -0.005551146428721647
+        },
+        {
+          "leaf": 0.011558731267782483
+        },
+        {
+          "leaf": -0.01042966298902264
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "feature": "RRS_PERSISTENCE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.5625000000000001
+        },
+        {
+          "leaf": -0.003175026488800844
+        },
+        {
+          "leaf": 0.014366703882644122
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": -0.025790156090898294
+        },
+        {
+          "leaf": 0.002200382043208395
+        },
+        {
+          "leaf": -0.012846264686307002
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.33854832092848447
+        },
+        {
+          "feature": "RVE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.008467540653769796
+        },
+        {
+          "leaf": 0.013424951627988508
+        },
+        {
+          "leaf": -0.00589619047407593
+        },
+        {
+          "leaf": -0.00890092528783358
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0020629139865649677
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.015553880762308837
+        },
+        {
+          "leaf": -0.0018208339472391432
+        },
+        {
+          "leaf": -0.014738514491356911
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.5095060665283783
+        },
+        {
+          "leaf": -0.016223464870736712
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.1056821052897527
+        },
+        {
+          "leaf": -0.007411666262534357
+        },
+        {
+          "leaf": 0.011708443190025933
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07375828283063915
+        },
+        {
+          "leaf": -0.008069031313061715
+        },
+        {
+          "leaf": 0.012665445220967134
+        },
+        {
+          "leaf": -0.009611860584669016
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.30037875840033407
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.5064770875275643
+        },
+        {
+          "leaf": -0.0023861733340733763
+        },
+        {
+          "leaf": 0.018333841094540226
+        },
+        {
+          "leaf": -0.009477955621221792
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7414534395973078
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 137.50000000000003
+        },
+        {
+          "leaf": 0.00849268337711692
+        },
+        {
+          "leaf": -0.009672563166047136
+        },
+        {
+          "leaf": 0.015470705766763009
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.4758292261180255
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "leaf": -0.001908104615034284
+        },
+        {
+          "leaf": 0.012153146480624048
+        },
+        {
+          "leaf": -0.011585095835228761
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.01192058564528175
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 157.50000000000003
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 1.1056821052897527
+        },
+        {
+          "leaf": -0.011138868060978977
+        },
+        {
+          "leaf": 0.004623574433340267
+        },
+        {
+          "leaf": 0.01411744203595888
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.013240650157706861
+        },
+        {
+          "leaf": 0.006488053629767489
+        },
+        {
+          "leaf": 0.00668200777222713
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.9672606891879385
+        },
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.15757682753636948
+        },
+        {
+          "leaf": -0.004479167381158242
+        },
+        {
+          "leaf": 0.009421554975437396
+        },
+        {
+          "leaf": -0.01149930702522397
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.07862299688130674
+        },
+        {
+          "leaf": -0.00933992571576878
+        },
+        {
+          "feature": "ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 2.5118271767421683
+        },
+        {
+          "leaf": 0.0114710140414536
+        },
+        {
+          "leaf": -0.005444354433265905
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.013659729010292464
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.9242874850077043
+        },
+        {
+          "leaf": -0.003808247127259771
+        },
+        {
+          "leaf": 0.011471405639039244
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0017208173228071984
+        },
+        {
+          "leaf": -0.0012232218691635701
+        },
+        {
+          "leaf": -0.014186723654468856
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": 0.001431334308082504
+        },
+        {
+          "leaf": 0.014298299153375885
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.8365034325017291
+        },
+        {
+          "leaf": -0.01739766894289377
+        },
+        {
+          "leaf": 0.0012799201649613678
+        },
+        {
+          "leaf": 0.011005781518836175
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.16073751811455
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6227573078839296
+        },
+        {
+          "leaf": -2.6872610949255805e-05
+        },
+        {
+          "leaf": -0.01853011273420774
+        },
+        {
+          "leaf": 0.006372351977708084
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 20.381766295348704
+        },
+        {
+          "leaf": -0.008605221818600383
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.016750820201228967
+        },
+        {
+          "feature": "RVOL_CUMULATIVE",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.4366175906817078
+        },
+        {
+          "leaf": -0.011734801508306017
+        },
+        {
+          "leaf": 0.01567474063485861
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.6920803449940875
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.01599677517023381
+        },
+        {
+          "leaf": -0.003015585045795888
+        },
+        {
+          "leaf": -0.008475053673119922
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "leaf": -0.0007756542786955834
+        },
+        {
+          "leaf": 0.014130892596491005
+        },
+        {
+          "leaf": -0.0062708416626461455
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7414534395973078
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.01654836773570325
+        },
+        {
+          "leaf": 0.005940306664874348
+        },
+        {
+          "leaf": 0.006804639947685329
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.013354505935595149
+        },
+        {
+          "leaf": 0.0028857743183739095
+        },
+        {
+          "leaf": 0.010846840124577284
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 1.4758292261180255
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 257.50000000000006
+        },
+        {
+          "leaf": -0.010281609117307446
+        },
+        {
+          "leaf": 0.007290863399752059
+        },
+        {
+          "leaf": 0.014649852592012156
+        },
+        {
+          "leaf": -0.010711929159948515
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.8365034325017291
+        },
+        {
+          "leaf": -0.01462368393689394
+        },
+        {
+          "leaf": 0.002005480113439262
+        },
+        {
+          "leaf": 0.012675374731421472
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.0067344819009304046
+        },
+        {
+          "feature": "RRS_PERSISTENCE",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 0.5625000000000001
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": -0.5902964764768069
+        },
+        {
+          "leaf": 0.008363728631626476
+        },
+        {
+          "leaf": -0.010564976784569975
+        },
+        {
+          "leaf": 0.015154006551192315
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "RVE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0418450092560168
+        },
+        {
+          "leaf": -0.015968386219306428
+        },
+        {
+          "leaf": 0.0032126894509419803
+        },
+        {
+          "leaf": 0.0072559354900333444
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.01046483063697815
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 3,
+          "missing": 3,
+          "right": 6,
+          "threshold": 1.3378885505649631
+        },
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 3.5000000000000004
+        },
+        {
+          "leaf": -0.002656803322447972
+        },
+        {
+          "leaf": 0.014421116294605392
+        },
+        {
+          "leaf": -0.006224939465755597
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.8951423015751919
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.46171513800189795
+        },
+        {
+          "leaf": -0.0038277317718893758
+        },
+        {
+          "leaf": 0.014480346456170082
+        },
+        {
+          "leaf": -0.011771786836907269
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.005664939936753866
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "leaf": -0.01586528404233312
+        },
+        {
+          "leaf": 0.0038565944073100885
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.7414534395973078
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 0.39968006801350814
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.21332306320970845
+        },
+        {
+          "leaf": -0.00867827083407478
+        },
+        {
+          "leaf": 0.009945104089343832
+        },
+        {
+          "leaf": -0.016647488278923213
+        },
+        {
+          "leaf": 0.009857733130455017
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.009048736666239078
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.3747552669913476
+        },
+        {
+          "leaf": -0.009526560805512197
+        },
+        {
+          "leaf": 0.006647721487704827
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.0592462186677027
+        },
+        {
+          "leaf": 0.008115164171262033
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.5366097896472547
+        },
+        {
+          "leaf": -0.012160194054245949
+        },
+        {
+          "leaf": 0.003063982763726797
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "feature": "RRS_PERSISTENCE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.5625000000000001
+        },
+        {
+          "leaf": -0.013954112878335374
+        },
+        {
+          "leaf": 0.0017351975959415237
+        },
+        {
+          "leaf": 0.006310139875859023
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 1.0809975392933264
+        },
+        {
+          "feature": "DERIVED_priceVsSessionLowPct",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.3291600610854317
+        },
+        {
+          "leaf": -0.0055653871439228005
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 4,
+          "missing": 4,
+          "right": 5,
+          "threshold": 0.3450873370243758
+        },
+        {
+          "leaf": 0.015874165025624363
+        },
+        {
+          "leaf": 0.0026065553336039834
+        },
+        {
+          "leaf": -0.008758886129146925
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.009629122171151852
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6972109892061399
+        },
+        {
+          "leaf": 0.010340594511260005
+        },
+        {
+          "leaf": -0.007686874988887992
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 3.2861128927363477
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "leaf": 0.0034465106396839537
+        },
+        {
+          "leaf": -0.011720682364521605
+        },
+        {
+          "leaf": 0.008926520836742028
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "leaf": 0.003358273422345519
+        },
+        {
+          "leaf": -0.012325906198195838
+        },
+        {
+          "leaf": 0.012795828193426131
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 202.50000000000003
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 257.50000000000006
+        },
+        {
+          "leaf": -0.012942934234937031
+        },
+        {
+          "leaf": 0.005566620537690047
+        },
+        {
+          "leaf": 0.009263222304483256
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": -0.43907749699704773
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 237.50000000000003
+        },
+        {
+          "leaf": -0.008263474743108491
+        },
+        {
+          "leaf": 0.005239199687327657
+        },
+        {
+          "leaf": 0.013993648536827254
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0020629139865649677
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.5118271767421683
+        },
+        {
+          "leaf": 0.011542006246745588
+        },
+        {
+          "leaf": -0.00461616250021117
+        },
+        {
+          "leaf": -0.010906120866537096
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.033481326618951084
+        },
+        {
+          "leaf": 0.0018250742354072058
+        },
+        {
+          "leaf": -0.014827688351273538
+        },
+        {
+          "leaf": 0.009159635841989746
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 2.5118271767421683
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.8466255007312629
+        },
+        {
+          "leaf": -0.0023794671351259405
+        },
+        {
+          "leaf": 0.011644137229608454
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.0018352218943172166
+        },
+        {
+          "leaf": -0.012399630090626687
+        },
+        {
+          "leaf": 0.0014526232544864928
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 1.9121479719041257
+        },
+        {
+          "leaf": -0.008845725147561594
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.0022547946311533454
+        },
+        {
+          "leaf": 0.011121439627341686
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 1.9121479719041257
+        },
+        {
+          "leaf": -0.009638459825267395
+        },
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.30546012683279206
+        },
+        {
+          "leaf": 0.011281140868298033
+        },
+        {
+          "leaf": -0.003875590115785599
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 22.443647144878764
+        },
+        {
+          "leaf": -0.011019790768623354
+        },
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.24306299912512438
+        },
+        {
+          "leaf": 0.009451370388786826
+        },
+        {
+          "leaf": -0.0053435717523098
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 2.5118271767421683
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.6590660060028589
+        },
+        {
+          "leaf": 0.011749970132396335
+        },
+        {
+          "leaf": -0.0011595620463291803
+        },
+        {
+          "feature": "ATR",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 3.2861128927363477
+        },
+        {
+          "leaf": -0.01191779007203877
+        },
+        {
+          "leaf": 0.0033504150299863383
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.20007381928463094
+        },
+        {
+          "feature": "RRS_RAW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.2273064275205879
+        },
+        {
+          "leaf": -0.003100415869899418
+        },
+        {
+          "leaf": 0.016389586231006042
+        },
+        {
+          "leaf": -0.0035895176354403557
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.006411694388629662
+        },
+        {
+          "feature": "RVOL_CUMULATIVE",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.2719676071529051
+        },
+        {
+          "leaf": -0.011582214123784351
+        },
+        {
+          "leaf": 0.0052336081936955456
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 22.443647144878764
+        },
+        {
+          "leaf": -0.007187843136489392
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.5464050509409543
+        },
+        {
+          "leaf": 0.01049008514430072
+        },
+        {
+          "leaf": -0.010263657059875274
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_CUMULATIVE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.4366175906817078
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 23.482191093104124
+        },
+        {
+          "leaf": 0.0035384531468153
+        },
+        {
+          "leaf": -0.012484927679742536
+        },
+        {
+          "leaf": 0.009051743866159366
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.041643992359111696
+        },
+        {
+          "leaf": 0.008161649790902932
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 1.0066355491747454
+        },
+        {
+          "leaf": 0.0019365655072033406
+        },
+        {
+          "leaf": -0.014380969107151031
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.1934494093397896
+        },
+        {
+          "feature": "DERIVED_minutesToClose",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 137.50000000000003
+        },
+        {
+          "leaf": 0.006768742097275598
+        },
+        {
+          "leaf": -0.008867978816851974
+        },
+        {
+          "leaf": 0.007122378751031451
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVE",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": -0.062331848813547905
+        },
+        {
+          "leaf": 0.009720126725733282
+        },
+        {
+          "feature": "MARKET_ATR",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 26.239040956031847
+        },
+        {
+          "leaf": -0.009692365622245952
+        },
+        {
+          "leaf": 0.004478907127949325
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_RAW",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.2452607456710258
+        },
+        {
+          "feature": "RRS_SLOPE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "leaf": -0.0028985940926783797
+        },
+        {
+          "leaf": 0.009952399369329214
+        },
+        {
+          "leaf": -0.00924551082004247
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 212.50000000000003
+        },
+        {
+          "leaf": 0.002158105919758479
+        },
+        {
+          "leaf": -0.012945698920961922
+        },
+        {
+          "leaf": 0.008690189448400186
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.4339220069463512
+        },
+        {
+          "leaf": -0.013125997934151779
+        },
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.8099681577781824
+        },
+        {
+          "leaf": -0.006971150264143944
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 1.063130269990855
+        },
+        {
+          "leaf": 0.015718021209944377
+        },
+        {
+          "leaf": -0.0008122590622709444
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.0017777044836885462
+        },
+        {
+          "leaf": 0.005403882125392556
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.002249448087066761
+        },
+        {
+          "leaf": -0.011124881789893718
+        },
+        {
+          "leaf": 0.0036368169090045355
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": -0.34588471883881305
+        },
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.15757682753636948
+        },
+        {
+          "leaf": -0.0037790743056042445
+        },
+        {
+          "leaf": 0.011467519071219224
+        },
+        {
+          "leaf": -0.008047290259729261
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_dayOfWeek",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 2.5000000000000004
+        },
+        {
+          "leaf": -0.006847500403157691
+        },
+        {
+          "feature": "RVOL_D1",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.6972109892061399
+        },
+        {
+          "leaf": 0.009139631595462562
+        },
+        {
+          "leaf": -0.008213016852026895
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_D1",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.9116546944926504
+        },
+        {
+          "feature": "RVE",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.0000000180025095e-35
+        },
+        {
+          "leaf": 0.009387997058885439
+        },
+        {
+          "leaf": -0.004363693705656462
+        },
+        {
+          "leaf": -0.0118345682721828
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_ATR",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 26.34588048918193
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0017208173228071984
+        },
+        {
+          "leaf": 0.0036800055280327795
+        },
+        {
+          "leaf": -0.013188800407806412
+        },
+        {
+          "leaf": 0.00731015220808331
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RVOL_INTERVAL",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 1.4758292261180255
+        },
+        {
+          "feature": "RRS_ACCELERATION",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 0.19488062428186337
+        },
+        {
+          "feature": "DERIVED_minutesSinceOpen",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 212.50000000000003
+        },
+        {
+          "leaf": 0.006182835834181827
+        },
+        {
+          "leaf": -0.008329013709656217
+        },
+        {
+          "leaf": 0.015041940029533137
+        },
+        {
+          "leaf": -0.00993985314430161
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.24306299912512438
+        },
+        {
+          "feature": "RRS_SLOW",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.040281968092077715
+        },
+        {
+          "leaf": 0.012497644840429228
+        },
+        {
+          "leaf": 0.000778757335085954
+        },
+        {
+          "leaf": -0.0040830090915893805
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 1,
+          "missing": 1,
+          "right": 2,
+          "threshold": 0.1066572400336865
+        },
+        {
+          "leaf": 0.00702318711578846
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": 0.7946292288233288
+        },
+        {
+          "leaf": 0.004084986452521248
+        },
+        {
+          "leaf": -0.009675157704466099
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOW",
+          "left": 1,
+          "missing": 1,
+          "right": 6,
+          "threshold": 0.09382884076687935
+        },
+        {
+          "feature": "DERIVED_rangePositionInSession",
+          "left": 2,
+          "missing": 2,
+          "right": 5,
+          "threshold": 0.7230996068152046
+        },
+        {
+          "feature": "DERIVED_priceVsSessionHighPct",
+          "left": 3,
+          "missing": 3,
+          "right": 4,
+          "threshold": -0.9364765212042364
+        },
+        {
+          "leaf": -0.012045233983856936
+        },
+        {
+          "leaf": -0.003616929888401343
+        },
+        {
+          "leaf": 0.00751544217240404
+        },
+        {
+          "leaf": 0.010357675568333695
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.0018712648209778138
+        },
+        {
+          "feature": "MARKET_DIRECTIONAL_EFFICIENCY",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.19797822894413455
+        },
+        {
+          "leaf": 0.0009286290965974331
+        },
+        {
+          "leaf": -0.01290185610679063
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 5,
+          "missing": 5,
+          "right": 6,
+          "threshold": 0.009187802090662908
+        },
+        {
+          "leaf": 0.0008117155127582096
+        },
+        {
+          "leaf": 0.010797806804822315
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DIRECTIONAL_VOLUME_LONG",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 1.2379915649848703
+        },
+        {
+          "feature": "ATR",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 2.7505227472876217
+        },
+        {
+          "leaf": 0.004563375326016775
+        },
+        {
+          "leaf": -0.014843685306608678
+        },
+        {
+          "leaf": 0.006636565655336359
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "DERIVED_entryExtensionAtr",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.4023814975757625
+        },
+        {
+          "feature": "DERIVED_ATR_PERCENT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 0.0018560544400166871
+        },
+        {
+          "leaf": -0.009812142988366466
+        },
+        {
+          "leaf": 0.003999567071371006
+        },
+        {
+          "leaf": 0.009950156942009927
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_PERCENTILE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.7470000000000001
+        },
+        {
+          "feature": "RRS_FAST",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": -0.07267482674722595
+        },
+        {
+          "leaf": -0.004738340206030343
+        },
+        {
+          "leaf": 0.009573908818128985
+        },
+        {
+          "leaf": -0.009569098792322305
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "feature": "RRS_SLOPE",
+          "left": 1,
+          "missing": 1,
+          "right": 4,
+          "threshold": 0.009101570732237102
+        },
+        {
+          "feature": "DIRECTIONAL_VOLUME_SHORT",
+          "left": 2,
+          "missing": 2,
+          "right": 3,
+          "threshold": 1.1032877567795578
+        },
+        {
+          "leaf": -0.010098968942960104
+        },
+        {
+          "leaf": 0.0014707715560992561
+        },
+        {
+          "leaf": 0.009880485878276982
+        }
+      ]
+    }
+  ]
+}

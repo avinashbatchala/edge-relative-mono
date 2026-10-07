@@ -41,7 +41,9 @@ class ArtifactStore:
         self.directory.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(artifact, indent=2, sort_keys=True).encode("utf-8")
         checksum = hashlib.sha256(payload).hexdigest()
-        path = self.directory / f"{model_code}-{checksum[:12]}.json"
+        # Register an absolute path: the Java backend loads the artifact by URI from its own working
+        # directory, which is not the research directory this worker writes from.
+        path = (self.directory / f"{model_code}-{checksum[:12]}.json").resolve()
         path.write_bytes(payload)
         return str(path), checksum
 
