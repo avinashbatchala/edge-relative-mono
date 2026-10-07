@@ -111,11 +111,65 @@ public final class BacktestEngine {
                 StrategyEvaluationResult shortResult);
     }
 
+    /**
+     * Optional per-plan hook used by the ML training export. It observes the exact feature snapshot,
+     * strategy result, subject history and plan key when a VALID setup produces an approved plan; it
+     * cannot influence the decision. Labels are joined afterwards from the completed trades.
+     */
+    @FunctionalInterface
+    public interface PlanListener {
+        void onPlan(
+                long instrumentId,
+                Instant anchor,
+                AggregatedCandle bar,
+                FeatureSnapshot snapshot,
+                StrategyEvaluationResult chosen,
+                java.util.List<AggregatedCandle> history,
+                String planKey);
+    }
+
     public BacktestResult run(BacktestSpec spec, ProgressListener listener) {
-        return run(spec, listener, null);
+        return run(spec, listener, null, null, null);
     }
 
     public BacktestResult run(BacktestSpec spec, ProgressListener listener, AnchorListener anchorListener) {
+        return run(spec, listener, anchorListener, null, null);
+    }
+
+    public BacktestResult run(
+            BacktestSpec spec,
+            ProgressListener listener,
+            AnchorListener anchorListener,
+            PlanListener planListener) {
+        return run(spec, listener, anchorListener, planListener, null);
+    }
+
+    /**
+     * Optional ML ranking overlay (advisory). Valid, risk-approved candidates are buffered per anchor
+     * and only the highest-scored are submitted while the concurrent-position cap allows; with no
+     * overlay, submission is immediate and unchanged. The overlay cannot change whether a setup is
+     * VALID or approved — it only orders the choices when capacity is scarce.
+     */
+    @FunctionalInterface
+    public interface RankingOverlay {
+        double score(
+                FeatureSnapshot snapshot,
+                StrategyEvaluationResult chosen,
+                AggregatedCandle bar,
+                Instant anchor,
+                java.util.List<AggregatedCandle> history);
+
+        default int topK() {
+            return Integer.MAX_VALUE;
+        }
+    }
+
+    public BacktestResult run(
+            BacktestSpec spec,
+            ProgressListener listener,
+            AnchorListener anchorListener,
+            PlanListener planListener,
+            RankingOverlay rankingOverlay) {
         DecisionContextPolicy contextPolicy = spec.contextSource() == BacktestSpec.ContextSource.DERIVED_RESEARCH
                 ? DecisionContextPolicy.research()
                 : DecisionContextPolicy.strict();
@@ -162,11 +216,15 @@ public final class BacktestEngine {
             }
             List<Long> ordered = new ArrayList<>(spec.instrumentIds());
             ordered.sort(Comparator.naturalOrder());
+            List<PendingCandidate> candidates = rankingOverlay == null ? null : new ArrayList<>();
             for (Long instrumentId : ordered) {
                 processSymbol(spec, assembler, portfolio, instrumentId, anchor, m5.get(instrumentId),
                         d1.get(instrumentId), ema.get(instrumentId), candlesByInstrument.get(instrumentId),
-                        counts, priorState, anchorListener);
+                        counts, priorState, anchorListener, planListener, rankingOverlay, candidates);
                 processed++;
+            }
+            if (candidates != null) {
+                flushRanked(spec, portfolio, candidates, rankingOverlay.topK(), counts);
             }
             portfolio.markEquity(anchor, equity);
             if (listener != null) {
@@ -274,7 +332,10 @@ public final class BacktestEngine {
             CandleIndex index,
             Map<String, long[]> counts,
             Map<String, StrategyEvaluationInput.PriorSetup> priorState,
-            AnchorListener anchorListener) {
+            AnchorListener anchorListener,
+            PlanListener planListener,
+            RankingOverlay rankingOverlay,
+            List<PendingCandidate> candidates) {
         AggregatedCandle bar = index == null ? null : index.barAt(anchor);
         if (bar == null) {
             return;
@@ -360,7 +421,15 @@ public final class BacktestEngine {
                         "TICK_BUFFER"),
                 anchor, null);
         increment(counts, "plansCreated");
-        portfolio.submit(spec, instrumentId, chosen.direction(), plan);
+        if (planListener != null) {
+            planListener.onPlan(instrumentId, anchor, bar, snapshot, chosen, history, plan.planKey());
+        }
+        if (candidates == null) {
+            portfolio.submit(spec, instrumentId, chosen.direction(), plan);
+        } else {
+            double score = rankingOverlay.score(snapshot, chosen, bar, anchor, history);
+            candidates.add(new PendingCandidate(instrumentId, chosen.direction(), plan, score));
+        }
         // The setup is consumed by the entry; clear its lifecycle so the next setup starts fresh.
         priorState.remove(longKey);
         priorState.remove(shortKey);
@@ -395,6 +464,24 @@ public final class BacktestEngine {
                 triggerTime,
                 result.trigger() == null ? null : result.trigger().triggerLevel(),
                 result.invalidation() == null ? null : result.invalidation().invalidationLevel());
+    }
+
+    private record PendingCandidate(long instrumentId, Direction direction, TradePlan plan, double score) {
+    }
+
+    /** Submits buffered candidates best-score-first while the concurrent-position cap allows. */
+    private static void flushRanked(
+            BacktestSpec spec, Portfolio portfolio, List<PendingCandidate> candidates, int topK,
+            Map<String, long[]> counts) {
+        candidates.sort(Comparator.comparingDouble(PendingCandidate::score).reversed());
+        for (PendingCandidate candidate : candidates) {
+            if (portfolio.openAndPendingCount() >= topK) {
+                increment(counts, "mlSkipped");
+                continue;
+            }
+            portfolio.submit(spec, candidate.instrumentId(), candidate.direction(), candidate.plan());
+            increment(counts, "mlRanked");
+        }
     }
 
     private StrategyEvaluationInput input(
@@ -617,6 +704,10 @@ public final class BacktestEngine {
 
         boolean hasPositionOrPending(long instrumentId) {
             return positions.containsKey(instrumentId) || pending.containsKey(instrumentId);
+        }
+
+        int openAndPendingCount() {
+            return positions.size() + pending.size();
         }
 
         void submit(BacktestSpec spec, long instrumentId, Direction direction, TradePlan plan) {

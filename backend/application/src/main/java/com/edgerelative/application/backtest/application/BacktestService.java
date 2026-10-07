@@ -207,8 +207,15 @@ public class BacktestService {
         }
     }
 
-    private Resolved resolve(BacktestRunRequest request) {
-        if (request.symbols() == null || request.symbols().isEmpty()) {
+    /**
+     * Resolves a request into the immutable run specification without persisting or executing a run.
+     * Used by the ML training export to replay the exact production engine over the same window.
+     */
+    public BacktestSpec resolveSpec(BacktestRunRequest request) {
+        return resolve(request).spec();
+    }
+
+    private Resolved resolve(BacktestRunRequest request) {        if (request.symbols() == null || request.symbols().isEmpty()) {
             throw new BacktestValidationException("Select at least one symbol.");
         }
         if (request.startDate() == null || request.endDate() == null
