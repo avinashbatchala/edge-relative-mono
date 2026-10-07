@@ -30,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import BacktestTimelinePanel from '@/components/backtest/BacktestTimelinePanel.vue'
+import BacktestFunnel from '@/components/backtest/BacktestFunnel.vue'
 import TradeForensicsDrawer from '@/components/backtest/TradeForensicsDrawer.vue'
 import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import { formatInr, formatIstDateTime, formatPrice } from '@/lib/format'
@@ -38,11 +39,23 @@ const route = useRoute()
 const router = useRouter()
 const runKey = computed(() => String(route.params.runKey))
 
-const tab = ref<'overview' | 'trades' | 'chart'>('overview')
+const tab = ref<
+  | 'summary'
+  | 'funnel'
+  | 'instruments'
+  | 'trades'
+  | 'timeline'
+  | 'config'
+  | 'lineage'
+>('summary')
 const tabs = [
-  { value: 'overview', label: 'overview' },
+  { value: 'summary', label: 'summary' },
+  { value: 'funnel', label: 'funnel' },
+  { value: 'instruments', label: 'instruments' },
   { value: 'trades', label: 'trades' },
-  { value: 'chart', label: 'chart' },
+  { value: 'timeline', label: 'timeline' },
+  { value: 'config', label: 'config' },
+  { value: 'lineage', label: 'lineage' },
 ] as const
 const selectedSymbol = ref<string | null>(null)
 const PAGE_SIZE = 200
@@ -80,6 +93,15 @@ const trades = computed(() => tradesQuery.data.value ?? [])
 const equity = computed(() => equityQuery.data.value ?? [])
 const universe = computed(() => universeQuery.data.value ?? [])
 const aggregate = computed(() => aggregateQuery.data.value ?? null)
+
+const stageCounts = computed(
+  () =>
+    (run.value?.metrics?.stageCounts as Record<string, number> | undefined) ??
+    {},
+)
+const runNotes = computed(
+  () => (run.value?.metrics?.notes as Record<string, string> | undefined) ?? {},
+)
 
 const totalTrades = computed(
   () => aggregate.value?.totalTrades ?? trades.value.length,
@@ -240,7 +262,7 @@ const symbolStats = computed(
     <SegmentedTabs v-model="tab" :tabs="tabs" capitalize />
 
     <template v-if="run">
-      <Card v-if="tab === 'overview'" class="gap-0 py-0">
+      <Card v-if="tab === 'summary'" class="gap-0 py-0">
         <CardHeader class="px-5 py-4">
           <CardTitle class="text-base">Performance</CardTitle>
           <CardDescription>
@@ -256,6 +278,16 @@ const symbolStats = computed(
                 {{ entry.value }}
               </p>
             </div>
+          </div>
+
+          <div
+            v-if="totalTrades === 0"
+            class="rounded-md border border-dashed p-3 text-xs text-muted-foreground"
+            data-testid="zero-trade-note"
+          >
+            No completed trades. Open the <strong>funnel</strong> tab to see
+            where candidates were eliminated, and
+            <strong>instruments</strong> for the tested universe.
           </div>
 
           <div v-if="equityPath">
@@ -296,6 +328,44 @@ const symbolStats = computed(
             class="text-xs text-muted-foreground"
           >
             {{ run.metrics.samplingAssumption }}
+          </p>
+        </CardContent>
+      </Card>
+
+      <BacktestFunnel
+        v-else-if="tab === 'funnel'"
+        :stage-counts="stageCounts"
+      />
+
+      <Card
+        v-else-if="tab === 'instruments'"
+        class="gap-0 overflow-hidden py-0"
+      >
+        <CardHeader class="px-5 py-4">
+          <CardTitle class="text-base">Instruments</CardTitle>
+          <CardDescription
+            >Every tested symbol, whether or not it traded.</CardDescription
+          >
+        </CardHeader>
+        <CardContent class="border-t p-5">
+          <Table v-if="universe.length">
+            <TableHeader>
+              <TableRow class="hover:bg-transparent">
+                <TableHead>Symbol</TableHead>
+                <TableHead class="text-right">Instrument id</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="entry in universe" :key="entry.instrumentId">
+                <TableCell class="text-xs">{{ entry.symbol }}</TableCell>
+                <TableCell class="text-right text-xs tabular-nums">{{
+                  entry.instrumentId
+                }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <p v-else class="text-sm text-muted-foreground">
+            No instruments recorded for this run.
           </p>
         </CardContent>
       </Card>
@@ -430,7 +500,7 @@ const symbolStats = computed(
         </div>
       </Card>
 
-      <Card v-else class="gap-0 py-0">
+      <Card v-else-if="tab === 'timeline'" class="gap-0 py-0">
         <CardHeader class="px-5 py-4">
           <CardTitle class="text-base">Chart</CardTitle>
           <CardDescription>
@@ -469,7 +539,7 @@ const symbolStats = computed(
         </CardContent>
       </Card>
 
-      <Card v-if="tab === 'overview' && symbolStats.length" class="gap-0 py-0">
+      <Card v-if="tab === 'summary' && symbolStats.length" class="gap-0 py-0">
         <CardHeader class="px-5 py-4">
           <CardTitle class="text-base">By symbol</CardTitle>
           <CardDescription
@@ -513,6 +583,106 @@ const symbolStats = computed(
               </TableRow>
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card v-if="tab === 'config'" class="gap-0 py-0">
+        <CardHeader class="px-5 py-4">
+          <CardTitle class="text-base">Configuration</CardTitle>
+          <CardDescription>
+            Resolved strategy parameters and engine assumptions used for this
+            run.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-3 border-t p-5">
+          <div v-if="Object.keys(run.parameters).length">
+            <p class="mb-1 text-xs text-muted-foreground">Parameters</p>
+            <pre
+              class="overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs"
+              >{{ JSON.stringify(run.parameters, null, 2) }}</pre>
+          </div>
+          <p v-else class="text-sm text-muted-foreground">
+            No parameters recorded for this run.
+          </p>
+          <p
+            v-if="run.metrics.samplingAssumption"
+            class="text-xs text-muted-foreground"
+          >
+            {{ run.metrics.samplingAssumption }}
+          </p>
+          <div v-if="Object.keys(runNotes).length">
+            <p class="mb-1 text-xs text-muted-foreground">Metric notes</p>
+            <ul class="space-y-1 text-xs">
+              <li v-for="(note, key) in runNotes" :key="key">
+                <span class="font-medium">{{ key }}:</span> {{ note }}
+              </li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card v-if="tab === 'lineage'" class="gap-0 py-0">
+        <CardHeader class="px-5 py-4">
+          <CardTitle class="text-base">Lineage</CardTitle>
+          <CardDescription
+            >Identity and provenance for this run.</CardDescription
+          >
+        </CardHeader>
+        <CardContent class="border-t p-5">
+          <dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Run key</dt>
+              <dd class="font-mono">{{ run.runKey }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Experiment run</dt>
+              <dd class="tabular-nums">{{ run.experimentRunId }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Backtest run</dt>
+              <dd class="tabular-nums">{{ run.backtestRunId }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Strategy</dt>
+              <dd>{{ run.strategyId }} {{ run.strategyVersion }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Dataset</dt>
+              <dd>{{ run.datasetCode ?? '—' }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Dataset checksum</dt>
+              <dd class="truncate font-mono" :title="run.datasetChecksum ?? ''">
+                {{ run.datasetChecksum ?? '—' }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Window</dt>
+              <dd>{{ run.startDate }} – {{ run.endDate }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Created</dt>
+              <dd>{{ formatIstDateTime(run.createdAt) }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Started</dt>
+              <dd>
+                {{ run.startedAt ? formatIstDateTime(run.startedAt) : '—' }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-muted-foreground">Completed</dt>
+              <dd>
+                {{ run.completedAt ? formatIstDateTime(run.completedAt) : '—' }}
+              </dd>
+            </div>
+          </dl>
+          <div v-if="Object.keys(run.failure).length" class="mt-3">
+            <p class="mb-1 text-xs text-muted-foreground">Failure</p>
+            <pre
+              class="overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs"
+              >{{ JSON.stringify(run.failure, null, 2) }}</pre>
+          </div>
         </CardContent>
       </Card>
     </template>
