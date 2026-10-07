@@ -25,9 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class BacktestController {
 
     private final BacktestService service;
+    private final com.edgerelative.application.backtest.application.BacktestTimelineService timelineService;
 
-    public BacktestController(BacktestService service) {
+    public BacktestController(
+            BacktestService service,
+            com.edgerelative.application.backtest.application.BacktestTimelineService timelineService) {
         this.service = service;
+        this.timelineService = timelineService;
     }
 
     @PostMapping
@@ -63,6 +67,27 @@ public class BacktestController {
     @GetMapping("/{runKey}/equity")
     public List<EquityPoint> equity(@PathVariable String runKey) {
         return service.equity(runKey);
+    }
+
+    @GetMapping("/{runKey}/universe")
+    public List<BacktestService.BacktestUniverseEntry> universe(@PathVariable String runKey) {
+        return service.universe(runKey);
+    }
+
+    @GetMapping("/{runKey}/rejections")
+    public List<com.edgerelative.application.backtest.domain.BacktestRejection> rejections(@PathVariable String runKey) {
+        return service.rejections(runKey);
+    }
+
+    @GetMapping("/{runKey}/aggregate")
+    public Map<String, Object> aggregate(@PathVariable String runKey) {
+        return service.aggregate(runKey);
+    }
+
+    @GetMapping("/{runKey}/instruments/{instrumentId}/timeline")
+    public com.edgerelative.application.backtest.domain.InstrumentTimeline timeline(
+            @PathVariable String runKey, @PathVariable long instrumentId) {
+        return timelineService.timeline(runKey, instrumentId);
     }
 
     @ExceptionHandler(BacktestService.BacktestValidationException.class)

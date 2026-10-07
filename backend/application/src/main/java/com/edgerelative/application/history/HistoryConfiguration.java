@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
  * Enables strongly typed backfill configuration and the canonical aggregation beans.
  */
 @Configuration
-@EnableConfigurationProperties(HistoryProperties.class)
+@EnableConfigurationProperties({HistoryProperties.class, HistoryReplayProperties.class})
 public class HistoryConfiguration {
 
     @Bean

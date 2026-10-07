@@ -125,6 +125,11 @@ history:
     insert-batch-size: 1000
     # Bounds the M1 rows loaded to derive a higher-timeframe series on the read path.
     max-source-candles: 500000
+  replay:
+    # Server-side replay/batch reads (backtest, dataset manifest) are not clamped to the interactive
+    # 10k-bar cap; these generous but bounded limits allow multi-year windows.
+    max-bars: 2000000
+    max-source-candles: 3000000
 
 feature:
   # Every value below is a RESEARCH CANDIDATE, not a validated production constant, and is folded

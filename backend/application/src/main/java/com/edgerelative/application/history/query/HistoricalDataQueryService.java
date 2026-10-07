@@ -6,6 +6,7 @@ import com.edgerelative.application.history.HistoricalCandle;
 import com.edgerelative.application.history.HistoricalCoverage;
 import com.edgerelative.application.history.HistoryException;
 import com.edgerelative.application.history.HistoryProperties;
+import com.edgerelative.application.history.HistoryReplayProperties;
 import com.edgerelative.application.history.HistoryRepository;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.TimeframeCatalog;
@@ -32,34 +33,49 @@ public class HistoricalDataQueryService implements HistoricalDataReader {
     private final HistoryRepository repository;
     private final CandleAggregator aggregator;
     private final HistoryProperties properties;
+    private final HistoryReplayProperties replay;
 
     public HistoricalDataQueryService(
             CanonicalInstrumentService canonical,
             HistoryRepository repository,
             CandleAggregator aggregator,
-            HistoryProperties properties) {
+            HistoryProperties properties,
+            HistoryReplayProperties replay) {
         this.canonical = canonical;
         this.repository = repository;
         this.aggregator = aggregator;
         this.properties = properties;
+        this.replay = replay;
     }
 
     @Override
     public List<AggregatedCandle> candles(
             long instrumentId, String timeframeCode, Instant from, Instant to, int limit) {
+        return read(instrumentId, timeframeCode, from, to,
+                Math.min(Math.max(limit, 1), MAX_LIMIT), properties.getMaxSourceCandles());
+    }
+
+    @Override
+    public List<AggregatedCandle> replayCandles(
+            long instrumentId, String timeframeCode, Instant from, Instant to, int maxBars) {
+        return read(instrumentId, timeframeCode, from, to,
+                Math.min(Math.max(maxBars, 1), replay.getMaxBars()), replay.getMaxSourceCandles());
+    }
+
+    private List<AggregatedCandle> read(
+            long instrumentId, String timeframeCode, Instant from, Instant to, int requested, int sourceLimit) {
         TimeframeCatalog.Spec spec = requireTimeframe(timeframeCode);
         if (from == null || to == null || !from.isBefore(to)) {
             throw new HistoryException(HistoryException.INVALID, "'from' must be before 'to'");
         }
         long m1TimeframeId = timeframeId(TimeframeCatalog.M1);
-        int requested = Math.min(Math.max(limit, 1), MAX_LIMIT);
         if (TimeframeCatalog.M1.equals(spec.code())) {
             List<AggregatedCandle> bars = aggregator.aggregate(
                     repository.candles(instrumentId, m1TimeframeId, from, to, requested), spec.code());
             return markInProgressIncomplete(bars, to);
         }
         List<HistoricalCandle> source =
-                repository.candles(instrumentId, m1TimeframeId, from, to, properties.getMaxSourceCandles());
+                repository.candles(instrumentId, m1TimeframeId, from, to, sourceLimit);
         List<AggregatedCandle> derived = markInProgressIncomplete(aggregator.aggregate(source, spec.code()), to);
         // Keep the most recent `requested` bars; taking the first N would drop the window ending at
         // `to` and silently move every anchor backwards (DD-05 §128/§151).

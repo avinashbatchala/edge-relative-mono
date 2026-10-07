@@ -25,6 +25,7 @@ public record BacktestRunRequest(
         // FAIL_ON_NULL_FOR_PRIMITIVES; defaults are applied in the service.
         Boolean strictProducers,
         Integer warmupBars,
+        Integer warmupSessions,
         Long seed,
         String endOfRun,
         ExecutionRequest execution,

@@ -438,8 +438,10 @@ public final class StrategyEngine {
         if (policyBlock) {
             return watch || forming || previous == SetupState.VALID ? SetupState.BLOCKED : SetupState.NONE;
         }
-        boolean expiredByAge = !previous.isTerminal() && prior.barsInState() > parameters.maxBarsInState();
-        boolean expiredByTrigger = !previous.isTerminal()
+        boolean active = previous == SetupState.WATCH || previous == SetupState.FORMING
+                || previous == SetupState.NEAR_TRIGGER || previous == SetupState.VALID;
+        boolean expiredByAge = active && prior.barsInState() > parameters.maxBarsInState();
+        boolean expiredByTrigger = active
                 && prior.triggerTime() != null
                 && prior.barsSinceTrigger() > parameters.maxBarsSinceTrigger();
         if (expiredByAge || expiredByTrigger) {
@@ -473,7 +475,34 @@ public final class StrategyEngine {
         if (prior.setupInstanceId() == null && SetupLifecycle.bootstrapAllowed(proposed)) {
             return proposed;
         }
-        return SetupLifecycle.allowed(previous, proposed) ? proposed : previous;
+        if (SetupLifecycle.allowed(previous, proposed)) {
+            return proposed;
+        }
+        // The engine evaluates every state condition each bar, so a setup can satisfy several rungs
+        // of the DD-02 §74 chain at once (for example FORMING and NEAR_TRIGGER, or a valid trigger
+        // on the bar after WATCH). Allow monotonic forward progress along the chain; still reject
+        // regressions and jumps out of terminal states.
+        if (forwardProgress(previous, proposed)) {
+            return proposed;
+        }
+        return previous;
+    }
+
+    private static boolean forwardProgress(SetupState previous, SetupState proposed) {
+        return lifecycleRank(previous) >= 0 && lifecycleRank(proposed) > lifecycleRank(previous)
+                && !proposed.isTerminal();
+    }
+
+    /** Position on the canonical NONE -> WATCH -> FORMING -> NEAR_TRIGGER -> VALID chain. */
+    private static int lifecycleRank(SetupState state) {
+        return switch (state) {
+            case NONE -> 0;
+            case WATCH -> 1;
+            case FORMING -> 2;
+            case NEAR_TRIGGER -> 3;
+            case VALID -> 4;
+            default -> -1;
+        };
     }
 
     private SetupFamily resolveFamily(

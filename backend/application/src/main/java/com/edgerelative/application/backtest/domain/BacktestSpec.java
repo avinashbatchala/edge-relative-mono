@@ -30,7 +30,7 @@ public record BacktestSpec(
         ExecutionPolicy execution,
         CostSchedule costSchedule,
         EndOfRunPolicy endOfRun,
-        int warmupBars,
+        int warmupSessions,
         long seed,
         String engineRevision,
         Long marketInstrumentId,

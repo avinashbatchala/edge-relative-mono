@@ -1,5 +1,6 @@
 package com.edgerelative.application.backtest.domain;
 
+import com.edgerelative.application.reference.NseTradingCalendar;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -41,12 +42,21 @@ public final class BacktestMetrics {
         BigDecimal explicitCosts = completed.stream()
                 .map(BacktestTrade::explicitCosts)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal completedNetPnl = grossPnl.subtract(explicitCosts);
+        BigDecimal openMarkedPnl = open.stream()
+                .map(BacktestTrade::netPnl)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         metrics.put("startingCapital", startingCapital);
         metrics.put("finalEquity", finalEquity);
         metrics.put("grossPnl", grossPnl.setScale(2, RoundingMode.HALF_UP));
         metrics.put("explicitCosts", explicitCosts.setScale(2, RoundingMode.HALF_UP));
+        // Completed-trade net ignores still-open positions; account net includes their mark.
+        metrics.put("completedNetPnl", completedNetPnl.setScale(2, RoundingMode.HALF_UP));
+        metrics.put("openMarkedPnl", openMarkedPnl.setScale(2, RoundingMode.HALF_UP));
         metrics.put("netPnl", netPnl.setScale(2, RoundingMode.HALF_UP));
+        notes.put("netPnl", "Net account P&L = completed net + marked-to-market open P&L; open P&L is not realized.");
+        notes.put("completedNetPnl", "Net P&L of completed trades only (grossPnl - explicitCosts).");
         metrics.put("netReturnPct", pct(netPnl, startingCapital, notes, "netReturnPct"));
 
         int wins = 0;
@@ -94,15 +104,16 @@ public final class BacktestMetrics {
             metrics.put("expectancy", null);
             notes.put("expectancy", "No completed trades.");
         } else {
-            double winRate = (double) wins / completed.size();
-            double avgWin = wins == 0 ? 0 : sumWins.doubleValue() / wins;
-            double avgLoss = losses == 0 ? 0 : Math.abs(sumLosses.doubleValue()) / losses;
-            metrics.put("expectancy", BigDecimal.valueOf(winRate * avgWin - (1 - winRate) * avgLoss)
-                    .setScale(2, RoundingMode.HALF_UP));
+            // Mean net P&L per completed trade; breakeven trades correctly contribute zero rather
+            // than being counted as losses.
+            metrics.put("expectancy", completedNetPnl
+                    .divide(BigDecimal.valueOf(completed.size()), 2, RoundingMode.HALF_UP));
         }
         if (sumLosses.signum() == 0) {
-            metrics.put("profitFactor", wins == 0 ? null : null);
-            notes.put("profitFactor", wins == 0 ? "No completed trades." : "No losing trades; profit factor is undefined.");
+            metrics.put("profitFactor", null);
+            notes.put("profitFactor", completed.isEmpty()
+                    ? "No completed trades."
+                    : "No losing trades; profit factor is undefined.");
         } else {
             metrics.put("profitFactor", BigDecimal.valueOf(sumWins.doubleValue() / Math.abs(sumLosses.doubleValue()))
                     .setScale(3, RoundingMode.HALF_UP));
@@ -128,27 +139,25 @@ public final class BacktestMetrics {
         metrics.put("worstTradeNetPnl", completed.isEmpty()
                 ? null
                 : completed.stream().map(BacktestTrade::netPnl).min(BigDecimal::compareTo).orElse(null));
-        metrics.put("sharpe", sampleSharpe(result.equityPoints(), barsPerYear, notes));
-        metrics.put("sortino", sampleSortino(result.equityPoints(), barsPerYear, notes));
-        if (barsPerYear <= 0) {
-            notes.put("sharpe", "Undefined without a positive bars-per-year sampling assumption.");
-            notes.put("sortino", "Undefined without a positive bars-per-year sampling assumption.");
-        }
+        metrics.put("sharpe", dailySharpe(result.equityPoints(), notes));
+        metrics.put("sortino", dailySortino(result.equityPoints(), notes));
         metrics.put("cagrPct", cagr(finalEquity, startingCapital, result, notes));
 
-        long candidates = completed.size() + result.rejections().size();
+        // A candidate is any valid setup that reached a risk decision (approved or rejected).
+        long candidates = completed.size() + open.size() + result.rejections().size();
         metrics.put("candidateCount", candidates);
         metrics.put("rejectionCount", result.rejections().size());
         metrics.put("rejectionRatePct", candidates == 0
                 ? null
                 : BigDecimal.valueOf(result.rejections().size() * 100.0 / candidates).setScale(2, RoundingMode.HALF_UP));
         metrics.put("planCount", completed.size() + open.size());
-        metrics.put("ambiguousBarCount", completed.stream().mapToInt(BacktestTrade::ambiguousBars).sum());
+        metrics.put("ambiguousBarCount", result.trades().stream().mapToInt(BacktestTrade::ambiguousBars).sum());
 
         // Pipeline stage counts so an empty/low trade list explains where candidates were eliminated.
         metrics.put("stageCounts", result.stageCounts());
         metrics.put("notes", notes);
-        metrics.put("samplingAssumption", "Equity sampled once per " + barsPerYear + " periods/year; returns annualized with a zero reference rate.");
+        metrics.put("samplingAssumption",
+                "Risk metrics use per-session (exchange-calendar day) equity returns annualized with 252 trading days; a zero reference rate.");
         return metrics;
     }
 
@@ -221,46 +230,62 @@ public final class BacktestMetrics {
         return notional.divide(startingCapital, 4, RoundingMode.HALF_UP);
     }
 
-    private static List<Double> sampleReturns(List<EquityPoint> points) {
-        List<Double> returns = new ArrayList<>();
-        for (int i = 1; i < points.size(); i++) {
-            double previous = points.get(i - 1).equity().doubleValue();
-            if (previous == 0) {
+    /**
+     * Per-session equity returns: the last equity sample of each exchange-calendar day. This is a
+     * proper time-based sampling regardless of how many intraday anchors a session produced, so the
+     * annualization is not built on an invalid evenly-spaced-anchor assumption.
+     */
+    private static List<Double> dailyReturns(List<EquityPoint> points) {
+        Map<java.time.LocalDate, BigDecimal> endOfDay = new java.util.TreeMap<>();
+        for (EquityPoint point : points) {
+            if (point.at() == null) {
                 continue;
             }
-            returns.add(points.get(i).equity().doubleValue() / previous - 1.0);
+            endOfDay.put(point.at().atZone(NseTradingCalendar.EXCHANGE_ZONE).toLocalDate(), point.equity());
+        }
+        List<Double> returns = new ArrayList<>();
+        BigDecimal previous = null;
+        for (BigDecimal equity : endOfDay.values()) {
+            if (previous != null && previous.signum() != 0) {
+                returns.add(equity.doubleValue() / previous.doubleValue() - 1.0);
+            }
+            previous = equity;
         }
         return returns;
     }
 
-    private static BigDecimal sampleSharpe(List<EquityPoint> points, double barsPerYear, Map<String, String> notes) {
-        List<Double> returns = sampleReturns(points);
-        if (returns.size() < 2 || barsPerYear <= 0) {
+    private static final double TRADING_DAYS_PER_YEAR = 252.0;
+
+    private static BigDecimal dailySharpe(List<EquityPoint> points, Map<String, String> notes) {
+        List<Double> returns = dailyReturns(points);
+        if (returns.size() < 2) {
+            notes.put("sharpe", "Fewer than two complete sessions; not enough daily samples.");
             return null;
         }
         double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double variance = returns.stream().mapToDouble(r -> (r - mean) * (r - mean)).sum() / (returns.size() - 1);
         double sd = Math.sqrt(variance);
         if (sd == 0) {
-            notes.put("sharpe", "Zero return variance.");
+            notes.put("sharpe", "Zero daily return variance.");
             return null;
         }
-        return BigDecimal.valueOf(mean / sd * Math.sqrt(barsPerYear)).setScale(3, RoundingMode.HALF_UP);
+        return BigDecimal.valueOf(mean / sd * Math.sqrt(TRADING_DAYS_PER_YEAR)).setScale(3, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal sampleSortino(List<EquityPoint> points, double barsPerYear, Map<String, String> notes) {
-        List<Double> returns = sampleReturns(points);
-        if (returns.size() < 2 || barsPerYear <= 0) {
+    private static BigDecimal dailySortino(List<EquityPoint> points, Map<String, String> notes) {
+        List<Double> returns = dailyReturns(points);
+        if (returns.size() < 2) {
+            notes.put("sortino", "Fewer than two complete sessions; not enough daily samples.");
             return null;
         }
         double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double downside = returns.stream().mapToDouble(r -> r < 0 ? r * r : 0).sum() / returns.size();
         double dd = Math.sqrt(downside);
         if (dd == 0) {
-            notes.put("sortino", "No downside deviation.");
+            notes.put("sortino", "No daily downside deviation.");
             return null;
         }
-        return BigDecimal.valueOf(mean / dd * Math.sqrt(barsPerYear)).setScale(3, RoundingMode.HALF_UP);
+        return BigDecimal.valueOf(mean / dd * Math.sqrt(TRADING_DAYS_PER_YEAR)).setScale(3, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal cagr(

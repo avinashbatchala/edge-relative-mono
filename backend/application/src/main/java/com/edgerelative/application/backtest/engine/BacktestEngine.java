@@ -31,6 +31,9 @@ import com.edgerelative.application.strategy.domain.SetupState;
 import com.edgerelative.application.strategy.domain.StrategyEngine;
 import com.edgerelative.application.strategy.domain.StrategyEvaluationInput;
 import com.edgerelative.application.strategy.domain.StrategyEvaluationResult;
+import com.edgerelative.application.strategy.context.DecisionContextAssembler;
+import com.edgerelative.application.strategy.context.DecisionContextAssembler.DecisionContext;
+import com.edgerelative.application.strategy.context.DecisionContextPolicy;
 import com.edgerelative.application.strategy.domain.StrategyIdentity;
 import com.edgerelative.application.strategy.domain.StrategyParameters;
 import com.edgerelative.application.tradeplan.domain.PlanLineage;
@@ -66,6 +69,9 @@ public final class BacktestEngine {
 
     public static final String ENGINE_REVISION = "er-backtest-engine-v1";
 
+    /** Completed candles supplied to the decision-context assembler at each anchor. */
+    private static final int CONTEXT_HISTORY_BARS = 60;
+
     private final HistoricalDataReader reader;
     private final FeatureEngine featureEngine;
     private final StrategyEngine strategyEngine;
@@ -90,7 +96,30 @@ public final class BacktestEngine {
         void onProgress(long processed, long total, Instant through);
     }
 
-    public BacktestResult run(BacktestSpec spec, BacktestContextProvider provider, ProgressListener listener) {
+    /**
+     * Optional per-anchor hook used by the forensic timeline. It observes the exact feature snapshot
+     * and long/short strategy results the run used at that anchor; it cannot influence the decision.
+     */
+    @FunctionalInterface
+    public interface AnchorListener {
+        void onAnchor(
+                long instrumentId,
+                Instant anchor,
+                AggregatedCandle bar,
+                FeatureSnapshot snapshot,
+                StrategyEvaluationResult longResult,
+                StrategyEvaluationResult shortResult);
+    }
+
+    public BacktestResult run(BacktestSpec spec, ProgressListener listener) {
+        return run(spec, listener, null);
+    }
+
+    public BacktestResult run(BacktestSpec spec, ProgressListener listener, AnchorListener anchorListener) {
+        DecisionContextPolicy contextPolicy = spec.contextSource() == BacktestSpec.ContextSource.DERIVED_RESEARCH
+                ? DecisionContextPolicy.research()
+                : DecisionContextPolicy.strict();
+        DecisionContextAssembler assembler = new DecisionContextAssembler(contextPolicy);
         Map<Long, List<AggregatedCandle>> series = loadSeries(spec, spec.timeframe());
         Map<Long, List<AggregatedCandle>> dailySeries = loadSeries(spec, spec.dailyTimeframe());
         List<AggregatedCandle> marketCandles = spec.marketInstrumentId() == null
@@ -102,6 +131,12 @@ public final class BacktestEngine {
         Map<Long, NavigableMap<Instant, FeatureSnapshot>> m5 = features(spec, series, marketCandles, spec.timeframe());
         Map<Long, NavigableMap<Instant, FeatureSnapshot>> d1 =
                 features(spec, dailySeries, dailyMarket, spec.dailyTimeframe());
+        Map<Long, NavigableMap<Instant, DecisionContextAssembler.EmaStructure>> ema =
+                emaStructures(spec, series, contextPolicy);
+        // Pre-index every loaded series once so per-anchor lookups are O(1) and history slicing is
+        // O(window) rather than an O(n) rescan (which made long M1 replays quadratic).
+        Map<Long, CandleIndex> candlesByInstrument = new HashMap<>();
+        series.forEach((id, bars) -> candlesByInstrument.put(id, new CandleIndex(bars)));
 
         Set<Instant> timeline = new TreeSet<>();
         m5.values().forEach(byAnchor -> timeline.addAll(byAnchor.keySet()));
@@ -113,7 +148,7 @@ public final class BacktestEngine {
                 spec.endDate().plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
 
         Map<String, long[]> counts = new LinkedHashMap<>();
-        Portfolio portfolio = new Portfolio(spec, provider, counts, calendar);
+        Portfolio portfolio = new Portfolio(spec, counts, calendar);
         // Run-scoped setup lifecycle, keyed by instrument and direction. Passing a prior state lets
         // the production engine apply legal transitions and age/trigger expiry instead of cold-starting
         // every bar, so FORMING -> NEAR_TRIGGER -> VALID accumulates across the replay.
@@ -128,8 +163,9 @@ public final class BacktestEngine {
             List<Long> ordered = new ArrayList<>(spec.instrumentIds());
             ordered.sort(Comparator.naturalOrder());
             for (Long instrumentId : ordered) {
-                processSymbol(spec, provider, portfolio, instrumentId, anchor, m5.get(instrumentId),
-                        d1.get(instrumentId), series, marketCandles, counts, priorState);
+                processSymbol(spec, assembler, portfolio, instrumentId, anchor, m5.get(instrumentId),
+                        d1.get(instrumentId), ema.get(instrumentId), candlesByInstrument.get(instrumentId),
+                        counts, priorState, anchorListener);
                 processed++;
             }
             portfolio.markEquity(anchor, equity);
@@ -161,11 +197,11 @@ public final class BacktestEngine {
         if (spec.sectorInstrumentId() != null) {
             ids.add(spec.sectorInstrumentId());
         }
-        Instant from = spec.startDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
-                .minus(Duration.ofDays(Math.max(1, spec.warmupBars())));
-        Instant to = spec.endDate().plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        Instant from = com.edgerelative.application.backtest.domain.BacktestWindow.warmupStart(
+                spec.startDate(), spec.warmupSessions(), calendar);
+        Instant to = com.edgerelative.application.backtest.domain.BacktestWindow.endExclusive(spec);
         for (Long id : ids) {
-            List<AggregatedCandle> candles = reader.candles(id, timeframe, from, to, 100_000).stream()
+            List<AggregatedCandle> candles = reader.replayCandles(id, timeframe, from, to, 2_000_000).stream()
                     .filter(AggregatedCandle::complete)
                     .toList();
             result.put(id, candles);
@@ -206,20 +242,40 @@ public final class BacktestEngine {
         return result;
     }
 
+    private Map<Long, NavigableMap<Instant, DecisionContextAssembler.EmaStructure>> emaStructures(
+            BacktestSpec spec,
+            Map<Long, List<AggregatedCandle>> series,
+            DecisionContextPolicy policy) {
+        Map<Long, NavigableMap<Instant, DecisionContextAssembler.EmaStructure>> result = new LinkedHashMap<>();
+        for (Long instrumentId : spec.instrumentIds()) {
+            DecisionContextAssembler.EmaTracker tracker =
+                    new DecisionContextAssembler.EmaTracker(policy.emaFastLength(), policy.emaSlowLength());
+            NavigableMap<Instant, DecisionContextAssembler.EmaStructure> byAnchor = new TreeMap<>();
+            for (AggregatedCandle candle : series.getOrDefault(instrumentId, List.of())) {
+                DecisionContextAssembler.EmaStructure structure = tracker.update(candle.close());
+                if (candle.closeTime() != null) {
+                    byAnchor.put(candle.closeTime(), structure);
+                }
+            }
+            result.put(instrumentId, byAnchor);
+        }
+        return result;
+    }
+
     private void processSymbol(
             BacktestSpec spec,
-            BacktestContextProvider provider,
+            DecisionContextAssembler assembler,
             Portfolio portfolio,
             long instrumentId,
             Instant anchor,
             NavigableMap<Instant, FeatureSnapshot> m5,
             NavigableMap<Instant, FeatureSnapshot> d1,
-            Map<Long, List<AggregatedCandle>> series,
-            List<AggregatedCandle> marketCandles,
+            NavigableMap<Instant, DecisionContextAssembler.EmaStructure> ema,
+            CandleIndex index,
             Map<String, long[]> counts,
-            Map<String, StrategyEvaluationInput.PriorSetup> priorState) {
-        List<AggregatedCandle> candles = series.getOrDefault(instrumentId, List.of());
-        AggregatedCandle bar = candleAt(candles, anchor);
+            Map<String, StrategyEvaluationInput.PriorSetup> priorState,
+            AnchorListener anchorListener) {
+        AggregatedCandle bar = index == null ? null : index.barAt(anchor);
         if (bar == null) {
             return;
         }
@@ -233,11 +289,20 @@ public final class BacktestEngine {
             return;
         }
         if (portfolio.hasPositionOrPending(instrumentId)) {
-            return; // no averaging/pyramiding in the baseline
+            // No averaging/pyramiding: the strategy is not re-evaluated while a position or order is
+            // live, but the forensic timeline still observes the anchor.
+            if (anchorListener != null) {
+                anchorListener.onAnchor(instrumentId, anchor, bar, snapshot, null, null);
+            }
+            return;
         }
         Map.Entry<Instant, FeatureSnapshot> dailyEntry = d1.floorEntry(anchor);
         FeatureSnapshot daily = dailyEntry == null ? null : dailyEntry.getValue();
-        Context context = context(spec, provider, instrumentId, anchor, snapshot, daily, bar, candles, marketCandles);
+        List<AggregatedCandle> history = index.history(anchor, CONTEXT_HISTORY_BARS);
+        DecisionContextAssembler.EmaStructure emaStructure = ema == null
+                ? DecisionContextAssembler.EmaStructure.absent()
+                : ema.getOrDefault(anchor, DecisionContextAssembler.EmaStructure.absent());
+        DecisionContext context = assembler.assemble(snapshot, daily, bar, history, emaStructure);
 
         String longKey = instrumentId + ":LONG";
         String shortKey = instrumentId + ":SHORT";
@@ -246,10 +311,10 @@ public final class BacktestEngine {
         StrategyEvaluationInput.PriorSetup priorShort =
                 priorState.getOrDefault(shortKey, StrategyEvaluationInput.PriorSetup.none());
         StrategyEvaluationResult longResult = strategyEngine.evaluate(
-                input(spec, context, instrumentId, anchor, snapshot, daily, bar, priorLong),
+                input(spec, context, instrumentId, anchor, snapshot, bar, priorLong),
                 spec.strategyParameters(), Direction.LONG);
         StrategyEvaluationResult shortResult = strategyEngine.evaluate(
-                input(spec, context, instrumentId, anchor, snapshot, daily, bar, priorShort),
+                input(spec, context, instrumentId, anchor, snapshot, bar, priorShort),
                 spec.strategyParameters(), Direction.SHORT);
         priorState.put(longKey, advance(priorLong, longResult));
         priorState.put(shortKey, advance(priorShort, shortResult));
@@ -260,6 +325,9 @@ public final class BacktestEngine {
         }
         if (shortResult.setupState() != SetupState.VALID) {
             shortResult.reasonCodes().forEach(code -> increment(counts, "shortReason_" + code.name()));
+        }
+        if (anchorListener != null) {
+            anchorListener.onAnchor(instrumentId, anchor, bar, snapshot, longResult, shortResult);
         }
         StrategyEvaluationResult chosen = longResult.setupState() == SetupState.VALID
                 ? longResult
@@ -297,7 +365,15 @@ public final class BacktestEngine {
     private static StrategyEvaluationInput.PriorSetup advance(
             StrategyEvaluationInput.PriorSetup prior, StrategyEvaluationResult result) {
         SetupState state = result.setupState();
-        int barsInState = prior.state() == state ? prior.barsInState() + 1 : 1;
+        if (state.isTerminal()) {
+            // A terminated setup is consumed; the next active state starts a fresh instance.
+            return StrategyEvaluationInput.PriorSetup.none();
+        }
+        // NONE is the absence of a setup, not an ageing one, so its counter must not accumulate
+        // (otherwise the engine's age-expiry would trap the state at NONE forever).
+        int barsInState = state == SetupState.NONE
+                ? 0
+                : (prior.state() == state ? prior.barsInState() + 1 : 1);
         Instant triggerTime = prior.triggerTime();
         if (triggerTime == null && result.trigger() != null
                 && (state == SetupState.VALID || state == SetupState.MISSED)) {
@@ -318,15 +394,14 @@ public final class BacktestEngine {
 
     private StrategyEvaluationInput input(
             BacktestSpec spec,
-            Context context,
+            DecisionContext context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
-            FeatureSnapshot daily,
             AggregatedCandle bar,
             StrategyEvaluationInput.PriorSetup prior) {
-        BacktestContextProvider.MarketInput market = context.market();
-        BacktestContextProvider.StockInput stock = context.stock();
+        StrategyEvaluationInput.MarketContext market = context.market();
+        StrategyEvaluationInput.StockContext stock = context.stock();
         LocalDate sessionDate = calendar.sessionDate(anchor);
         boolean tradingDay = calendar.isTradingDay(sessionDate);
         StrategyParameters params = spec.strategyParameters();
@@ -345,12 +420,12 @@ public final class BacktestEngine {
         }
         boolean entryWindowOpen = inSession && !openingBlackout && !entryCutoffReached;
         List<DependencyStatus> dependencies = new ArrayList<>();
-        dependencies.add(dep("market.bias", market.available()));
-        dependencies.add(dep("market.regime", market.available()));
-        dependencies.add(dep("stock.dailyStructure", stock.available() && stock.dailyStructure() != null));
-        dependencies.add(dep("stock.liquidity", stock.available() && stock.medianTradedValue() != null));
-        dependencies.add(dep("stock.technicalVoid", stock.available() && stock.technicalVoidAtr() != null));
-        dependencies.add(dep("stock.eventRisk", stock.available() && stock.eventRiskKnown()));
+        dependencies.add(dep("market.bias", market.available() && market.bias() != null));
+        dependencies.add(dep("market.regime", market.regime() != null));
+        dependencies.add(dep("stock.dailyStructure", stock.dailyStructure() != null));
+        dependencies.add(dep("stock.liquidity", stock.medianTradedValue() != null));
+        dependencies.add(dep("stock.technicalVoid", stock.technicalVoidAtr() != null));
+        dependencies.add(dep("stock.eventRisk", stock.eventRiskBlocked() != null));
         dependencies.add(dep("rrs.m5", number(snapshot, FeatureKeys.RRS_RAW) != null));
         dependencies.add(dep("atr.m5", number(snapshot, FeatureKeys.ATR) != null));
 
@@ -366,30 +441,9 @@ public final class BacktestEngine {
                 new StrategyEvaluationInput.SessionContext(
                         anchor, tradingDay, entryWindowOpen, openingBlackout, entryCutoffReached,
                         NseTradingCalendar.VERSION),
-                new StrategyEvaluationInput.MarketContext(
-                        market.bias(), market.regime(), market.phase(), anchor, market.available()),
-                sector(snapshot, anchor),
-                new StrategyEvaluationInput.StockContext(
-                        stock.dailyStructure(),
-                        numberOrLabel(daily, FeatureKeys.RRS_RAW),
-                        number(snapshot, FeatureKeys.RRS_RAW),
-                        number(snapshot, FeatureKeys.RRS_FAST),
-                        number(snapshot, FeatureKeys.RRS_SLOW),
-                        number(snapshot, FeatureKeys.RRS_PERSISTENCE),
-                        label(snapshot, FeatureKeys.RRS_TREND_STATE),
-                        number(snapshot, FeatureKeys.RVOL_D1),
-                        number(snapshot, FeatureKeys.RVOL_INTERVAL),
-                        number(snapshot, FeatureKeys.RVOL_CUMULATIVE),
-                        number(snapshot, FeatureKeys.RVE),
-                        number(snapshot, FeatureKeys.ATR),
-                        bar.close() == null ? null : bar.close().doubleValue(),
-                        null,
-                        stock.liquidityState(),
-                        stock.medianTradedValue(),
-                        null,
-                        stock.technicalVoidAtr(),
-                        stock.available() && stock.eventRiskKnown() ? stock.eventRiskBlocked() : null,
-                        structure(stock)),
+                market,
+                context.sector(),
+                stock,
                 new StrategyEvaluationInput.CompletedCandle(
                         bar.openTime(), bar.closeTime(), bar.open(), bar.high(), bar.low(), bar.close(), bar.volume()),
                 dependencies,
@@ -398,14 +452,14 @@ public final class BacktestEngine {
 
     private RiskCandidate candidate(
             BacktestSpec spec,
-            Context context,
+            DecisionContext context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
             StrategyEvaluationResult result,
             AggregatedCandle bar) {
-        BacktestContextProvider.MarketInput market = context.market();
-        BacktestContextProvider.StockInput stock = context.stock();
+        StrategyEvaluationInput.MarketContext market = context.market();
+        StrategyEvaluationInput.StockContext stock = context.stock();
         return new RiskCandidate(
                 // Run-scoped so replaying the same window never collides on persisted keys.
                 spec.runKey() + ":cand:" + instrumentId + ":" + anchor,
@@ -429,10 +483,10 @@ public final class BacktestEngine {
                 anchor,
                 market.regime(),
                 market.available(),
-                stock.eventRiskKnown(),
+                stock.eventRiskBlocked() != null,
                 stock.eventRiskBlocked(),
-                sectorId(snapshot),
-                sectorCode(snapshot),
+                context.sector().sectorId(),
+                context.sector().sectorCode(),
                 null,
                 5.0,
                 1_000_000.0,
@@ -447,7 +501,7 @@ public final class BacktestEngine {
 
     private PlanLineage lineage(
             BacktestSpec spec,
-            Context context,
+            DecisionContext context,
             long instrumentId,
             Instant anchor,
             FeatureSnapshot snapshot,
@@ -473,7 +527,7 @@ public final class BacktestEngine {
                 new BigDecimal("0.05"),
                 1L,
                 context.market().regime(),
-                sectorCode(snapshot),
+                context.sector().sectorCode(),
                 result.setupInstanceId(),
                 anchor,
                 result.trigger() == null ? null : result.trigger().triggerType(),
@@ -482,173 +536,6 @@ public final class BacktestEngine {
                 result.invalidation() == null ? null : result.invalidation().invalidationType(),
                 proposal.structuralInvalidation(),
                 result.invalidation() == null ? null : result.invalidation().basis());
-    }
-
-    private static StrategyEvaluationInput.StructureContext structure(BacktestContextProvider.StockInput stock) {
-        BacktestContextProvider.StructureInput input = stock.structure();
-        if (input == null) {
-            return StrategyEvaluationInput.StructureContext.empty();
-        }
-        boolean present = input.ema3() != null && input.ema8() != null
-                && input.ema3Previous() != null && input.ema8Previous() != null;
-        return new StrategyEvaluationInput.StructureContext(
-                false, null, null, null, null, false, null, present,
-                input.ema3(), input.ema8(), input.ema3Previous(), input.ema8Previous());
-    }
-
-    private record Context(BacktestContextProvider.MarketInput market, BacktestContextProvider.StockInput stock) {
-    }
-
-    /**
-     * Resolves the strategy's market/stock/structure inputs. Strict production uses wired producers
-     * (none yet). Derived research computes them from canonical data under documented assumptions:
-     * market bias from the market price structure, daily alignment from the daily RRS sign, liquidity
-     * from the median traded value, technical void as recent range / ATR, EMA3/EMA8 from closes, and
-     * event risk assumed clear (no event-calendar producer). It remains a versioned research context.
-     */
-    private Context context(
-            BacktestSpec spec,
-            BacktestContextProvider provider,
-            long instrumentId,
-            Instant anchor,
-            FeatureSnapshot snapshot,
-            FeatureSnapshot daily,
-            AggregatedCandle bar,
-            List<AggregatedCandle> candles,
-            List<AggregatedCandle> marketCandles) {
-        if (spec.contextSource() != BacktestSpec.ContextSource.DERIVED_RESEARCH) {
-            return new Context(provider.market(instrumentId, anchor), provider.stock(instrumentId, anchor));
-        }
-        Double marketTrend = trend(candlesUpTo(marketCandles, bar, 21));
-        String bias = marketTrend == null ? "NEUTRAL" : marketTrend > 0 ? "BULLISH" : marketTrend < 0 ? "BEARISH" : "NEUTRAL";
-        Double rssD1 = number(daily, FeatureKeys.RRS_RAW);
-        String dailyStructure = rssD1 == null ? null
-                : rssD1 > 0 ? "LONG_ALIGNED" : rssD1 < 0 ? "SHORT_ALIGNED" : null;
-        List<AggregatedCandle> history = candlesUpTo(candles, bar, 60);
-        Double medianValue = medianTradedValue(history, 20);
-        Double voidAtr = technicalVoid(history, 20, number(snapshot, FeatureKeys.ATR));
-        BacktestContextProvider.StructureInput structure = emaStructure(history);
-        return new Context(
-                new BacktestContextProvider.MarketInput(true, bias, "RANGE", null),
-                new BacktestContextProvider.StockInput(
-                        true, dailyStructure, null, medianValue == null ? null : "VALID", medianValue, voidAtr,
-                        true, false, structure));
-    }
-
-    private static List<AggregatedCandle> candlesUpTo(
-            List<AggregatedCandle> candles, AggregatedCandle bar, int max) {
-        List<AggregatedCandle> upTo = new ArrayList<>();
-        for (AggregatedCandle candle : candles) {
-            if (bar.closeTime() != null && candle.closeTime() != null
-                    && candle.closeTime().isAfter(bar.closeTime())) {
-                break;
-            }
-            upTo.add(candle);
-        }
-        return upTo.size() <= max ? upTo : upTo.subList(upTo.size() - max, upTo.size());
-    }
-
-    private static Double trend(List<AggregatedCandle> history) {
-        BigDecimal first = null;
-        BigDecimal last = null;
-        for (AggregatedCandle candle : history) {
-            if (candle.close() != null) {
-                if (first == null) {
-                    first = candle.close();
-                }
-                last = candle.close();
-            }
-        }
-        if (first == null || last == null || first.signum() == 0) {
-            return null;
-        }
-        return last.subtract(first).divide(first, 10, java.math.RoundingMode.HALF_UP).doubleValue();
-    }
-
-    private static Double medianTradedValue(List<AggregatedCandle> history, int window) {
-        List<Double> values = new ArrayList<>();
-        for (int i = Math.max(0, history.size() - window); i < history.size(); i++) {
-            AggregatedCandle candle = history.get(i);
-            if (candle.close() != null) {
-                values.add(candle.close().doubleValue() * candle.volume());
-            }
-        }
-        if (values.isEmpty()) {
-            return null;
-        }
-        values.sort(Double::compareTo);
-        int mid = values.size() / 2;
-        return values.size() % 2 == 1 ? values.get(mid) : (values.get(mid - 1) + values.get(mid)) / 2.0;
-    }
-
-    private static Double technicalVoid(List<AggregatedCandle> history, int window, Double atr) {
-        if (atr == null || atr <= 0) {
-            return null;
-        }
-        double high = Double.NEGATIVE_INFINITY;
-        double low = Double.POSITIVE_INFINITY;
-        for (int i = Math.max(0, history.size() - window); i < history.size(); i++) {
-            AggregatedCandle candle = history.get(i);
-            if (candle.high() != null) {
-                high = Math.max(high, candle.high().doubleValue());
-            }
-            if (candle.low() != null) {
-                low = Math.min(low, candle.low().doubleValue());
-            }
-        }
-        if (!Double.isFinite(high) || !Double.isFinite(low)) {
-            return null;
-        }
-        return (high - low) / atr;
-    }
-
-    private static BacktestContextProvider.StructureInput emaStructure(List<AggregatedCandle> history) {
-        List<Double> closes = new ArrayList<>();
-        for (AggregatedCandle candle : history) {
-            if (candle.close() != null) {
-                closes.add(candle.close().doubleValue());
-            }
-        }
-        if (closes.size() < 9) {
-            return null;
-        }
-        double ema3 = closes.get(0);
-        double ema8 = closes.get(0);
-        double prev3 = ema3;
-        double prev8 = ema8;
-        for (int i = 1; i < closes.size(); i++) {
-            prev3 = ema3;
-            prev8 = ema8;
-            ema3 = closes.get(i) * (2.0 / 4) + ema3 * (1 - 2.0 / 4);
-            ema8 = closes.get(i) * (2.0 / 9) + ema8 * (1 - 2.0 / 9);
-        }
-        return new BacktestContextProvider.StructureInput(
-                BigDecimal.valueOf(ema3), BigDecimal.valueOf(ema8),
-                BigDecimal.valueOf(prev3), BigDecimal.valueOf(prev8));
-    }
-
-    private static String label(com.edgerelative.application.feature.domain.ContextSnapshot context, String key) {
-        FeatureValue value = context == null ? null : context.features().get(key);
-        return value != null && value.availability() == FeatureAvailability.VALID ? value.label() : null;
-    }
-
-    private static StrategyEvaluationInput.SectorContext sector(FeatureSnapshot snapshot, Instant anchor) {
-        if (snapshot.sector() == null) {
-            return new StrategyEvaluationInput.SectorContext(null, null, null, null, anchor, false);
-        }
-        Double rrs = number(snapshot.sector().features().get(FeatureKeys.SECTOR_RRS_RAW));
-        return new StrategyEvaluationInput.SectorContext(
-                snapshot.sector().sectorId(), snapshot.sector().referenceCode(), rrs,
-                snapshot.sector().quality() == null ? null : snapshot.sector().quality().name(),
-                snapshot.sector().anchorTimestamp(), rrs != null);
-    }
-
-    private static Long sectorId(FeatureSnapshot snapshot) {
-        return snapshot.sector() == null ? null : snapshot.sector().sectorId();
-    }
-
-    private static String sectorCode(FeatureSnapshot snapshot) {
-        return snapshot.sector() == null ? null : snapshot.sector().referenceCode();
     }
 
     private static String symbol(BacktestSpec spec, long instrumentId) {
@@ -669,34 +556,38 @@ public final class BacktestEngine {
         return value != null && value.availability() == FeatureAvailability.VALID ? value.value() : null;
     }
 
-    private static Double number(FeatureValue value) {
-        return value != null && value.availability() == FeatureAvailability.VALID ? value.value() : null;
-    }
+    /**
+     * Pre-indexed candle series for one instrument: O(1) bar lookup by anchor (close time) and an
+     * O(window) history slice. Built once per run so the chronological replay stays linear.
+     */
+    private static final class CandleIndex {
+        private final List<AggregatedCandle> bars;
+        private final Map<Instant, Integer> positionByCloseTime;
 
-    private static Double numberOrLabel(FeatureSnapshot snapshot, String key) {
-        return number(snapshot, key);
-    }
-
-    private static String label(FeatureSnapshot snapshot, String key) {
-        FeatureValue value = snapshot == null ? null : snapshot.feature(key);
-        return value != null && value.availability() == FeatureAvailability.VALID ? value.label() : null;
-    }
-
-    private static AggregatedCandle candleAt(List<AggregatedCandle> candles, Instant anchor) {
-        for (AggregatedCandle candle : candles) {
-            if (candle.closeTime() != null && !candle.closeTime().isAfter(anchor)
-                    && !candle.openTime().isAfter(anchor)) {
-                if (candle.closeTime().equals(anchor) || (candle.openTime().isBefore(anchor) && candle.closeTime().isAfter(anchor))) {
-                    return candle;
+        CandleIndex(List<AggregatedCandle> bars) {
+            this.bars = bars;
+            this.positionByCloseTime = new HashMap<>(Math.max(16, bars.size() * 2));
+            for (int i = 0; i < bars.size(); i++) {
+                Instant closeTime = bars.get(i).closeTime();
+                if (closeTime != null) {
+                    positionByCloseTime.put(closeTime, i);
                 }
             }
         }
-        for (AggregatedCandle candle : candles) {
-            if (anchor.equals(candle.closeTime())) {
-                return candle;
-            }
+
+        AggregatedCandle barAt(Instant anchor) {
+            Integer index = positionByCloseTime.get(anchor);
+            return index == null ? null : bars.get(index);
         }
-        return null;
+
+        List<AggregatedCandle> history(Instant anchor, int max) {
+            Integer index = positionByCloseTime.get(anchor);
+            if (index == null) {
+                return List.of();
+            }
+            int from = Math.max(0, index - max + 1);
+            return bars.subList(from, index + 1);
+        }
     }
 
     /** Run-scoped portfolio: cash, one position per symbol, pending orders, reservations. */
@@ -707,15 +598,13 @@ public final class BacktestEngine {
         private final Map<Long, PendingOrder> pending = new LinkedHashMap<>();
         private final List<BacktestTrade> trades = new ArrayList<>();
         private final List<BacktestRejection> rejections = new ArrayList<>();
-        private final BacktestContextProvider provider;
         private final Map<String, long[]> counts;
         private final NseTradingCalendar calendar;
 
         private Portfolio(
-                BacktestSpec spec, BacktestContextProvider provider, Map<String, long[]> counts,
+                BacktestSpec spec, Map<String, long[]> counts,
                 NseTradingCalendar calendar) {
             this.startingCapital = spec.startingCapital();
-            this.provider = provider;
             this.counts = counts;
             this.calendar = calendar;
         }
@@ -748,8 +637,7 @@ public final class BacktestEngine {
                 if (order.barsWaited > spec.execution().orderExpiryBars()) {
                     increment(counts, "ordersExpired");
                     pending.remove(instrumentId);
-                } else {
-                    fillEntry(spec, instrumentId, order, bar);
+                } else if (fillEntry(spec, instrumentId, order, bar)) {
                     increment(counts, "fills");
                     pending.remove(instrumentId);
                 }
@@ -760,22 +648,36 @@ public final class BacktestEngine {
                     position.markPrice = bar.close();
                 }
                 manage(spec, instrumentId, position, bar);
+                position = positions.get(instrumentId);
+                // Intraday V1: no accidental overnight carry. Flatten before the session close.
+                if (position != null && !spec.execution().allowOvernight()
+                        && bar.closeTime() != null
+                        && bar.closeTime().equals(calendar.sessionClose(calendar.sessionDate(bar.closeTime())))) {
+                    close(spec, instrumentId, position, bar, adjustedFill(spec, position.direction, bar.close(), false),
+                            "SESSION_FLATTEN");
+                }
             }
         }
 
-        private void fillEntry(BacktestSpec spec, long instrumentId, PendingOrder order, AggregatedCandle bar) {
-            BigDecimal reference = order.direction().isLong() ? bar.open() : bar.open();
+        private boolean fillEntry(BacktestSpec spec, long instrumentId, PendingOrder order, AggregatedCandle bar) {
+            BigDecimal reference = bar.open();
             if (reference == null) {
-                return;
+                return false;
+            }
+            long executable = (long) Math.floor(bar.volume() * spec.execution().participationRate().doubleValue());
+            long quantity = Math.min(order.plan().plannedQuantity(), Math.max(0, executable));
+            if (quantity <= 0) {
+                increment(counts, "zeroFills");
+                return false;
             }
             BigDecimal fill = adjustedFill(spec, order.direction(), reference, true);
-            long quantity = order.plan().plannedQuantity();
             BigDecimal initialRisk = order.plan().plannedRisk()
                     .divide(BigDecimal.valueOf(Math.max(1, quantity)), 8, RoundingMode.HALF_UP);
             positions.put(instrumentId, new OpenPosition(
                     instrumentId, order.direction(), quantity, fill, bar.openTime(), order.plan().protectiveStop(),
                     order.plan().targetReference(), initialRisk, order.plan().planKey(), order.plan().decisionKey(),
                     order.plan().entryPattern(), 0));
+            return true;
         }
 
         private void manage(BacktestSpec spec, long instrumentId, OpenPosition position, AggregatedCandle bar) {
@@ -851,9 +753,16 @@ public final class BacktestEngine {
         }
 
         void finish(BacktestSpec spec, Map<Long, List<AggregatedCandle>> series, Set<Instant> timeline, List<EquityPoint> equity) {
-            for (OpenPosition position : positions.values()) {
+            List<OpenPosition> open = new ArrayList<>(positions.values());
+            for (OpenPosition position : open) {
                 List<AggregatedCandle> candles = series.getOrDefault(position.instrumentId, List.of());
-                BigDecimal last = candles.isEmpty() ? position.markPrice : candles.get(candles.size() - 1).close();
+                AggregatedCandle lastBar = candles.isEmpty() ? null : candles.get(candles.size() - 1);
+                BigDecimal last = lastBar == null ? position.markPrice : lastBar.close();
+                if (spec.endOfRun() == BacktestSpec.EndOfRunPolicy.LIQUIDATE_AT_CLOSE && lastBar != null) {
+                    close(spec, position.instrumentId, position, lastBar,
+                            adjustedFill(spec, position.direction, last, false), "END_OF_RUN_LIQUIDATION");
+                    continue;
+                }
                 BigDecimal gross = grossPnl(position, last, position.quantity);
                 increment(counts, "openAtEnd");
                 trades.add(new BacktestTrade(
@@ -886,7 +795,7 @@ public final class BacktestEngine {
                     .health("HEALTHY", "HEALTHY", "MATCHED", true)
                     .session(new RiskContext.SessionWindow(
                             anchor, tradingDay, inSession, false, cutoffReached, false,
-                            NseTradingSessionVersion.VERSION))
+                            NseTradingCalendar.VERSION))
                     .build();
         }
 
@@ -935,10 +844,6 @@ public final class BacktestEngine {
                     })
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-    }
-
-    private static final class NseTradingSessionVersion {
-        private static final String VERSION = "nse-session-v1";
     }
 
     /** Mutable run-scoped position (mark price and ambiguity count change each bar). */

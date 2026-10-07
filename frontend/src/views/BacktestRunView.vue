@@ -5,9 +5,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, RefreshCw } from '@lucide/vue'
 import {
   backtestKeys,
+  getBacktestAggregate,
   getBacktestEquity,
   getBacktestRun,
   getBacktestTrades,
+  getBacktestUniverse,
+  type BacktestTradeRow,
 } from '@/api/backtests'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,9 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import FeatureHistoryPanel from '@/components/feature/FeatureHistoryPanel.vue'
+import BacktestTimelinePanel from '@/components/backtest/BacktestTimelinePanel.vue'
+import TradeForensicsDrawer from '@/components/backtest/TradeForensicsDrawer.vue'
 import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
-import type { ChartMarker } from '@/lib/chart-markers'
 import { formatInr, formatIstDateTime, formatPrice } from '@/lib/format'
 
 const route = useRoute()
@@ -42,6 +45,8 @@ const tabs = [
   { value: 'chart', label: 'chart' },
 ] as const
 const selectedSymbol = ref<string | null>(null)
+const PAGE_SIZE = 200
+const offset = ref(0)
 
 const runQuery = useQuery(() => ({
   queryKey: backtestKeys.detail(runKey.value),
@@ -50,8 +55,9 @@ const runQuery = useQuery(() => ({
 }))
 
 const tradesQuery = useQuery(() => ({
-  queryKey: backtestKeys.trades(runKey.value, ''),
-  queryFn: ({ signal }) => getBacktestTrades(runKey.value, undefined, signal),
+  queryKey: [...backtestKeys.trades(runKey.value, ''), offset.value],
+  queryFn: ({ signal }) =>
+    getBacktestTrades(runKey.value, undefined, signal, offset.value),
 }))
 
 const equityQuery = useQuery(() => ({
@@ -59,54 +65,56 @@ const equityQuery = useQuery(() => ({
   queryFn: ({ signal }) => getBacktestEquity(runKey.value, signal),
 }))
 
+const universeQuery = useQuery(() => ({
+  queryKey: backtestKeys.universe(runKey.value),
+  queryFn: ({ signal }) => getBacktestUniverse(runKey.value, signal),
+}))
+
+const aggregateQuery = useQuery(() => ({
+  queryKey: backtestKeys.aggregate(runKey.value),
+  queryFn: ({ signal }) => getBacktestAggregate(runKey.value, signal),
+}))
+
 const run = computed(() => runQuery.data.value ?? null)
 const trades = computed(() => tradesQuery.data.value ?? [])
 const equity = computed(() => equityQuery.data.value ?? [])
+const universe = computed(() => universeQuery.data.value ?? [])
+const aggregate = computed(() => aggregateQuery.data.value ?? null)
 
-const symbols = computed(() => [...new Set(trades.value.map((t) => t.symbol))])
+const totalTrades = computed(
+  () => aggregate.value?.totalTrades ?? trades.value.length,
+)
+const page = computed(() => Math.floor(offset.value / PAGE_SIZE) + 1)
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(totalTrades.value / PAGE_SIZE)),
+)
+function previousPage() {
+  offset.value = Math.max(0, offset.value - PAGE_SIZE)
+}
+function nextPage() {
+  if (offset.value + PAGE_SIZE < totalTrades.value) {
+    offset.value += PAGE_SIZE
+  }
+}
+
+const selectedTrade = ref<BacktestTradeRow | null>(null)
+const drawerOpen = ref(false)
+function inspect(trade: BacktestTradeRow) {
+  selectedTrade.value = trade
+  drawerOpen.value = true
+}
+
+// The chart universe comes from the run specification, not the trade list, so a zero-trade run
+// still lets the operator inspect every tested instrument.
+const symbols = computed(() => universe.value.map((entry) => entry.symbol))
 const activeSymbol = computed(
   () => selectedSymbol.value ?? symbols.value[0] ?? null,
 )
 
 const activeInstrumentId = computed(
   () =>
-    trades.value.find((t) => t.symbol === activeSymbol.value)?.instrumentId ??
-    0,
-)
-
-const windowFrom = computed(() =>
-  run.value?.startDate ? `${run.value.startDate}T00:00:00+05:30` : undefined,
-)
-const windowTo = computed(() =>
-  run.value?.endDate ? `${run.value.endDate}T23:59:59+05:30` : undefined,
-)
-
-const markers = computed<ChartMarker[]>(() =>
-  trades.value
-    .filter((trade) => trade.symbol === activeSymbol.value)
-    .flatMap((trade) => {
-      const long = trade.direction === 'LONG'
-      const result: ChartMarker[] = [
-        {
-          time: trade.entryAt,
-          position: long ? 'belowBar' : 'aboveBar',
-          color: long ? '#15803d' : '#b91c1c',
-          shape: long ? 'arrowUp' : 'arrowDown',
-          text: `Entry ${trade.direction}`,
-        },
-      ]
-      if (trade.exitAt) {
-        result.push({
-          time: trade.exitAt,
-          position: long ? 'aboveBar' : 'belowBar',
-          color: '#525252',
-          shape: 'circle',
-          text: `Exit ${trade.exitReason ?? ''}`.trim(),
-        })
-      }
-      return result
-    })
-    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time)),
+    universe.value.find((entry) => entry.symbol === activeSymbol.value)
+      ?.instrumentId ?? 0,
 )
 
 function metric(key: string): string {
@@ -150,11 +158,14 @@ const equityPath = computed(() => {
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
+  const times = points.map((p) => Date.parse(p.at))
+  const minTime = Math.min(...times)
+  const timeSpan = Math.max(...times) - minTime || 1
   return values
     .map((value, index) => {
-      const x = (index / (values.length - 1)) * 100
+      const x = (((times[index] ?? minTime) - minTime) / timeSpan) * 100
       const y = 100 - ((value - min) / span) * 100
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(3)},${y.toFixed(2)}`
     })
     .join(' ')
 })
@@ -165,36 +176,29 @@ const drawdownPath = computed(() => {
     return null
   }
   const max = Math.max(...points.map((p) => p.drawdown), 1)
+  const times = points.map((p) => Date.parse(p.at))
+  const minTime = Math.min(...times)
+  const timeSpan = Math.max(...times) - minTime || 1
   return points
     .map((point, index) => {
-      const x = (index / (points.length - 1)) * 100
+      const x = (((times[index] ?? minTime) - minTime) / timeSpan) * 100
       const y = (point.drawdown / max) * 100
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(3)},${y.toFixed(2)}`
     })
     .join(' ')
 })
 
-const symbolStats = computed(() => {
-  const groups = new Map<
-    string,
-    { symbol: string; trades: number; wins: number; net: number; costs: number }
-  >()
-  for (const trade of trades.value) {
-    const entry = groups.get(trade.symbol) ?? {
-      symbol: trade.symbol,
-      trades: 0,
-      wins: 0,
-      net: 0,
-      costs: 0,
-    }
-    entry.trades += 1
-    entry.wins += trade.netPnl > 0 ? 1 : 0
-    entry.net += trade.netPnl
-    entry.costs += trade.explicitCosts
-    groups.set(trade.symbol, entry)
-  }
-  return [...groups.values()].sort((a, b) => b.net - a.net)
-})
+// Per-symbol completed-trade stats come from the aggregate endpoint, never from the current page.
+const symbolStats = computed(
+  () =>
+    aggregate.value?.symbols.map((stat) => ({
+      symbol: stat.symbol,
+      trades: stat.completed,
+      wins: stat.wins,
+      net: stat.net,
+      costs: stat.costs,
+    })) ?? [],
+)
 </script>
 
 <template>
@@ -299,12 +303,13 @@ const symbolStats = computed(() => {
       <Card v-else-if="tab === 'trades'" class="gap-0 overflow-hidden py-0">
         <CardHeader class="px-5 py-4">
           <CardTitle class="text-base">Trades</CardTitle>
-          <CardDescription
-            >{{ trades.length }} simulated trade(s).</CardDescription
-          >
+          <CardDescription>
+            Showing {{ trades.length }} of {{ totalTrades }} simulated trade(s)
+            · page {{ page }} of {{ pageCount }}.
+          </CardDescription>
         </CardHeader>
         <div class="overflow-x-auto border-t">
-          <Table class="min-w-[1000px]">
+          <Table class="min-w-[1080px]">
             <TableHeader>
               <TableRow class="hover:bg-transparent">
                 <TableHead>Symbol</TableHead>
@@ -317,10 +322,16 @@ const symbolStats = computed(() => {
                 <TableHead class="text-right">Net</TableHead>
                 <TableHead class="text-right">R</TableHead>
                 <TableHead>Reason</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow v-for="trade in trades" :key="trade.tradeKey">
+              <TableRow
+                v-for="trade in trades"
+                :key="trade.tradeKey"
+                class="cursor-pointer"
+                @click="inspect(trade)"
+              >
                 <TableCell class="text-xs">{{ trade.symbol }}</TableCell>
                 <TableCell class="text-xs">{{ trade.direction }}</TableCell>
                 <TableCell class="text-xs">
@@ -368,19 +379,54 @@ const symbolStats = computed(() => {
                     · {{ trade.ambiguousBars }} ambiguous
                   </span>
                 </TableCell>
+                <TableCell class="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Inspect trade"
+                    @click.stop="inspect(trade)"
+                  >
+                    Inspect
+                  </Button>
+                </TableCell>
               </TableRow>
               <TableRow v-if="trades.length === 0">
                 <TableCell
-                  colspan="10"
+                  colspan="11"
                   class="py-8 text-center text-sm text-muted-foreground"
                 >
-                  No trades. With strict production context the engine fails
-                  closed; choose the derived research context to populate
-                  results.
+                  No trades in this run. The chart tab still shows every tested
+                  instrument and why it did not qualify.
                 </TableCell>
               </TableRow>
             </TableBody>
           </Table>
+        </div>
+        <div
+          v-if="pageCount > 1"
+          class="flex items-center justify-between border-t px-5 py-3 text-sm"
+        >
+          <span class="text-muted-foreground">
+            Page {{ page }} of {{ pageCount }}
+          </span>
+          <div class="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="page <= 1"
+              @click="previousPage"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="page >= pageCount"
+              @click="nextPage"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -412,14 +458,12 @@ const symbolStats = computed(() => {
                 </option>
               </select>
             </label>
-            <FeatureHistoryPanel
+            <BacktestTimelinePanel
               v-if="activeInstrumentId > 0"
               :key="activeSymbol ?? ''"
+              :run-key="runKey"
               :instrument-id="activeInstrumentId"
               :symbol="activeSymbol ?? ''"
-              :window-from="windowFrom"
-              :window-to="windowTo"
-              :markers="markers"
             />
           </template>
         </CardContent>
@@ -451,7 +495,11 @@ const symbolStats = computed(() => {
                   stat.trades
                 }}</TableCell>
                 <TableCell class="text-right text-xs tabular-nums">
-                  {{ ((stat.wins / stat.trades) * 100).toFixed(1) }}%
+                  {{
+                    stat.trades === 0
+                      ? '—'
+                      : `${((stat.wins / stat.trades) * 100).toFixed(1)}%`
+                  }}
                 </TableCell>
                 <TableCell class="text-right text-xs tabular-nums">{{
                   formatPrice(stat.costs)
@@ -468,5 +516,11 @@ const symbolStats = computed(() => {
         </CardContent>
       </Card>
     </template>
+
+    <TradeForensicsDrawer
+      v-model:open="drawerOpen"
+      :run-key="runKey"
+      :trade="selectedTrade"
+    />
   </div>
 </template>

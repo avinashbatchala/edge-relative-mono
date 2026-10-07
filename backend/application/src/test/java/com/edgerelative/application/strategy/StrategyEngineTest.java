@@ -324,6 +324,20 @@ class StrategyEngineTest {
     }
 
     @Test
+    void watchPriorAdvancesToValidOnNextEvaluation() {
+        // A setup already in WATCH with an instance must be able to reach VALID on a later bar even
+        // though several lifecycle rungs are satisfied at once (regression: it stalled at WATCH).
+        java.util.UUID instance = java.util.UUID.randomUUID();
+        PriorSetup watch = new PriorSetup(
+                instance, SetupState.WATCH, SetupFamily.M5_3_8_CONFIRMATION,
+                Direction.LONG, 1, 0, null, null, null);
+        StrategyEvaluationResult result = ENGINE.evaluate(
+                input(market("BULLISH"), stock(), List.of(), watch), parameters(), Direction.LONG);
+        assertThat(result.setupState()).isEqualTo(SetupState.VALID);
+        assertThat(result.setupInstanceId()).isEqualTo(instance);
+    }
+
+    @Test
     void setupInstanceIsDerivedDeterministicallyAndCarriedForward() {
         StrategyEvaluationResult first = ENGINE.evaluate(validLong(), parameters(), Direction.LONG);
         StrategyEvaluationResult second = ENGINE.evaluate(validLong(), parameters(), Direction.LONG);

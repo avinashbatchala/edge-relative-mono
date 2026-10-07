@@ -65,6 +65,7 @@ public class BacktestRepository {
     public RunIds createRun(
             String runKey,
             String specJson,
+            String fullSpecJson,
             String costJson,
             LocalDate start,
             LocalDate end,
@@ -114,9 +115,20 @@ public class BacktestRepository {
         dsl.execute(
                 "INSERT INTO research.backtest_run_spec (spec_key, experiment_run_id, spec, dataset_manifest, checksum, code_version) "
                         + "VALUES (?, ?, ?::jsonb, ?::jsonb, ?, 'er-backtest-engine-v1') ON CONFLICT (experiment_run_id) DO NOTHING",
-                UUID.nameUUIDFromBytes(("spec:" + runKey).getBytes(StandardCharsets.UTF_8)), experimentRunId, specJson,
+                UUID.nameUUIDFromBytes(("spec:" + runKey).getBytes(StandardCharsets.UTF_8)), experimentRunId, fullSpecJson,
                 json.writeValueAsString(Map.of("datasetVersionId", datasetVersionId)), "er-backtest-engine-v1");
         return new RunIds(experimentRunId, backtestRunId);
+    }
+
+    /** The full resolved spec persisted at start, used to replay a single-instrument timeline. */
+    public java.util.Optional<String> findSpec(String runKey) {
+        Record record = dsl.fetchOne(
+                "SELECT brs.spec::text AS spec FROM research.backtest_run_spec brs "
+                        + "JOIN research.backtest_run br ON br.experiment_run_id = brs.experiment_run_id "
+                        + "WHERE br.run_key = ? LIMIT 1",
+                UUID.fromString(runKey));
+        return record == null ? java.util.Optional.empty()
+                : java.util.Optional.ofNullable(record.get("spec", String.class));
     }
 
     public void markRunning(long experimentRunId, long backtestRunId) {
@@ -169,15 +181,17 @@ public class BacktestRepository {
         for (BacktestTrade trade : trades) {
             dsl.execute(
                     "INSERT INTO research.backtest_trade (trade_key, backtest_run_id, instrument_id, symbol, direction, "
-                            + "entry_pattern, entry_at, entry_price, exit_at, exit_price, quantity, gross_pnl, explicit_costs, "
-                            + "net_pnl, realized_r, holding_seconds, exit_reason, ambiguous_bars, cost_breakdown, plan_key, decision_key) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?::timestamptz, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?) "
+                            + "entry_pattern, entry_at, entry_price, initial_risk_per_unit, exit_at, exit_price, quantity, "
+                            + "gross_pnl, explicit_costs, net_pnl, realized_r, holding_seconds, exit_reason, ambiguous_bars, "
+                            + "cost_breakdown, plan_key, decision_key) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?::timestamptz, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?) "
                             + "ON CONFLICT (trade_key) DO NOTHING",
                     UUID.fromString(trade.tradeKey()), backtestRunId, trade.instrumentId(), trade.symbol(),
                     trade.direction().name(), trade.entryPattern(), utc(trade.entryAt()), trade.entryPrice(),
-                    utc(trade.exitAt()), trade.exitPrice(), trade.quantity(), trade.grossPnl(), trade.explicitCosts(),
-                    trade.netPnl(), trade.realizedR(), trade.holdingSeconds(), trade.exitReason(), trade.ambiguousBars(),
-                    json.writeValueAsString(trade.costBreakdown()), trade.planKey(), trade.decisionKey());
+                    trade.initialRiskPerUnit(), utc(trade.exitAt()), trade.exitPrice(), trade.quantity(), trade.grossPnl(),
+                    trade.explicitCosts(), trade.netPnl(), trade.realizedR(), trade.holdingSeconds(), trade.exitReason(),
+                    trade.ambiguousBars(), json.writeValueAsString(trade.costBreakdown()), trade.planKey(),
+                    trade.decisionKey());
         }
     }
 
@@ -222,7 +236,7 @@ public class BacktestRepository {
         // WHERE clause explicitly instead.
         boolean filtered = symbol != null && !symbol.isBlank();
         String sql = "SELECT t.trade_key, t.instrument_id, t.symbol, t.direction, t.entry_pattern, t.entry_at, "
-                + "t.entry_price, t.exit_at, t.exit_price, t.quantity, t.gross_pnl, t.explicit_costs, "
+                + "t.entry_price, t.initial_risk_per_unit, t.exit_at, t.exit_price, t.quantity, t.gross_pnl, t.explicit_costs, "
                 + "t.net_pnl, t.realized_r, t.holding_seconds, t.exit_reason, t.ambiguous_bars, "
                 + "t.cost_breakdown, t.plan_key, t.decision_key "
                 + "FROM research.backtest_trade t "
@@ -244,7 +258,7 @@ public class BacktestRepository {
                         instant(record.get("exit_at", OffsetDateTime.class)),
                         record.get("exit_price", BigDecimal.class),
                         record.get("quantity", Long.class),
-                        null,
+                        record.get("initial_risk_per_unit", BigDecimal.class),
                         record.get("gross_pnl", BigDecimal.class),
                         record.get("explicit_costs", BigDecimal.class),
                         record.get("net_pnl", BigDecimal.class),
@@ -274,6 +288,37 @@ public class BacktestRepository {
                         record.get("drawdown", BigDecimal.class),
                         record.get("drawdown_pct", Double.class),
                         record.get("open_positions", Integer.class)));
+    }
+
+    public List<com.edgerelative.application.backtest.domain.BacktestRejection> findRejections(String runKey) {
+        return dsl.fetch(
+                        "SELECT r.at, r.instrument_id, r.direction, r.reason_code, r.detail "
+                                + "FROM research.backtest_rejection r "
+                                + "JOIN research.backtest_run br ON br.backtest_run_id = r.backtest_run_id "
+                                + "WHERE br.run_key = ? ORDER BY r.at, r.backtest_rejection_id",
+                        UUID.fromString(runKey))
+                .map(record -> new com.edgerelative.application.backtest.domain.BacktestRejection(
+                        instant(record.get("at", OffsetDateTime.class)),
+                        record.get("instrument_id", Long.class),
+                        com.edgerelative.application.strategy.domain.Direction.valueOf(record.get("direction", String.class)),
+                        record.get("reason_code", String.class),
+                        record.get("detail", String.class)));
+    }
+
+    /** Per-symbol completed-trade aggregates plus totals, so the UI never derives them from a page. */
+    public List<Map<String, Object>> findSymbolAggregates(String runKey) {
+        return dsl.fetch(
+                        "SELECT t.symbol AS symbol, "
+                                + "count(*) FILTER (WHERE t.exit_at IS NOT NULL) AS completed, "
+                                + "count(*) FILTER (WHERE t.exit_at IS NOT NULL AND t.net_pnl > 0) AS wins, "
+                                + "COALESCE(sum(t.net_pnl) FILTER (WHERE t.exit_at IS NOT NULL), 0) AS net, "
+                                + "COALESCE(sum(t.explicit_costs) FILTER (WHERE t.exit_at IS NOT NULL), 0) AS costs, "
+                                + "count(*) AS total "
+                                + "FROM research.backtest_trade t "
+                                + "JOIN research.backtest_run br ON br.backtest_run_id = t.backtest_run_id "
+                                + "WHERE br.run_key = ? GROUP BY t.symbol ORDER BY net DESC",
+                        UUID.fromString(runKey))
+                .intoMaps();
     }
 
     public List<BacktestRunRow> listRuns(int limit) {

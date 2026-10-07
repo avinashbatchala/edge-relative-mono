@@ -37,16 +37,14 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * Small, manually verifiable end-to-end fixture: canonical candles -> production feature engine ->
- * production strategy engine -> production risk engine -> production plan factory -> simulated
- * execution -> costs -> equity/drawdown. Structure producers are simulated (they are not wired in
- * production); everything downstream is the production code path.
+ * Symmetric SHORT counterpart to the long end-to-end fixture: a persistent relatively-weak stock
+ * in a bearish market, a 3/8 short confirmation, risk approval, a next-bar fill and a stop-out on a
+ * gap against the position. Exercises the same production path as the long scenario.
  */
-class BacktestEngineEndToEndTest {
+class BacktestShortEndToEndTest {
 
     private static final long SUBJECT = 100L;
     private static final long MARKET = 200L;
-    private static final LocalDate DAY1 = LocalDate.of(2026, 9, 14);
 
     private static BigDecimal dec(String value) {
         return new BigDecimal(value);
@@ -54,7 +52,7 @@ class BacktestEngineEndToEndTest {
 
     private static StrategyParameters parameters() {
         return new StrategyParameters(
-                "BT_TEST", 1, Set.of(SetupFamily.M5_3_8_CONFIRMATION),
+                "BT_SHORT_TEST", 1, Set.of(SetupFamily.M5_3_8_CONFIRMATION),
                 0.0, 0.0,
                 0.0, 0.0, 0.0,
                 0.0,
@@ -75,7 +73,7 @@ class BacktestEngineEndToEndTest {
 
     private static RiskPolicy riskPolicy() {
         return new RiskPolicy(
-                "BT_RISK", 1, PolicyState.VALIDATED, EnumSet.allOf(TradingMode.class), Map.of(),
+                "BT_SHORT_RISK", 1, PolicyState.VALIDATED, EnumSet.allOf(TradingMode.class), Map.of(),
                 new RiskPolicy.TradeLimits(dec("0.50"), null, null, null, dec("10.0")),
                 new RiskPolicy.PortfolioLimits(
                         dec("0.5"), dec("0.5"), dec("10.0"), dec("10.0"), dec("0.5"), dec("0.5"), 10),
@@ -104,12 +102,8 @@ class BacktestEngineEndToEndTest {
     }
 
     private static BacktestSpec spec() {
-        return spec(BacktestSpec.ContextSource.STRICT_PRODUCTION);
-    }
-
-    private static BacktestSpec spec(BacktestSpec.ContextSource contextSource) {
         return new BacktestSpec(
-                "e2e-run", List.of(SUBJECT), List.of("SUBJECT"),
+                "e2e-short-run", List.of(SUBJECT), List.of("SUBJECT"),
                 LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 11), "M5", "D1",
                 dec("1000000"), "INR", false, parameters(), riskPolicy(), featurePolicy(),
                 new BacktestSpec.ExecutionPolicy("test-exec", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
@@ -118,142 +112,34 @@ class BacktestEngineEndToEndTest {
                 new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
                         dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
                 BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,
-                MARKET, null, "CANONICAL_M5", "fixture", contextSource);
+                MARKET, null, "CANONICAL_M5", "short-fixture", BacktestSpec.ContextSource.DERIVED_RESEARCH);
     }
 
     @Test
-    void derivedResearchContextProducesTradesFromCanonicalData() {
+    void bearishRelativeWeaknessProducesACompletedShortTrade() {
         BacktestResult result = new BacktestEngine(
                 new FixtureReader(), new FeatureEngine(),
                 new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
                 NseTradingCalendar.weekendsOnly())
-                .run(spec(BacktestSpec.ContextSource.DERIVED_RESEARCH), null);
-        assertThat(result.trades()).isNotEmpty();
-    }
-
-    @Test
-    void producesACompletedTradeWithCostsAndReconciledEquity() {
-        BacktestEngine engine = new BacktestEngine(
-                new FixtureReader(), new FeatureEngine(),
-                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(), NseTradingCalendar.weekendsOnly());
-
-        BacktestResult result = engine.run(spec(BacktestSpec.ContextSource.DERIVED_RESEARCH), null);
+                .run(spec(), null);
 
         assertThat(result.trades()).isNotEmpty();
-        BacktestTrade completed = result.trades().stream().filter(t -> !t.isOpen()).findFirst().orElseThrow();
-        assertThat(completed.direction().name()).isEqualTo("LONG");
+        BacktestTrade completed = result.trades().stream()
+                .filter(trade -> !trade.isOpen())
+                .findFirst()
+                .orElseThrow();
+        assertThat(completed.direction().name()).isEqualTo("SHORT");
         assertThat(completed.exitReason()).isEqualTo("STOP");
-        // A long stop fills at or below the entry.
-        assertThat(completed.exitPrice()).isLessThanOrEqualTo(completed.entryPrice());
-        // Warm-up history before the requested window was used for features, never for trades.
-        assertThat(completed.entryAt()).isAfterOrEqualTo(Instant.parse("2026-09-09T00:00:00Z"));
-        assertThat(completed.explicitCosts()).isGreaterThan(BigDecimal.ZERO);
-        assertThat(completed.costBreakdown()).isNotEmpty();
+        // A short stop fills at or above the entry.
+        assertThat(completed.exitPrice()).isGreaterThanOrEqualTo(completed.entryPrice());
         assertThat(completed.netPnl())
                 .isEqualByComparingTo(completed.grossPnl().subtract(completed.explicitCosts()));
         assertThat(completed.realizedR()).isNotNull();
-
-        // Equity reconciles: starting + realized net of completed trades + open marked-to-market P&L.
-        BigDecimal realizedClosed = result.trades().stream().filter(t -> !t.isOpen())
-                .map(BacktestTrade::netPnl).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal finalEquity = result.equityPoints().get(result.equityPoints().size() - 1).equity();
-        BigDecimal openMarked = result.trades().stream().filter(BacktestTrade::isOpen)
-                .map(BacktestTrade::netPnl).reduce(BigDecimal.ZERO, BigDecimal::add);
-        assertThat(finalEquity.setScale(2, RoundingMode.HALF_UP))
-                .isEqualByComparingTo(
-                        dec("1000000").add(realizedClosed).add(openMarked).setScale(2, RoundingMode.HALF_UP));
-        assertThat(result.equityPoints().get(result.equityPoints().size() - 1).drawdown())
-                .isGreaterThanOrEqualTo(BigDecimal.ZERO);
-        assertThat(result.processedEvents()).isGreaterThan(0);
     }
 
-    @Test
-    void anchorListenerObservesSnapshotAndSetupPerAnchor() {
-        List<String> longStates = new ArrayList<>();
-        List<Boolean> rrsPresent = new ArrayList<>();
-        new BacktestEngine(
-                new FixtureReader(), new FeatureEngine(),
-                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
-                NseTradingCalendar.weekendsOnly())
-                .run(spec(BacktestSpec.ContextSource.DERIVED_RESEARCH), null,
-                        (id, anchor, bar, snapshot, longResult, shortResult) -> {
-                            if (id != SUBJECT || snapshot == null) {
-                                return;
-                            }
-                            rrsPresent.add(
-                                    snapshot.feature(com.edgerelative.application.feature.domain.FeatureKeys.RRS_RAW) != null);
-                            longStates.add(longResult == null ? "SKIP" : longResult.setupState().name());
-                        });
-
-        assertThat(rrsPresent).isNotEmpty();
-        assertThat(rrsPresent).anyMatch(Boolean::booleanValue);
-        assertThat(longStates).contains("VALID");
-    }
-
-    @Test
-    void specRoundTripsThroughJsonForTimelineReplay() {
-        BacktestSpec original = spec(BacktestSpec.ContextSource.DERIVED_RESEARCH);
-        tools.jackson.databind.json.JsonMapper mapper = new tools.jackson.databind.json.JsonMapper();
-        String json = mapper.writeValueAsString(original);
-        BacktestSpec restored = mapper.readValue(json, BacktestSpec.class);
-        assertThat(restored).isEqualTo(original);
-    }
-
-    @Test
-    void deterministicRerunProducesIdenticalLedgerAndEquity() {
-        BacktestSpec spec = spec(BacktestSpec.ContextSource.DERIVED_RESEARCH);
-        BacktestResult first = new BacktestEngine(
-                new FixtureReader(), new FeatureEngine(),
-                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
-                NseTradingCalendar.weekendsOnly())
-                .run(spec, null);
-        BacktestResult second = new BacktestEngine(
-                new FixtureReader(), new FeatureEngine(),
-                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
-                NseTradingCalendar.weekendsOnly())
-                .run(spec, null);
-
-        assertThat(second.trades()).isEqualTo(first.trades());
-        assertThat(second.equityPoints()).isEqualTo(first.equityPoints());
-        assertThat(second.stageCounts()).isEqualTo(first.stageCounts());
-        assertThat(second.rejections()).isEqualTo(first.rejections());
-    }
-
-    @Test
-    void researchPresetsRunWithoutFailingAndFailClosedInStrictMode() {
-        BacktestSpec presetSpec = new BacktestSpec(
-                "preset-run", List.of(SUBJECT), List.of("SUBJECT"),
-                LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 11), "M5", "D1",
-                dec("1000000"), "INR", true,
-                com.edgerelative.application.backtest.application.BacktestPresets
-                        .strategy(com.edgerelative.application.backtest.application.BacktestPresets.STRATEGY_RS_RESEARCH)
-                        .orElseThrow(),
-                com.edgerelative.application.backtest.application.BacktestPresets
-                        .risk(com.edgerelative.application.backtest.application.BacktestPresets.RISK_RESEARCH_PERMISSIVE)
-                        .orElseThrow(),
-                featurePolicy(),
-                new BacktestSpec.ExecutionPolicy("test-exec", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
-                        BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
-                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true),
-                new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
-                        dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
-                BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,
-                MARKET, null, "CANONICAL_M5", "fixture", BacktestSpec.ContextSource.STRICT_PRODUCTION);
-
-        BacktestResult result = new BacktestEngine(
-                new FixtureReader(), new FeatureEngine(),
-                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
-                NseTradingCalendar.weekendsOnly())
-                .run(presetSpec, null);
-
-        // Strict production context leaves event risk unknown (no event-calendar producer), so the
-        // run completes with no fabricated trades.
-        assertThat(result.trades()).isEmpty();
-        assertThat(result.equityPoints()).isNotEmpty();
-    }
-
-    /** Deterministic reader: rising tight subject for history, then a gap below the stop. */
+    /** Deterministic reader: falling subject with a gap up against the short. */
     private static final class FixtureReader implements HistoricalDataReader {
+
         @Override
         public List<AggregatedCandle> candles(
                 long instrumentId, String timeframeCode, Instant from, Instant to, int limit) {
@@ -289,19 +175,19 @@ class BacktestEngineEndToEndTest {
                     Instant at = SESSIONS[session].atTime(3, 45).toInstant(ZoneOffset.UTC)
                             .plus(Duration.ofMinutes(5L * bar));
                     if (session == SESSIONS.length - 1 && bar == 0) {
-                        // Final session gaps below the protective stop.
+                        // Final session gaps up through the short's protective stop.
                         candles.add(new AggregatedCandle(
-                                at, at.plus(Duration.ofMinutes(5)), dec("99.00"), dec("99.00"), dec("98.50"),
-                                dec("98.80"), 1000, null, 10, dec("98.80"), false, true, "GOOD", "v1"));
-                        price = dec("98.80");
+                                at, at.plus(Duration.ofMinutes(5)), dec("101.20"), dec("101.80"), dec("100.80"),
+                                dec("101.50"), 1000, null, 10, dec("101.50"), false, true, "GOOD", "v1"));
+                        price = dec("101.50");
                         absolute++;
                         continue;
                     }
-                    // Zigzag around 100: 20 bars up, 20 bars down. Each up leg produces a genuine
-                    // EMA3-over-EMA8 confirmation so the 3/8 long family can trigger.
+                    // Zigzag around 100: 20 bars down, 20 bars up. Each down leg produces a genuine
+                    // EMA3-below-EMA8 confirmation so the 3/8 short family can trigger.
                     BigDecimal open = price;
                     int positionInCycle = absolute % 40;
-                    BigDecimal delta = positionInCycle < 20 ? dec("0.20") : dec("-0.20");
+                    BigDecimal delta = positionInCycle < 20 ? dec("-0.30") : dec("0.30");
                     BigDecimal close = open.add(delta);
                     BigDecimal high = close.max(open).add(dec("0.01"));
                     BigDecimal low = close.min(open).subtract(dec("0.01"));
@@ -318,17 +204,16 @@ class BacktestEngineEndToEndTest {
         private List<AggregatedCandle> marketM5() {
             List<AggregatedCandle> candles = new ArrayList<>();
             BigDecimal price = dec("20000");
-            // An initial upward zigzag confirms higher highs and higher lows (DD-02 §24), then a
-            // steady rise. Once two swing highs/lows are confirmed the market reads BULL_STRUCTURE
-            // and the structure persists because later monotonic bars add no new pivots.
-            BigDecimal[] zigzag = { dec("1"), dec("1"), dec("-0.5"), dec("-0.5") };
+            // Initial downward zigzag confirms lower highs and lower lows (BEAR_STRUCTURE), then a
+            // steady decline keeps the market regime trending and bias BEARISH.
+            BigDecimal[] zigzag = { dec("-1"), dec("-1"), dec("0.5"), dec("0.5") };
             int index = 0;
             int absolute = 0;
             for (LocalDate session : SESSIONS) {
                 for (int bar = 0; bar < BARS_PER_SESSION; bar++) {
                     Instant at = session.atTime(3, 45).toInstant(ZoneOffset.UTC).plus(Duration.ofMinutes(5L * bar));
                     BigDecimal open = price;
-                    BigDecimal delta = absolute < 16 ? zigzag[index++ % zigzag.length] : dec("1");
+                    BigDecimal delta = absolute < 16 ? zigzag[index++ % zigzag.length] : dec("-1");
                     BigDecimal close = open.add(delta);
                     BigDecimal high = close.add(dec("0.25"));
                     BigDecimal low = close.subtract(dec("0.25"));
@@ -346,15 +231,14 @@ class BacktestEngineEndToEndTest {
             List<AggregatedCandle> candles = new ArrayList<>();
             BigDecimal price = instrumentId == MARKET ? dec("20000") : dec("100");
             for (int i = 0; i < 6; i++) {
-                price = price.add(instrumentId == MARKET ? BigDecimal.ZERO : dec("10"));
-                Instant at = DAY1.minusDays(6 - i).atTime(10, 0).toInstant(ZoneOffset.UTC);
-                BigDecimal open = instrumentId == MARKET ? price : price.subtract(dec("10"));
+                price = instrumentId == MARKET ? price : price.subtract(dec("10"));
+                Instant at = LocalDate.of(2026, 9, 14).minusDays(6 - i).atTime(10, 0).toInstant(ZoneOffset.UTC);
+                BigDecimal open = instrumentId == MARKET ? price : price.add(dec("10"));
                 candles.add(new AggregatedCandle(
-                        at, at.plus(Duration.ofHours(6)), open, price.add(dec("1")), open.subtract(dec("1")), price,
+                        at, at.plus(Duration.ofHours(6)), open, open.add(dec("1")), price.subtract(dec("1")), price,
                         100000, null, 100, price, false, true, "GOOD", "v1"));
             }
             return candles;
         }
-
     }
 }
