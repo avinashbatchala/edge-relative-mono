@@ -135,9 +135,25 @@ public class SetupEvaluationService {
         LocalDate sessionDate = calendar.sessionDate(evaluationTime);
         boolean tradingDay = calendar.isTradingDay(sessionDate);
         AggregatedCandle completed = subject.get(subject.size() - 1);
+        StrategyParameters params = parameters.parameters().orElseThrow();
 
+        // Session windows come from the exchange calendar plus configured blackout/cutoff minutes; they
+        // are never assumed open. Blackout/cutoff are empty when their configured minutes are 0.
+        boolean inSession = calendar.isSessionMinute(evaluationTime);
+        boolean openingBlackout = false;
+        boolean entryCutoffReached = false;
+        if (tradingDay && inSession) {
+            Instant open = calendar.sessionOpen(sessionDate);
+            Instant close = calendar.sessionClose(sessionDate);
+            openingBlackout = params.openingBlackoutMinutes() > 0
+                    && evaluationTime.isBefore(open.plusSeconds(60L * params.openingBlackoutMinutes()));
+            entryCutoffReached = params.entryCutoffMinutesBeforeClose() > 0
+                    && !evaluationTime.isBefore(close.minusSeconds(60L * params.entryCutoffMinutesBeforeClose()));
+        }
+        boolean entryWindowOpen = inSession && !openingBlackout && !entryCutoffReached;
         StrategyEvaluationInput.SessionContext session = new StrategyEvaluationInput.SessionContext(
-                evaluationTime, tradingDay, tradingDay, false, false, NseTradingCalendar.VERSION);
+                evaluationTime, tradingDay, entryWindowOpen, openingBlackout, entryCutoffReached,
+                NseTradingCalendar.VERSION);
         StrategyEvaluationInput.MarketContext market =
                 new StrategyEvaluationInput.MarketContext(null, null, null, evaluationTime, false);
         StrategyEvaluationInput.SectorContext sector = sector(m5);
