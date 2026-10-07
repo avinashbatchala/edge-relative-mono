@@ -129,7 +129,7 @@ class SetupObservationIntegrationTest {
                 "TEST_PARAMS",
                 1,
                 Set.of(SetupFamily.M5_3_8_CONFIRMATION),
-                0.5, -0.5,
+                0.5, 0.5,
                 1.2, 1.5, 1.2,
                 5_000_000,
                 0.5,

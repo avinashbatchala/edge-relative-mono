@@ -250,25 +250,39 @@ public final class StrategyEngine {
                 : HardGateResult.failed(GateCode.RRS_D1_DIRECTION, rrs.toString(), direction.isLong() ? "> 0" : "< 0", ReasonCode.RRS_D1_FAILED, null);
     }
 
+    /**
+     * Direction and persistence are independent: the RRS direction must match the trade direction
+     * (LONG raw &gt; 0, SHORT raw &lt; 0) and persistence — the share of recent bars agreeing with the
+     * RRS direction, a magnitude in [0, 1] — must meet the configured minimum. A persistent bearish
+     * stock has negative RRS and persistence near 1.0, so it must qualify for a short on the same
+     * "persistence &gt;= minimum" rule as a long.
+     */
     private HardGateResult rrsM5(StrategyEvaluationInput input, Direction direction, StrategyParameters parameters) {
+        Double raw = value(input.stock(), StockContext::rrsM5Raw);
         Double persistence = value(input.stock(), StockContext::rrsM5Persistence);
-        if (persistence == null) {
+        if (raw == null || persistence == null) {
             return HardGateResult.unavailable(GateCode.RRS_M5_PERSISTENCE, ReasonCode.MISSING_REQUIRED_DEPENDENCY, null);
+        }
+        boolean directionMatches = direction.isLong() ? raw > 0.0 : raw < 0.0;
+        if (!directionMatches) {
+            String reference = direction.isLong() ? "raw > 0" : "raw < 0";
+            return HardGateResult.failed(
+                    GateCode.RRS_M5_PERSISTENCE, "raw=" + raw, reference, ReasonCode.RRS_M5_FAILED, null);
         }
         boolean neutralStronger = input.market() != null
                 && "NEUTRAL".equals(input.market().bias())
                 && parameters.neutralMarketPolicy() == StrategyParameters.NeutralMarketPolicy.REQUIRE_STRONGER;
         double extra = neutralStronger ? parameters.neutralRrsPersistenceExtra() : 0.0;
-        if (direction.isLong()) {
-            double threshold = parameters.rrsM5PersistenceLongMin() + extra;
-            return persistence > threshold
-                    ? HardGateResult.passed(GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "> " + threshold, null)
-                    : HardGateResult.failed(GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "> " + threshold, ReasonCode.RRS_M5_FAILED, null);
-        }
-        double threshold = parameters.rrsM5PersistenceShortMax() - extra;
-        return persistence < threshold
-                ? HardGateResult.passed(GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "< " + threshold, null)
-                : HardGateResult.failed(GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "< " + threshold, ReasonCode.RRS_M5_FAILED, null);
+        double minimum = (direction.isLong()
+                        ? parameters.rrsM5PersistenceLongMin()
+                        : parameters.rrsM5PersistenceShortMin())
+                + extra;
+        return persistence > minimum
+                ? HardGateResult.passed(
+                        GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "raw " + (direction.isLong() ? ">0" : "<0")
+                                + " and persistence > " + minimum, null)
+                : HardGateResult.failed(
+                        GateCode.RRS_M5_PERSISTENCE, persistence.toString(), "> " + minimum, ReasonCode.RRS_M5_FAILED, null);
     }
 
     private HardGateResult volumeParticipation(StrategyEvaluationInput input, StrategyParameters parameters) {

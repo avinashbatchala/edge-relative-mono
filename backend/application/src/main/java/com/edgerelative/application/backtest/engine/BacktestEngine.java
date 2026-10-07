@@ -45,6 +45,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -112,7 +113,11 @@ public final class BacktestEngine {
                 spec.endDate().plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
 
         Map<String, long[]> counts = new LinkedHashMap<>();
-        Portfolio portfolio = new Portfolio(spec, provider, counts);
+        Portfolio portfolio = new Portfolio(spec, provider, counts, calendar);
+        // Run-scoped setup lifecycle, keyed by instrument and direction. Passing a prior state lets
+        // the production engine apply legal transitions and age/trigger expiry instead of cold-starting
+        // every bar, so FORMING -> NEAR_TRIGGER -> VALID accumulates across the replay.
+        Map<String, StrategyEvaluationInput.PriorSetup> priorState = new HashMap<>();
         long total = (long) timeline.size() * Math.max(1, spec.instrumentIds().size());
         long processed = 0;
         List<EquityPoint> equity = new ArrayList<>();
@@ -124,7 +129,7 @@ public final class BacktestEngine {
             ordered.sort(Comparator.naturalOrder());
             for (Long instrumentId : ordered) {
                 processSymbol(spec, provider, portfolio, instrumentId, anchor, m5.get(instrumentId),
-                        d1.get(instrumentId), series, marketCandles, counts);
+                        d1.get(instrumentId), series, marketCandles, counts, priorState);
                 processed++;
             }
             portfolio.markEquity(anchor, equity);
@@ -183,8 +188,11 @@ public final class BacktestEngine {
             BenchmarkIdentity benchmark = new BenchmarkIdentity(
                     spec.marketInstrumentId(), "NIFTY50", null, null, null,
                     spec.sectorInstrumentId(), null);
+            List<AggregatedCandle> sectorCandles = spec.sectorInstrumentId() == null
+                    ? List.of()
+                    : series.getOrDefault(spec.sectorInstrumentId(), List.of());
             FeatureContext context = new FeatureContext(
-                    instrumentId, timeframe, subject, marketCandles, List.of(), benchmark,
+                    instrumentId, timeframe, subject, marketCandles, sectorCandles, benchmark,
                     spec.featurePolicy(), new com.edgerelative.application.feature.policy.FeatureVersions(spec.featurePolicy()),
                     calendar, "NIFTY50", null);
             NavigableMap<Instant, FeatureSnapshot> byAnchor = new TreeMap<>();
@@ -208,7 +216,8 @@ public final class BacktestEngine {
             NavigableMap<Instant, FeatureSnapshot> d1,
             Map<Long, List<AggregatedCandle>> series,
             List<AggregatedCandle> marketCandles,
-            Map<String, long[]> counts) {
+            Map<String, long[]> counts,
+            Map<String, StrategyEvaluationInput.PriorSetup> priorState) {
         List<AggregatedCandle> candles = series.getOrDefault(instrumentId, List.of());
         AggregatedCandle bar = candleAt(candles, anchor);
         if (bar == null) {
@@ -230,10 +239,20 @@ public final class BacktestEngine {
         FeatureSnapshot daily = dailyEntry == null ? null : dailyEntry.getValue();
         Context context = context(spec, provider, instrumentId, anchor, snapshot, daily, bar, candles, marketCandles);
 
+        String longKey = instrumentId + ":LONG";
+        String shortKey = instrumentId + ":SHORT";
+        StrategyEvaluationInput.PriorSetup priorLong =
+                priorState.getOrDefault(longKey, StrategyEvaluationInput.PriorSetup.none());
+        StrategyEvaluationInput.PriorSetup priorShort =
+                priorState.getOrDefault(shortKey, StrategyEvaluationInput.PriorSetup.none());
         StrategyEvaluationResult longResult = strategyEngine.evaluate(
-                input(spec, context, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.LONG);
+                input(spec, context, instrumentId, anchor, snapshot, daily, bar, priorLong),
+                spec.strategyParameters(), Direction.LONG);
         StrategyEvaluationResult shortResult = strategyEngine.evaluate(
-                input(spec, context, instrumentId, anchor, snapshot, daily, bar), spec.strategyParameters(), Direction.SHORT);
+                input(spec, context, instrumentId, anchor, snapshot, daily, bar, priorShort),
+                spec.strategyParameters(), Direction.SHORT);
+        priorState.put(longKey, advance(priorLong, longResult));
+        priorState.put(shortKey, advance(priorShort, shortResult));
         increment(counts, "setup_" + longResult.setupState().name());
         increment(counts, "setup_" + shortResult.setupState().name());
         if (longResult.setupState() != SetupState.VALID) {
@@ -269,6 +288,32 @@ public final class BacktestEngine {
                 anchor, null);
         increment(counts, "plansCreated");
         portfolio.submit(spec, instrumentId, chosen.direction(), plan);
+        // The setup is consumed by the entry; clear its lifecycle so the next setup starts fresh.
+        priorState.remove(longKey);
+        priorState.remove(shortKey);
+    }
+
+    /** Advances a run-scoped setup lifecycle from one evaluation result (DD-02 setup lifecycle). */
+    private static StrategyEvaluationInput.PriorSetup advance(
+            StrategyEvaluationInput.PriorSetup prior, StrategyEvaluationResult result) {
+        SetupState state = result.setupState();
+        int barsInState = prior.state() == state ? prior.barsInState() + 1 : 1;
+        Instant triggerTime = prior.triggerTime();
+        if (triggerTime == null && result.trigger() != null
+                && (state == SetupState.VALID || state == SetupState.MISSED)) {
+            triggerTime = result.evaluationTimestamp();
+        }
+        int barsSinceTrigger = triggerTime == null ? 0 : prior.barsSinceTrigger() + 1;
+        return new StrategyEvaluationInput.PriorSetup(
+                result.setupInstanceId(),
+                state,
+                result.setupFamily(),
+                result.direction(),
+                barsInState,
+                barsSinceTrigger,
+                triggerTime,
+                result.trigger() == null ? null : result.trigger().triggerLevel(),
+                result.invalidation() == null ? null : result.invalidation().invalidationLevel());
     }
 
     private StrategyEvaluationInput input(
@@ -278,11 +323,27 @@ public final class BacktestEngine {
             Instant anchor,
             FeatureSnapshot snapshot,
             FeatureSnapshot daily,
-            AggregatedCandle bar) {
+            AggregatedCandle bar,
+            StrategyEvaluationInput.PriorSetup prior) {
         BacktestContextProvider.MarketInput market = context.market();
         BacktestContextProvider.StockInput stock = context.stock();
         LocalDate sessionDate = calendar.sessionDate(anchor);
         boolean tradingDay = calendar.isTradingDay(sessionDate);
+        StrategyParameters params = spec.strategyParameters();
+        // Session windows come from the exchange calendar plus configured blackout/cutoff minutes;
+        // they are never assumed open. Blackout/cutoff are empty when their configured minutes are 0.
+        boolean inSession = calendar.isSessionMinute(anchor);
+        boolean openingBlackout = false;
+        boolean entryCutoffReached = false;
+        if (tradingDay && inSession) {
+            Instant open = calendar.sessionOpen(sessionDate);
+            Instant close = calendar.sessionClose(sessionDate);
+            openingBlackout = params.openingBlackoutMinutes() > 0
+                    && anchor.isBefore(open.plus(Duration.ofMinutes(params.openingBlackoutMinutes())));
+            entryCutoffReached = params.entryCutoffMinutesBeforeClose() > 0
+                    && !anchor.isBefore(close.minus(Duration.ofMinutes(params.entryCutoffMinutesBeforeClose())));
+        }
+        boolean entryWindowOpen = inSession && !openingBlackout && !entryCutoffReached;
         List<DependencyStatus> dependencies = new ArrayList<>();
         dependencies.add(dep("market.bias", market.available()));
         dependencies.add(dep("market.regime", market.available()));
@@ -302,7 +363,9 @@ public final class BacktestEngine {
                 instrumentId,
                 0L,
                 "mo:" + anchor,
-                new StrategyEvaluationInput.SessionContext(anchor, tradingDay, tradingDay, false, false, NseTradingCalendar.VERSION),
+                new StrategyEvaluationInput.SessionContext(
+                        anchor, tradingDay, entryWindowOpen, openingBlackout, entryCutoffReached,
+                        NseTradingCalendar.VERSION),
                 new StrategyEvaluationInput.MarketContext(
                         market.bias(), market.regime(), market.phase(), anchor, market.available()),
                 sector(snapshot, anchor),
@@ -330,7 +393,7 @@ public final class BacktestEngine {
                 new StrategyEvaluationInput.CompletedCandle(
                         bar.openTime(), bar.closeTime(), bar.open(), bar.high(), bar.low(), bar.close(), bar.volume()),
                 dependencies,
-                StrategyEvaluationInput.PriorSetup.none());
+                prior);
     }
 
     private RiskCandidate candidate(
@@ -646,11 +709,15 @@ public final class BacktestEngine {
         private final List<BacktestRejection> rejections = new ArrayList<>();
         private final BacktestContextProvider provider;
         private final Map<String, long[]> counts;
+        private final NseTradingCalendar calendar;
 
-        private Portfolio(BacktestSpec spec, BacktestContextProvider provider, Map<String, long[]> counts) {
+        private Portfolio(
+                BacktestSpec spec, BacktestContextProvider provider, Map<String, long[]> counts,
+                NseTradingCalendar calendar) {
             this.startingCapital = spec.startingCapital();
             this.provider = provider;
             this.counts = counts;
+            this.calendar = calendar;
         }
 
         boolean hasPositionOrPending(long instrumentId) {
@@ -801,6 +868,10 @@ public final class BacktestEngine {
 
         RiskContext context(BacktestSpec spec, Instant anchor, FeatureSnapshot snapshot) {
             BigDecimal equity = startingCapital.add(realized);
+            LocalDate sessionDate = calendar.sessionDate(anchor);
+            boolean tradingDay = calendar.isTradingDay(sessionDate);
+            boolean inSession = calendar.isSessionMinute(anchor);
+            boolean cutoffReached = tradingDay && !anchor.isBefore(calendar.sessionClose(sessionDate));
             return RiskContext.builder(spec.runKey() + ":ctx:" + anchor, 1, anchor, calendarSession(spec, anchor))
                     .available()
                     .equity(equity, equity)
@@ -811,7 +882,9 @@ public final class BacktestEngine {
                     .state(RiskState.NORMAL)
                     .counters(positions.size(), 0)
                     .health("HEALTHY", "HEALTHY", "MATCHED", true)
-                    .session(new RiskContext.SessionWindow(anchor, true, true, false, false, false, NseTradingSessionVersion.VERSION))
+                    .session(new RiskContext.SessionWindow(
+                            anchor, tradingDay, inSession, false, cutoffReached, false,
+                            NseTradingSessionVersion.VERSION))
                     .build();
         }
 

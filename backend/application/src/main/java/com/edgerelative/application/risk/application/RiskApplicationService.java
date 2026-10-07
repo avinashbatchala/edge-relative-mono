@@ -70,14 +70,22 @@ public class RiskApplicationService {
         Optional<RiskPolicyRepository.ResolvedPolicy> resolved = policyRepository.resolve(candidate.policyCode());
         Optional<Authority> authority = authority(candidate);
 
+        // Seed the account/session row from the current context so it exists to lock. This insert is
+        // idempotent; a concurrently-created row keeps its own committed values.
+        RiskContext seedContext = contextProvider
+                .current(candidate.brokerAccountId(), at)
+                .orElseGet(() -> unavailableContext(candidate, at, tradingDate));
+        if (authority.isPresent()) {
+            repository.createAccountState(seedContext, candidate.brokerAccountId());
+            repository.lockAccountState(candidate.brokerAccountId(), tradingDate);
+        }
+
+        // Re-read the authoritative context AFTER acquiring the row lock. A context read before the
+        // lock can be stale: another approval may have reserved capacity while this thread waited,
+        // which would let concurrent candidates both spend the same remaining budget.
         RiskContext context = contextProvider
                 .current(candidate.brokerAccountId(), at)
                 .orElseGet(() -> unavailableContext(candidate, at, tradingDate));
-
-        if (authority.isPresent()) {
-            repository.createAccountState(context, candidate.brokerAccountId());
-            repository.lockAccountState(candidate.brokerAccountId(), tradingDate);
-        }
 
         RiskDecisionProposal proposal = evaluator.evaluate(
                 authority.map(Authority::candidate).orElse(candidate),

@@ -41,7 +41,7 @@ class StrategyEngineTest {
                 "TEST_PARAMS",
                 1,
                 Set.of(SetupFamily.M5_3_8_CONFIRMATION),
-                0.5, -0.5,
+                0.5, 0.5,
                 1.2, 1.5, 1.2,
                 5_000_000,
                 0.5,
@@ -122,7 +122,7 @@ class StrategyEngineTest {
     void shortIsEvaluatedSymmetrically() {
         StockContext shortStock = new StockContext(
                 "SHORT_ALIGNED",
-                -1.2, -0.8, -0.6, -0.5, -0.9, "NEGATIVE_FALLING",
+                -1.2, -0.8, -0.6, -0.5, 0.9, "NEGATIVE_FALLING",
                 1.3, 1.8, 1.4, 0.2,
                 1.5, 100.0, 0.05,
                 "VALID", 10_000_000.0, 5.0,
@@ -136,6 +136,42 @@ class StrategyEngineTest {
                 input(market("BEARISH"), shortStock, List.of(), PriorSetup.none()), parameters(), Direction.SHORT);
         assertThat(result.setupState()).isEqualTo(SetupState.VALID);
         assertThat(result.valid()).isTrue();
+    }
+
+    @Test
+    void persistentBearishRelativeWeaknessQualifiesForShort() {
+        // Persistence is a magnitude in [0, 1] independent of direction: a strongly persistent
+        // bearish stock (RRS raw < 0, persistence near 1.0) must pass the M5 gate, not be rejected.
+        StrategyEvaluationResult result = ENGINE.evaluate(
+                input(market("BEARISH"), shortStock(1.0), List.of(), PriorSetup.none()), parameters(), Direction.SHORT);
+        assertThat(result.hardGates())
+                .filteredOn(gate -> gate.gateCode() == GateCode.RRS_M5_PERSISTENCE)
+                .allSatisfy(gate -> assertThat(gate.status()).isEqualTo(GateStatus.PASSED));
+    }
+
+    @Test
+    void lowPersistenceShortIsRejectedByTheM5Gate() {
+        StrategyEvaluationResult result = ENGINE.evaluate(
+                input(market("BEARISH"), shortStock(0.2), List.of(), PriorSetup.none()), parameters(), Direction.SHORT);
+        assertThat(result.hardGates())
+                .filteredOn(gate -> gate.gateCode() == GateCode.RRS_M5_PERSISTENCE)
+                .allSatisfy(gate -> assertThat(gate.status()).isEqualTo(GateStatus.FAILED));
+        assertThat(result.reasonCodes()).contains(ReasonCode.RRS_M5_FAILED);
+    }
+
+    private static StockContext shortStock(double persistence) {
+        return new StockContext(
+                "SHORT_ALIGNED",
+                -1.2, -0.8, -0.6, -0.5, persistence, "NEGATIVE_FALLING",
+                1.3, 1.8, 1.4, 0.2,
+                1.5, 100.0, 0.05,
+                "VALID", 10_000_000.0, 5.0,
+                1.0, false,
+                new StructureContext(
+                        false, null, null, null, null,
+                        false, null,
+                        true, new BigDecimal("99.6"), new BigDecimal("100.0"),
+                        new BigDecimal("100.1"), new BigDecimal("100.0")));
     }
 
     @Test

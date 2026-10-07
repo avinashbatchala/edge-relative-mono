@@ -59,7 +59,7 @@ public class StrategyProperties {
                 integer("parameterVersion"),
                 families,
                 number("rrsM5PersistenceLongMin"),
-                number("rrsM5PersistenceShortMax"),
+                number("rrsM5PersistenceShortMin"),
                 number("minRvolDaily"),
                 number("minRvolInterval"),
                 number("minRvolCumulative"),

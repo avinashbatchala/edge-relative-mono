@@ -110,20 +110,32 @@ class RiskDecisionIntegrationTest {
     static class ContextProvider {
         @Bean
         @Primary
-        RiskContextProvider testRiskContextProvider() {
-            return (brokerAccountId, at) -> java.util.Optional.of(RiskContext.builder(
-                            UUID.nameUUIDFromBytes(("ctx:" + brokerAccountId).getBytes()).toString(), 1, T, SESSION)
-                    .available()
-                    .equity(new BigDecimal("1000000"), new BigDecimal("1000000"))
-                    .funding(new BigDecimal("500000"), new BigDecimal("500000"), BigDecimal.ZERO)
-                    .exposures(BigDecimal.ZERO, BigDecimal.ZERO)
-                    .risk(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
-                    .losses(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
-                    .state(RiskState.NORMAL)
-                    .counters(0, 0)
-                    .health("HEALTHY", "HEALTHY", "MATCHED", true)
-                    .session(new RiskContext.SessionWindow(T, true, true, false, false, false, "nse-session-v1"))
-                    .build());
+        RiskContextProvider testRiskContextProvider(DSLContext dsl) {
+            return (brokerAccountId, at) -> {
+                // Reflect committed reservations so concurrent approvals observe each other's consumed
+                // capacity; a static provider could never expose an overspend.
+                org.jooq.Record state = dsl.fetchOne(
+                        "SELECT reserved_risk, reserved_notional FROM operational.risk_account_state "
+                                + "WHERE broker_account_id = ? AND trading_date = ?",
+                        brokerAccountId, SESSION);
+                BigDecimal reservedRisk =
+                        state == null ? BigDecimal.ZERO : state.get("reserved_risk", BigDecimal.class);
+                BigDecimal reservedNotional =
+                        state == null ? BigDecimal.ZERO : state.get("reserved_notional", BigDecimal.class);
+                return java.util.Optional.of(RiskContext.builder(
+                                UUID.nameUUIDFromBytes(("ctx:" + brokerAccountId).getBytes()).toString(), 1, T, SESSION)
+                        .available()
+                        .equity(new BigDecimal("1000000"), new BigDecimal("1000000"))
+                        .funding(new BigDecimal("500000"), new BigDecimal("500000"), BigDecimal.ZERO)
+                        .exposures(BigDecimal.ZERO, BigDecimal.ZERO)
+                        .risk(BigDecimal.ZERO, BigDecimal.ZERO, reservedRisk, reservedNotional)
+                        .losses(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
+                        .state(RiskState.NORMAL)
+                        .counters(0, 0)
+                        .health("HEALTHY", "HEALTHY", "MATCHED", true)
+                        .session(new RiskContext.SessionWindow(T, true, true, false, false, false, "nse-session-v1"))
+                        .build());
+            };
         }
     }
 
@@ -205,6 +217,34 @@ class RiskDecisionIntegrationTest {
                 .isEqualTo(2L);
     }
 
+    @Test
+    void concurrentApprovalsCannotOverspendScarceSessionBudget() throws Exception {
+        Fixture f = seed();
+        // Session risk budget = 0.44% of 1,000,000 = 4,400, exactly one candidate's risk. Reading the
+        // context before acquiring the row lock would let both threads size against an empty budget
+        // and reserve 4,400 each (8,800 > budget); locking first must reject the second.
+        seedPolicy(
+                "ER_RISK_SCARCE_TEST",
+                POLICY_JSON.replace("\"sessionRiskBudgetFraction\":0.03", "\"sessionRiskBudgetFraction\":0.0044"));
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        java.util.List<RiskDecisionProposal> results;
+        try {
+            Future<RiskDecisionProposal> a = pool.submit(
+                    () -> service.approve(request(f, "scarce-a", "ER_RISK_SCARCE_TEST").toCandidate()));
+            Future<RiskDecisionProposal> b = pool.submit(
+                    () -> service.approve(request(f, "scarce-b", "ER_RISK_SCARCE_TEST").toCandidate()));
+            results = java.util.List.of(a.get(), b.get());
+        } finally {
+            pool.shutdownNow();
+        }
+        long approved = results.stream().filter(r -> r.decision() == RiskDecisionType.APPROVE).count();
+        assertThat(approved).isEqualTo(1L);
+        BigDecimal reserved = money("SELECT reserved_risk FROM operational.risk_account_state "
+                + "WHERE broker_account_id = ? AND trading_date = ?", f.accountId, SESSION);
+        assertThat(reserved).isEqualByComparingTo("4400");
+        assertThat(reserved).isLessThanOrEqualTo(new BigDecimal("4400"));
+    }
+
     private long count(String sql, Object... args) {
         return dsl.fetchOne(sql, args).get("c", Long.class);
     }
@@ -214,13 +254,29 @@ class RiskDecisionIntegrationTest {
     }
 
     private RiskCandidateRequest request(Fixture f, String candidateKey) {
+        return request(f, candidateKey, "ER_RISK_SYNTHETIC_TEST");
+    }
+
+    private RiskCandidateRequest request(Fixture f, String candidateKey, String policyCode) {
         return new RiskCandidateRequest(
                 candidateKey, "cand", f.tenantId, f.accountId, TradingMode.ASSISTED_LIVE.name(),
                 "11111111-1111-1111-1111-111111111111", f.setupObservationId, "ER_RS_CONTINUATION_V1",
                 "ER_RS_CONTINUATION_V1/v1", Math.toIntExact(f.strategyVersionId), f.instrumentId, "RISKTEST", "LONG",
                 new BigDecimal("0.05"), 1L, new BigDecimal("100"), new BigDecimal("98"), "M5 swing low", T,
                 "BULLISH", true, true, false, f.sectorId, "IT", SESSION, 5.0, 100000.0, 5_000_000.0, null, null,
-                true, "VALID", "er-feature-schema-v1", "ER_RISK_SYNTHETIC_TEST");
+                true, "VALID", "er-feature-schema-v1", policyCode);
+    }
+
+    private void seedPolicy(String code, String json) {
+        long policyId = dsl.fetchOne(
+                        "INSERT INTO control.risk_policy (risk_policy_key, code, name) VALUES (gen_random_uuid(), ?, ?) "
+                                + "ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name RETURNING risk_policy_id",
+                        code, code)
+                .get("risk_policy_id", Long.class);
+        dsl.execute(
+                "INSERT INTO control.risk_policy_version (risk_policy_id, version, lifecycle_state, parameters, code_version) "
+                        + "VALUES (?, 1, 'VALIDATED', ?::jsonb, 'test') ON CONFLICT (risk_policy_id, version) DO NOTHING",
+                policyId, json);
     }
 
     private record Fixture(long tenantId, long accountId, long instrumentId, long strategyVersionId,

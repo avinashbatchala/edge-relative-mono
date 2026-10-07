@@ -56,7 +56,7 @@ class BacktestEngineEndToEndTest {
     private static StrategyParameters parameters() {
         return new StrategyParameters(
                 "BT_TEST", 1, Set.of(SetupFamily.M5_3_8_CONFIRMATION),
-                -1.0, 1.0,
+                0.0, 0.0,
                 0.0, 0.0, 0.0,
                 0.0,
                 0.0,

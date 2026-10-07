@@ -12,7 +12,7 @@ public record StrategyParameters(
         int parameterVersion,
         Set<SetupFamily> enabledFamilies,
         double rrsM5PersistenceLongMin,
-        double rrsM5PersistenceShortMax,
+        double rrsM5PersistenceShortMin,
         double minRvolDaily,
         double minRvolInterval,
         double minRvolCumulative,
@@ -54,8 +54,8 @@ public record StrategyParameters(
             throw new IllegalArgumentException("enabledFamilies is required");
         }
         enabledFamilies = Set.copyOf(enabledFamilies);
-        requireFinite(rrsM5PersistenceLongMin, "rrsM5PersistenceLongMin");
-        requireFinite(rrsM5PersistenceShortMax, "rrsM5PersistenceShortMax");
+        requireUnitInterval(rrsM5PersistenceLongMin, "rrsM5PersistenceLongMin");
+        requireUnitInterval(rrsM5PersistenceShortMin, "rrsM5PersistenceShortMin");
         requireNonNegative(minRvolDaily, "minRvolDaily");
         requireNonNegative(minRvolInterval, "minRvolInterval");
         requireNonNegative(minRvolCumulative, "minRvolCumulative");
@@ -93,6 +93,17 @@ public record StrategyParameters(
     private static void requireFinite(double value, String name) {
         if (!Double.isFinite(value)) {
             throw new IllegalArgumentException(name + " must be finite");
+        }
+    }
+
+    /**
+     * RRS persistence is the share of the window whose RRS sign agrees with RRS fast — a magnitude in
+     * {@code [0, 1]}, independent of direction. A minimum threshold expresses "how persistent", and
+     * never a signed value: a persistent bearish stock has RRS {@code < 0} and persistence near 1.0.
+     */
+    private static void requireUnitInterval(double value, String name) {
+        if (!Double.isFinite(value) || value < 0.0 || value > 1.0) {
+            throw new IllegalArgumentException(name + " must be within [0, 1]");
         }
     }
 
