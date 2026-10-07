@@ -44,7 +44,7 @@ public final class RiskFixtures {
                 new RiskPolicy.SectorLimits(dec("0.40"), dec("0.03"), dec("0.30"), dec("0.03"), true),
                 new RiskPolicy.MarginLimits(dec("0.10")),
                 new RiskPolicy.LiquidityLimits(dec("0.02"), dec("25"), true, false, true),
-                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("5")),
+                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("5"), null),
                 new RiskPolicy.StressAssumptions(dec("0.03"), dec("0"), dec("5"), true),
                 new RiskPolicy.DrawdownLimits(
                         dec("0.01"), dec("0.02"), dec("0.03"), dec("0.05"), dec("0.08"), dec("0.10"), 4),
@@ -131,6 +131,7 @@ public final class RiskFixtures {
         private Long requestedQuantity = null;
         private boolean setupValid = true;
         private String setupStatus = "VALID";
+        private Double referenceAtr = null;
 
         public Cand direction(Direction value) {
             this.direction = value;
@@ -193,6 +194,11 @@ public final class RiskFixtures {
             return this;
         }
 
+        public Cand referenceAtr(Double value) {
+            this.referenceAtr = value;
+            return this;
+        }
+
         public Cand mode(com.edgerelative.application.risk.domain.TradingMode value) {
             this.mode = value;
             return this;
@@ -210,7 +216,7 @@ public final class RiskFixtures {
                     tickSize, quantityIncrement, entry, invalidation, invalidationBasis, T, marketRegime,
                     marketRegimeKnown, eventRiskKnown, eventRiskBlocked, sectorId, sectorCode, SESSION, spreadBps,
                     expectedExecutableVolume, 5_000_000.0, brokerMaxQuantity, requestedQuantity, setupValid,
-                    setupStatus, "er-feature-schema-v1", "ER_RISK_V1_SYNTHETIC");
+                    setupStatus, "er-feature-schema-v1", "ER_RISK_V1_SYNTHETIC", referenceAtr);
         }
     }
 }

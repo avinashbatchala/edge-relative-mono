@@ -60,8 +60,20 @@ public record RiskPolicy(
         }
     }
 
-    public RiskStateMultiplier stateModifier(RiskState state) {
-        if (state == RiskState.NORMAL) {
+    /** Copy the policy with an execution minimum-stop floor applied (research override). */
+    public RiskPolicy withMinStopAtr(BigDecimal minStopAtr) {
+        ExecutionAssumptions updated = execution == null
+                ? null
+                : new ExecutionAssumptions(
+                        execution.adverseSlippageTicks(), execution.exitCostTicks(), execution.exitCostBps(), minStopAtr);
+        return new RiskPolicy(
+                code, version, lifecycleState, allowedModes, minimumStateForMode, trade, portfolio, symbol, sector,
+                margin, liquidity, updated, stress, drawdown, stateModifiers, strategyRiskFractions,
+                strategyRiskBudgetFractions, symbolRiskBudgetFractions, sectorRiskBudgetFractions, correlationEnabled,
+                correlationModifiers, averagingDownEnabled, pyramidingEnabled, qualitySizingEnabled, mlRiskModifier);
+    }
+
+    public RiskStateMultiplier stateModifier(RiskState state) {        if (state == RiskState.NORMAL) {
             return RiskStateMultiplier.ONE;
         }
         BigDecimal modifier = stateModifiers.get(state);
@@ -130,8 +142,16 @@ public record RiskPolicy(
             boolean spreadMandatory) {
     }
 
+    /**
+     * Execution planning assumptions. {@code minStopAtr} is an optional research safety floor: the
+     * protective stop is placed at least this many ATRs from entry (never moving the strategy's
+     * structural invalidation), which re-sizes quantity so risk stays authoritative.
+     */
     public record ExecutionAssumptions(
-            BigDecimal adverseSlippageTicks, BigDecimal exitCostTicks, BigDecimal exitCostBps) {
+            BigDecimal adverseSlippageTicks,
+            BigDecimal exitCostTicks,
+            BigDecimal exitCostBps,
+            BigDecimal minStopAtr) {
     }
 
     public record StressAssumptions(

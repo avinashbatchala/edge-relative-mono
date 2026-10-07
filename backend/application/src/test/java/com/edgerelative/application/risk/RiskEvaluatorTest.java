@@ -49,6 +49,17 @@ class RiskEvaluatorTest {
     }
 
     @Test
+    void minimumStopFloorWidensProtestiveStopAndResizes() {
+        // Entry 100, structural invalidation 98 (stop 97.95). With a 1-ATR floor and ATR 10, the
+        // protective stop must move to 90, so planned loss becomes 10 per unit (quantity re-sizes).
+        LossProfile loss = RiskEvaluator.lossProfile(
+                candidate().referenceAtr(10.0).build(), policy().withMinStopAtr(dec("1.0")));
+        assertThat(loss.valid()).isTrue();
+        assertThat(loss.protectiveStop()).isEqualByComparingTo("90.00");
+        assertThat(loss.plannedLossPerUnit()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
     void shortStopAndLossProfile() {
         LossProfile loss = RiskEvaluator.lossProfile(
                 candidate().direction(Direction.SHORT).invalidation("102").build(), policy());

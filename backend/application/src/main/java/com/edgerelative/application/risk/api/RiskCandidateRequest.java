@@ -43,7 +43,8 @@ public record RiskCandidateRequest(
         boolean setupValid,
         String setupStatus,
         String featureSchemaVersion,
-        String policyCode) {
+        String policyCode,
+        Double referenceAtr) {
 
     public RiskCandidate toCandidate() {
         return new RiskCandidate(
@@ -52,6 +53,7 @@ public record RiskCandidateRequest(
                 Direction.valueOf(direction), tickSize, quantityIncrement, proposedEntryPrice, structuralInvalidation,
                 invalidationBasis, candidateAt, marketRegime, marketRegimeKnown, eventRiskKnown, eventRiskBlocked,
                 sectorId, sectorCode, sectorEffectiveDate, spreadBps, expectedExecutableVolume, medianDailyVolume,
-                brokerMaxQuantity, requestedQuantity, setupValid, setupStatus, featureSchemaVersion, policyCode);
+                brokerMaxQuantity, requestedQuantity, setupValid, setupStatus, featureSchemaVersion, policyCode,
+                referenceAtr);
     }
 }

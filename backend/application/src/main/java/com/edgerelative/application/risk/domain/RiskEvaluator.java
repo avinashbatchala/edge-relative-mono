@@ -239,6 +239,20 @@ public final class RiskEvaluator {
         BigDecimal protectiveStop = c.direction().isLong()
                 ? RiskMath.floorToTick(invalidation.subtract(buffer), tick)
                 : RiskMath.ceilToTick(invalidation.add(buffer), tick);
+        // Optional research safety floor: keep the protective stop at least minStopAtr x ATR from
+        // entry. This moves only the protective stop (never the strategy's structural invalidation)
+        // and re-sizes quantity downstream, so risk stays authoritative.
+        BigDecimal minStopAtr = p.execution() == null ? null : p.execution().minStopAtr();
+        Double atr = c.referenceAtr();
+        if (minStopAtr != null && minStopAtr.signum() > 0 && atr != null && atr > 0) {
+            BigDecimal minDistance = RiskMath.money(minStopAtr.multiply(BigDecimal.valueOf(atr)));
+            BigDecimal currentDistance = entry.subtract(protectiveStop).abs();
+            if (currentDistance.compareTo(minDistance) < 0) {
+                protectiveStop = c.direction().isLong()
+                        ? RiskMath.floorToTick(entry.subtract(minDistance), tick)
+                        : RiskMath.ceilToTick(entry.add(minDistance), tick);
+            }
+        }
         BigDecimal plannedLoss = c.direction().isLong()
                 ? entry.subtract(protectiveStop)
                 : protectiveStop.subtract(entry);

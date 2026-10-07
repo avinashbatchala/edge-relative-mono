@@ -264,7 +264,7 @@ class RiskDecisionIntegrationTest {
                 "ER_RS_CONTINUATION_V1/v1", Math.toIntExact(f.strategyVersionId), f.instrumentId, "RISKTEST", "LONG",
                 new BigDecimal("0.05"), 1L, new BigDecimal("100"), new BigDecimal("98"), "M5 swing low", T,
                 "BULLISH", true, true, false, f.sectorId, "IT", SESSION, 5.0, 100000.0, 5_000_000.0, null, null,
-                true, "VALID", "er-feature-schema-v1", policyCode);
+                true, "VALID", "er-feature-schema-v1", policyCode, null);
     }
 
     private void seedPolicy(String code, String json) {

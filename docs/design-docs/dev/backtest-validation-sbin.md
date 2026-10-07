@@ -324,3 +324,28 @@ avg R −1.73; SBIN M30 2R → 11, avg R −1.62; SBIN M5 2R realistic cost → 
 2. Entry-timing study: why does adverse excursion precede favourable (entry-bar/gap behaviour,
    pullback vs breakout), and whether a confirmation/limit entry improves MFE−MAE asymmetry.
 3. Only after those, decide whether the signal itself carries edge.
+
+### Phase A follow-up — ATR minimum-stop floor
+
+The EMA8 invalidation places the stop ~0.1% from entry, far inside M5 noise. A minimum protective-stop
+floor (`minStopAtr`, applied in the risk path so quantity re-sizes; structural invalidation is never
+moved) was added and tested (SBIN M5, 2R target, permissive, zero cost unless stated):
+
+| Variant | trades | wins | avg R | avg MAE | net | net % |
+|---|---:|---:|---:|---:|---:|---:|
+| no floor | 123 | 19 | −2.25 | 2.43 | — | — |
+| floor 0.5 ATR | 123 | 44 | −1.08 | 1.64 | — | — |
+| floor 1.0 ATR | 116 | 40 | −0.51 | 1.23 | — | — |
+| floor 1.5 ATR | 114 | 42 | −0.31 | 1.03 | — | — |
+| floor 2.0 ATR | 112 | 46 | −0.17 | — | −15,951 | −1.60 |
+| floor 1.5 ATR + realistic cost | 114 | 36 | −0.65 | — | −53,438 | −5.34 |
+| floor 2.0 ATR + realistic cost | 112 | 38 | −0.43 | — | −44,911 | −4.49 |
+
+This is the decisive result of Phase A: **the negative P&L was dominated by an unworkably tight stop**.
+Widening the protective stop to 1.5–2.0 ATR moves expectancy from ≈ −2R to ≈ −0.2R (zero cost) and
+lifts the win count roughly 2×. Realistic M5 costs remain a first-order drag, so the configuration is
+still not profitable — but the strategy is no longer being destroyed by its stop.
+
+Remaining levers before judging edge: cost drag (prefer M15+ where costs are smaller per unit of
+move), entry timing (MFE−MAE asymmetry), and per-stock parameter optimisation (the research-layer
+program).

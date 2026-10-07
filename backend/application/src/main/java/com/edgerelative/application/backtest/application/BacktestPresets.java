@@ -74,7 +74,7 @@ public final class BacktestPresets {
                 new RiskPolicy.SectorLimits(dec("0.50"), dec("0.10"), dec("0.50"), dec("0.10"), false),
                 new RiskPolicy.MarginLimits(dec("0.10")),
                 new RiskPolicy.LiquidityLimits(dec("0.05"), dec("1000"), false, false, false),
-                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("0")),
+                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("0"), null),
                 new RiskPolicy.StressAssumptions(dec("0.03"), dec("0"), dec("0"), false),
                 new RiskPolicy.DrawdownLimits(
                         dec("0.01"), dec("0.02"), dec("0.03"), dec("0.05"), dec("0.08"), dec("0.10"), 20),

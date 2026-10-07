@@ -83,7 +83,7 @@ class BacktestEngineEndToEndTest {
                 new RiskPolicy.SectorLimits(dec("10.0"), dec("10.0"), dec("10.0"), dec("10.0"), false),
                 new RiskPolicy.MarginLimits(dec("0.0")),
                 new RiskPolicy.LiquidityLimits(dec("1.0"), dec("1000"), false, false, false),
-                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("0")),
+                new RiskPolicy.ExecutionAssumptions(dec("1"), dec("1"), dec("0"), null),
                 new RiskPolicy.StressAssumptions(dec("0.03"), dec("0"), dec("0"), false),
                 new RiskPolicy.DrawdownLimits(
                         dec("1"), dec("1"), dec("1"), dec("1"), dec("1"), dec("1"), 100),

@@ -501,7 +501,8 @@ public final class BacktestEngine {
                 true,
                 "VALID",
                 snapshot.featureSchemaVersion(),
-                "backtest");
+                "backtest",
+                number(snapshot, FeatureKeys.ATR));
     }
 
     private PlanLineage lineage(

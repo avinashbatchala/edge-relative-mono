@@ -154,7 +154,7 @@ public class RiskApplicationService {
                 candidate.eventRiskKnown(), candidate.eventRiskBlocked(), candidate.sectorId(), candidate.sectorCode(),
                 candidate.sectorEffectiveDate(), candidate.spreadBps(), candidate.expectedExecutableVolume(),
                 candidate.medianDailyVolume(), candidate.brokerMaxQuantity(), candidate.requestedQuantity(), valid,
-                status, candidate.featureSchemaVersion(), candidate.policyCode());
+                status, candidate.featureSchemaVersion(), candidate.policyCode(), candidate.referenceAtr());
         return Optional.of(new Authority(effective, tenantId, brokerAccountId, strategyVersionId));
     }
 

@@ -49,7 +49,8 @@ public record RiskCandidate(
         boolean setupValid,
         String setupStatus,
         String featureSchemaVersion,
-        String policyCode) {
+        String policyCode,
+        Double referenceAtr) {
 
     public boolean requestedQuantitySupplied() {
         return requestedQuantity != null && requestedQuantity > 0;

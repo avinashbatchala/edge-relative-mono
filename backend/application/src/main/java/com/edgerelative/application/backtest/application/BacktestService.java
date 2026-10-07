@@ -239,6 +239,11 @@ public class BacktestService {
         Long marketInstrumentId = resolveSingle(request.marketSymbol());
         Long sectorInstrumentId = resolveSingle(request.sectorSymbol());
         BacktestSpec.ExecutionPolicy executionPolicy = execution(request.execution());
+        // A research minimum-stop floor is an execution assumption; apply it to the risk policy used
+        // by this run (recorded in the canonical spec via the execution policy).
+        RiskPolicy effectivePolicy = executionPolicy.minStopAtr() == null
+                ? policy
+                : policy.withMinStopAtr(BigDecimal.valueOf(executionPolicy.minStopAtr()));
         BacktestSpec.CostSchedule costSchedule = costs(request.costs());
         BacktestSpec.EndOfRunPolicy endOfRunPolicy = request.endOfRun() == null || request.endOfRun().isBlank()
                 ? BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET
@@ -281,12 +286,12 @@ public class BacktestService {
         BacktestSpec spec = new BacktestSpec(
                 runKey, instrumentIds, request.symbols(), request.startDate(), request.endDate(),
                 request.timeframe(), request.dailyTimeframe(), request.startingCapital(), request.currency(),
-                strictProducers, parameters, policy, featurePolicy,
+                strictProducers, parameters, effectivePolicy, featurePolicy,
                 executionPolicy, costSchedule, endOfRunPolicy,
                 warmupSessions, seedValue,
                 BacktestEngine.ENGINE_REVISION, marketInstrumentId, sectorInstrumentId, "CANONICAL_M5",
                 datasetChecksum(instrumentIds, request, marketInstrumentId, sectorInstrumentId, parameters,
-                        policy, warmupSessions, seedValue, strictProducers),
+                        effectivePolicy, warmupSessions, seedValue, strictProducers),
                 contextSource(request));
         canonical.put("runKey", runKey);
         return new Resolved(spec, canonical, strategyVersionId, resolvedRisk.riskPolicyVersionId());
