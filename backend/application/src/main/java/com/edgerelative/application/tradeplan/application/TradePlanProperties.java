@@ -19,12 +19,13 @@ public class TradePlanProperties {
     private BigDecimal noChaseTicks;
     private String entryMethod;
     private String targetMethod;
+    private BigDecimal targetR;
     private String stopBufferMethod;
 
     public TradePlanPolicy toPolicy() {
         return new TradePlanPolicy(
                 code, version, reference, validityMinutes, entryCutoffMinutesBeforeClose, noChaseTicks,
-                entryMethod, targetMethod, stopBufferMethod);
+                entryMethod, targetMethod, targetR, stopBufferMethod);
     }
 
     public String getCode() {
@@ -89,6 +90,14 @@ public class TradePlanProperties {
 
     public void setTargetMethod(String targetMethod) {
         this.targetMethod = targetMethod;
+    }
+
+    public BigDecimal getTargetR() {
+        return targetR;
+    }
+
+    public void setTargetR(BigDecimal targetR) {
+        this.targetR = targetR;
     }
 
     public String getStopBufferMethod() {

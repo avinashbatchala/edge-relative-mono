@@ -183,15 +183,15 @@ public class BacktestRepository {
                     "INSERT INTO research.backtest_trade (trade_key, backtest_run_id, instrument_id, symbol, direction, "
                             + "entry_pattern, entry_at, entry_price, initial_risk_per_unit, exit_at, exit_price, quantity, "
                             + "gross_pnl, explicit_costs, net_pnl, realized_r, holding_seconds, exit_reason, ambiguous_bars, "
-                            + "cost_breakdown, plan_key, decision_key) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?::timestamptz, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?) "
+                            + "cost_breakdown, plan_key, decision_key, mfe_r, mae_r) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?::timestamptz, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?) "
                             + "ON CONFLICT (trade_key) DO NOTHING",
                     UUID.fromString(trade.tradeKey()), backtestRunId, trade.instrumentId(), trade.symbol(),
                     trade.direction().name(), trade.entryPattern(), utc(trade.entryAt()), trade.entryPrice(),
                     trade.initialRiskPerUnit(), utc(trade.exitAt()), trade.exitPrice(), trade.quantity(), trade.grossPnl(),
                     trade.explicitCosts(), trade.netPnl(), trade.realizedR(), trade.holdingSeconds(), trade.exitReason(),
                     trade.ambiguousBars(), json.writeValueAsString(trade.costBreakdown()), trade.planKey(),
-                    trade.decisionKey());
+                    trade.decisionKey(), trade.mfeR(), trade.maeR());
         }
     }
 
@@ -238,7 +238,7 @@ public class BacktestRepository {
         String sql = "SELECT t.trade_key, t.instrument_id, t.symbol, t.direction, t.entry_pattern, t.entry_at, "
                 + "t.entry_price, t.initial_risk_per_unit, t.exit_at, t.exit_price, t.quantity, t.gross_pnl, t.explicit_costs, "
                 + "t.net_pnl, t.realized_r, t.holding_seconds, t.exit_reason, t.ambiguous_bars, "
-                + "t.cost_breakdown, t.plan_key, t.decision_key "
+                + "t.cost_breakdown, t.plan_key, t.decision_key, t.mfe_r, t.mae_r "
                 + "FROM research.backtest_trade t "
                 + "JOIN research.backtest_run br ON br.backtest_run_id = t.backtest_run_id "
                 + "WHERE br.run_key = ? " + (filtered ? "AND t.symbol = ? " : "")
@@ -268,7 +268,9 @@ public class BacktestRepository {
                         record.get("ambiguous_bars", Integer.class) == null ? 0 : record.get("ambiguous_bars", Integer.class),
                         readDecimalMap(record.get("cost_breakdown", String.class)),
                         record.get("plan_key", String.class),
-                        record.get("decision_key", String.class)));
+                        record.get("decision_key", String.class),
+                        record.get("mfe_r", BigDecimal.class),
+                        record.get("mae_r", BigDecimal.class)));
     }
 
     public List<EquityPoint> findEquity(String runKey) {

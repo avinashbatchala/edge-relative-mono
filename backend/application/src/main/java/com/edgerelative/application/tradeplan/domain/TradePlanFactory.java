@@ -67,6 +67,15 @@ public final class TradePlanFactory {
         BigDecimal targetReference = null;
         String targetRationale =
                 "No structural target producer is wired; reward/risk is not asserted for this plan.";
+        if ("R_MULTIPLE".equals(targetMethod) && policy.targetR() != null) {
+            BigDecimal stopDistance = proposal.entryPrice().subtract(proposal.protectiveStop()).abs();
+            BigDecimal rewardDistance = stopDistance.multiply(policy.targetR());
+            targetReference = lineage.direction().isLong()
+                    ? proposal.entryPrice().add(rewardDistance)
+                    : proposal.entryPrice().subtract(rewardDistance);
+            targetRationale = "Fixed " + policy.targetR().toPlainString()
+                    + "R target (DD-02 section 68 research anchor).";
+        }
 
         String invalidationReason = lineage.invalidationType();
         String invalidationBasis = lineage.invalidationBasis();

@@ -38,7 +38,11 @@ public record BacktestRunRequest(
             Double participationRate,
             Integer orderExpiryBars,
             String ambiguityPolicy,
-            Boolean allowOvernight) {
+            Boolean allowOvernight,
+            String entryMethod,
+            String targetMethod,
+            Double targetR,
+            Double minStopAtr) {
     }
 
     public record CostRequest(

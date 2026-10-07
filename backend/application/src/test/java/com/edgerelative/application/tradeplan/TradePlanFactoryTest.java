@@ -33,7 +33,7 @@ class TradePlanFactoryTest {
     private static TradePlanPolicy policy() {
         return new TradePlanPolicy(
                 "ER_TRADE_PLAN_V1_SYNTHETIC", 1, "trade-plan-policy/v1", 30, 15,
-                new BigDecimal("2"), "REFERENCE_PRICE", "STRUCTURAL_UNRESOLVED", "TICK_BUFFER");
+                new BigDecimal("2"), "REFERENCE_PRICE", "STRUCTURAL_UNRESOLVED", null, "TICK_BUFFER");
     }
 
     private static PlanLineage lineage(Direction direction, BigDecimal trigger) {
@@ -149,6 +149,20 @@ class TradePlanFactoryTest {
     }
 
     @Test
+    void rMultipleTargetIsPlacedAtTheConfiguredRewardRisk() {
+        TradePlanPolicy target = new TradePlanPolicy(
+                "ER_TRADE_PLAN_V1_SYNTHETIC", 1, "trade-plan-policy/v1", 30, 15,
+                new BigDecimal("2"), "REFERENCE_PRICE", "R_MULTIPLE", new BigDecimal("2"), "TICK_BUFFER");
+        TradePlan plan = TradePlanFactory.create(
+                proposal(RiskDecisionType.APPROVE, Direction.LONG, 2000, new BigDecimal("100"),
+                        new BigDecimal("98"), new BigDecimal("97.95"), new BigDecimal("2.20")),
+                5L, lineage(Direction.LONG, new BigDecimal("99.90")), target, T, CLOSE);
+        // Stop distance 2.05; a 2R target from entry 100 is 100 + 2 * 2.05.
+        assertThat(plan.targetReference()).isEqualByComparingTo("104.10");
+        assertThat(plan.targetMethod()).isEqualTo("R_MULTIPLE");
+    }
+
+    @Test
     void eligibilityBoundariesAreExplicit() {
         TradePlan plan = plan(RiskDecisionType.APPROVE, 2000, Direction.LONG);
 
@@ -174,7 +188,7 @@ class TradePlanFactoryTest {
                 proposal(RiskDecisionType.APPROVE, Direction.LONG, 2000, new BigDecimal("100"), new BigDecimal("98"),
                         new BigDecimal("97.95"), new BigDecimal("2.20")),
                 5L, lineage(Direction.LONG, null),
-                new TradePlanPolicy("P", 1, "r", null, null, null, null, null, null), T, null);
+                new TradePlanPolicy("P", 1, "r", null, null, null, null, null, null, null), T, null);
         PlanEligibility unknown = TradePlanEligibilityEvaluator.evaluate(noValidity, T.plusSeconds(60), true, "OPEN");
         assertThat(unknown.status()).isEqualTo(TradePlanStatus.UNKNOWN);
     }

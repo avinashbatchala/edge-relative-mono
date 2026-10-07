@@ -31,7 +31,9 @@ public record BacktestTrade(
         int ambiguousBars,
         Map<String, BigDecimal> costBreakdown,
         String planKey,
-        String decisionKey) {
+        String decisionKey,
+        BigDecimal mfeR,
+        BigDecimal maeR) {
 
     public BacktestTrade {
         costBreakdown = costBreakdown == null ? Map.of() : Map.copyOf(costBreakdown);

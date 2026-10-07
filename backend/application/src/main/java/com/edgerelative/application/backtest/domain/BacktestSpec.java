@@ -71,11 +71,41 @@ public record BacktestSpec(
             int orderExpiryBars,
             SessionCutoff sessionCutoff,
             AmbiguityPolicy ambiguityPolicy,
-            boolean allowOvernight) {
+            boolean allowOvernight,
+            EntryMethod entryMethod,
+            TargetMethod targetMethod,
+            BigDecimal targetR,
+            Double minStopAtr) {
+
+        public ExecutionPolicy {
+            ambiguityPolicy = ambiguityPolicy == null ? AmbiguityPolicy.STOP_FIRST_CONSERVATIVE : ambiguityPolicy;
+            entryMethod = entryMethod == null ? EntryMethod.MARKET_NEXT_OPEN : entryMethod;
+            targetMethod = targetMethod == null ? TargetMethod.NONE : targetMethod;
+        }
 
         public enum AmbiguityPolicy {
             /** When stop and target are both touched in one bar, assume the stop is hit first. */
-            STOP_FIRST_CONSERVATIVE
+            STOP_FIRST_CONSERVATIVE,
+            /** Assume the target is hit first (optimistic diagnostic). */
+            TARGET_FIRST_OPTIMISTIC,
+            /** Skip the trade entirely when one bar touches both stop and target. */
+            SKIP_AMBIGUOUS
+        }
+
+        /** How a pending entry becomes a fill on the next eligible bar(s). */
+        public enum EntryMethod {
+            /** Fill at the next eligible bar's open (baseline). */
+            MARKET_NEXT_OPEN,
+            /** Fill only if price reaches the plan's entry trigger; a stop-entry fill. */
+            TRIGGER_LIMIT
+        }
+
+        /** Where the exit target comes from. */
+        public enum TargetMethod {
+            /** No target (documented target producer not wired): stop/session exits only. */
+            NONE,
+            /** Target at a fixed multiple of the planned risk distance (e.g. 2R). */
+            R_MULTIPLE
         }
     }
 

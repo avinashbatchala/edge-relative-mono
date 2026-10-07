@@ -282,3 +282,45 @@ Determinism: repeated baselines produce identical trade counts and P&L (`M3 seed
    under train/validation/holdout.
 4. **INGEST SECTOR BENCHMARKS** to exercise the documented MARKET→SECTOR→STOCK hierarchy.
 5. Do **not** promote any configuration to broader multi-symbol testing until (2)–(3) are resolved.
+
+---
+
+## Addendum (Phase A) — Execution/exit sensitivity (M5+)
+
+Opt-in execution features added (defaults unchanged): `targetMethod=R_MULTIPLE` with `targetR`,
+`entryMethod=TRIGGER_LIMIT`, ambiguity policies `STOP_FIRST_CONSERVATIVE` / `TARGET_FIRST_OPTIMISTIC` /
+`SKIP_AMBIGUOUS`, and per-trade MFE/MAE (max favourable/adverse excursion in R). M1 excluded as a
+subject timeframe.
+
+SBIN M5, zero-cost, permissive, 2023-10-01→2026-09-18:
+
+| Variant | trades | exits | wins | avg R | avg MFE | avg MAE |
+|---|---:|---|---:|---:|---:|---:|
+| baseline (no target) | 121 | 106 STOP / 15 FLATTEN | 13 | −2.38 | 1.85 | 2.70 |
+| target 1.5R | 123 | 77 STOP / 46 TARGET | 11 | −2.28 | 0.79 | 2.37 |
+| target 2R | 123 | 83 STOP / 40 TARGET | 19 | −2.25 | 0.86 | 2.43 |
+| target 3R | 121 | 86 STOP / 35 TARGET | 24 | −2.08 | 1.13 | 2.47 |
+| target 2R + trigger entry | 123 | 83 STOP / 40 TARGET | 19 | −2.28 | 0.85 | 2.45 |
+
+Cross-checks: HDFCBANK M5 2R → 128 trades, avg R −2.81, MFE 0.57 / MAE 2.89; SBIN M15 2R → 41,
+avg R −1.73; SBIN M30 2R → 11, avg R −1.62; SBIN M5 2R realistic cost → 123, avg R −3.92.
+
+### Interpretation
+
+- Adding a target (previously absent entirely) converts roughly a third of trades to TARGET exits and
+  lifts the number of winners (13 → 19–24), but **expectancy stays ≈ −2R**.
+- The decisive statistic is **MAE ≫ MFE at entry**: the average trade runs ~0.6–1.8R in favour but
+  ~2.4–2.9R against. Because the documented 3/8 invalidation (EMA3 recross of EMA8) places the
+  protective stop only ~0.05–0.12% from entry, ordinary M5 noise and next-bar-open fills produce
+  stop-outs of 2–4× planned risk.
+- Conclusion: the negative result is **not** primarily the missing target. It is (a) a stop that is
+  far too tight relative to intraday noise and (b) entry timing that sees adverse excursion before
+  favourable. Trigger entries changed little (the trigger is already crossed at signal time).
+
+### Next (Phase A follow-ups)
+
+1. **ATR stop floor** (`minStopAtr`, applied in the risk/plan path with quantity re-sizing) so the
+   planned risk distance is meaningful relative to M5 ATR.
+2. Entry-timing study: why does adverse excursion precede favourable (entry-bar/gap behaviour,
+   pullback vs breakout), and whether a confirmation/limit entry improves MFE−MAE asymmetry.
+3. Only after those, decide whether the signal itself carries edge.

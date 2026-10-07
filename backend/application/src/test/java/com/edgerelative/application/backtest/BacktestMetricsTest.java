@@ -21,7 +21,8 @@ class BacktestMetricsTest {
         return new BacktestTrade(
                 key, 1L, "TCS", Direction.LONG, "M5_3_8_CONFIRMATION", T, new BigDecimal("100"), T.plusSeconds(300),
                 new BigDecimal("101"), 100, new BigDecimal("2"), net.add(new BigDecimal("5")), new BigDecimal("5"), net, r,
-                300L, "TARGET", 0, Map.of("brokerage", new BigDecimal("5")), "plan", "decision");
+                300L, "TARGET", 0, Map.of("brokerage", new BigDecimal("5")), "plan", "decision",
+                new BigDecimal("1.0"), new BigDecimal("-0.5"));
     }
 
     private static EquityPoint point(long seconds, String equity, String highWater, String drawdown) {
@@ -81,7 +82,7 @@ class BacktestMetricsTest {
         BacktestTrade open = new BacktestTrade(
                 "open", 1L, "TCS", Direction.LONG, null, T, new BigDecimal("100"), null, null, 100,
                 new BigDecimal("2"), new BigDecimal("50"), BigDecimal.ZERO, new BigDecimal("50"), null, null,
-                "OPEN_MARKED_TO_MARKET", 0, Map.of(), "plan", "decision");
+                "OPEN_MARKED_TO_MARKET", 0, Map.of(), "plan", "decision", new BigDecimal("1.5"), BigDecimal.ZERO);
         BacktestResult result = new BacktestResult(List.of(open), List.of(point(0, "1050", "1050", "0")), List.of(), 1, 1, Map.of());
         Map<String, Object> metrics = BacktestMetrics.compute(result, new BigDecimal("1000"), 18900);
         assertThat(metrics.get("completedTrades")).isEqualTo(0);

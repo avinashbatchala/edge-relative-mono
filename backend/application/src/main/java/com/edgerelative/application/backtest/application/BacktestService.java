@@ -401,7 +401,9 @@ public class BacktestService {
         if (request == null) {
             return new BacktestSpec.ExecutionPolicy("backtest-exec-v1", 0, new BigDecimal("2"), new BigDecimal("5"),
                     BigDecimal.ONE, 1, BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
-                    BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, false);
+                    BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, false,
+                    BacktestSpec.ExecutionPolicy.EntryMethod.MARKET_NEXT_OPEN,
+                    BacktestSpec.ExecutionPolicy.TargetMethod.NONE, null, null);
         }
         return new BacktestSpec.ExecutionPolicy(
                 request.version() == null ? "backtest-exec-v1" : request.version(),
@@ -413,7 +415,13 @@ public class BacktestService {
                 BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
                 BacktestSpec.ExecutionPolicy.AmbiguityPolicy.valueOf(
                         request.ambiguityPolicy() == null ? "STOP_FIRST_CONSERVATIVE" : request.ambiguityPolicy()),
-                request.allowOvernight() != null && request.allowOvernight());
+                request.allowOvernight() != null && request.allowOvernight(),
+                BacktestSpec.ExecutionPolicy.EntryMethod.valueOf(
+                        request.entryMethod() == null ? "MARKET_NEXT_OPEN" : request.entryMethod()),
+                BacktestSpec.ExecutionPolicy.TargetMethod.valueOf(
+                        request.targetMethod() == null ? "NONE" : request.targetMethod()),
+                request.targetR() == null ? null : BigDecimal.valueOf(request.targetR()),
+                request.minStopAtr());
     }
 
     /** A zero schedule is an explicit user assumption, never presented as a real fee model. */

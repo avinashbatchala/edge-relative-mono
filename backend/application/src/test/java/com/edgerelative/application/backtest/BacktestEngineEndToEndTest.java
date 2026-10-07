@@ -114,7 +114,8 @@ class BacktestEngineEndToEndTest {
                 dec("1000000"), "INR", false, parameters(), riskPolicy(), featurePolicy(),
                 new BacktestSpec.ExecutionPolicy("test-exec", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
                         BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
-                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true),
+                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true,
+                        null, null, null, null),
                 new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
                         dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
                 BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,
@@ -200,6 +201,36 @@ class BacktestEngineEndToEndTest {
     }
 
     @Test
+    void rMultipleTargetIsHonouredAndExcursionsAreRecorded() {
+        BacktestSpec base = spec(BacktestSpec.ContextSource.DERIVED_RESEARCH);
+        BacktestSpec targeted = new BacktestSpec(
+                base.runKey(), base.instrumentIds(), base.symbols(), base.startDate(), base.endDate(),
+                base.timeframe(), base.dailyTimeframe(), base.startingCapital(), base.currency(),
+                base.strictProducers(), base.strategyParameters(), base.riskPolicy(), base.featurePolicy(),
+                new BacktestSpec.ExecutionPolicy("test-target", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
+                        BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
+                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true,
+                        BacktestSpec.ExecutionPolicy.EntryMethod.MARKET_NEXT_OPEN,
+                        BacktestSpec.ExecutionPolicy.TargetMethod.R_MULTIPLE, dec("0.5"), null),
+                base.costSchedule(), base.endOfRun(), base.warmupSessions(), base.seed(), base.engineRevision(),
+                base.marketInstrumentId(), base.sectorInstrumentId(), base.datasetCode(), base.datasetChecksum(),
+                base.contextSource());
+
+        BacktestResult result = new BacktestEngine(
+                new FixtureReader(), new FeatureEngine(),
+                new StrategyEngine(SetupFamilyRegistry.production()), new RiskEvaluator(),
+                NseTradingCalendar.weekendsOnly())
+                .run(targeted, null);
+
+        assertThat(result.trades()).isNotEmpty();
+        assertThat(result.trades()).allSatisfy(trade -> {
+            assertThat(trade.mfeR()).isNotNull();
+            assertThat(trade.maeR()).isNotNull();
+        });
+        assertThat(result.trades().stream().anyMatch(trade -> "TARGET".equals(trade.exitReason()))).isTrue();
+    }
+
+    @Test
     void deterministicRerunProducesIdenticalLedgerAndEquity() {
         BacktestSpec spec = spec(BacktestSpec.ContextSource.DERIVED_RESEARCH);
         BacktestResult first = new BacktestEngine(
@@ -234,7 +265,8 @@ class BacktestEngineEndToEndTest {
                 featurePolicy(),
                 new BacktestSpec.ExecutionPolicy("test-exec", 0, dec("2"), dec("5"), BigDecimal.ONE, 1,
                         BacktestSpec.SessionCutoff.NEW_ENTRY_CUTOFF,
-                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true),
+                        BacktestSpec.ExecutionPolicy.AmbiguityPolicy.STOP_FIRST_CONSERVATIVE, true,
+                        null, null, null, null),
                 new BacktestSpec.CostSchedule("TEST_COSTS", dec("3"), dec("3"), dec("10"), dec("1"),
                         dec("18"), dec("0.1"), dec("0.5"), dec("0"), dec("0"), true),
                 BacktestSpec.EndOfRunPolicy.MARK_TO_MARKET, 10, 1L, BacktestEngine.ENGINE_REVISION,

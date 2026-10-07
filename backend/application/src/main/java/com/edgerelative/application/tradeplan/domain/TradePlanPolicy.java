@@ -15,6 +15,7 @@ public record TradePlanPolicy(
         BigDecimal noChaseTicks,
         String entryMethod,
         String targetMethod,
+        BigDecimal targetR,
         String stopBufferMethod) {
 
     public TradePlanPolicy {
@@ -32,6 +33,9 @@ public record TradePlanPolicy(
         }
         if (noChaseTicks != null && noChaseTicks.signum() < 0) {
             throw new IllegalArgumentException("noChaseTicks must be >= 0");
+        }
+        if (targetR != null && targetR.signum() <= 0) {
+            throw new IllegalArgumentException("targetR must be > 0 when configured");
         }
     }
 

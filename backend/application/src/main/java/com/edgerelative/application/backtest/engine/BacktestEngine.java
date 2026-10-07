@@ -351,8 +351,13 @@ public final class BacktestEngine {
         TradePlan plan = TradePlanFactory.create(
                 proposal, 0L,
                 lineage(spec, context, instrumentId, anchor, snapshot, chosen, bar, proposal),
-                new TradePlanPolicy("backtest", 1, "backtest", null, null, null, "REFERENCE_PRICE",
-                        proposal.structuralInvalidation() == null ? null : "STRUCTURAL_UNRESOLVED", "TICK_BUFFER"),
+                new TradePlanPolicy("backtest", 1, "backtest", null, null, null,
+                        spec.execution().entryMethod() == BacktestSpec.ExecutionPolicy.EntryMethod.TRIGGER_LIMIT
+                                ? "TRIGGER_LIMIT" : "REFERENCE_PRICE",
+                        spec.execution().targetMethod() == BacktestSpec.ExecutionPolicy.TargetMethod.R_MULTIPLE
+                                ? "R_MULTIPLE" : "STRUCTURAL_UNRESOLVED",
+                        spec.execution().targetR(),
+                        "TICK_BUFFER"),
                 anchor, null);
         increment(counts, "plansCreated");
         portfolio.submit(spec, instrumentId, chosen.direction(), plan);
@@ -664,6 +669,16 @@ public final class BacktestEngine {
             if (reference == null) {
                 return false;
             }
+            // Trigger entries only fill if the bar actually reaches the plan's entry trigger; a market
+            // entry fills at the open. This separates "chase the open" from "wait for the breakout".
+            if (spec.execution().entryMethod() == BacktestSpec.ExecutionPolicy.EntryMethod.TRIGGER_LIMIT) {
+                BigDecimal trigger = order.plan().entryTriggerPrice();
+                if (trigger == null || bar.high() == null || bar.low() == null
+                        || !reachesTrigger(order.direction(), bar, trigger)) {
+                    return false;
+                }
+                reference = order.direction().isLong() ? bar.open().max(trigger) : bar.open().min(trigger);
+            }
             long executable = (long) Math.floor(bar.volume() * spec.execution().participationRate().doubleValue());
             long quantity = Math.min(order.plan().plannedQuantity(), Math.max(0, executable));
             if (quantity <= 0) {
@@ -680,6 +695,12 @@ public final class BacktestEngine {
             return true;
         }
 
+        private static boolean reachesTrigger(Direction direction, AggregatedCandle bar, BigDecimal trigger) {
+            return direction.isLong()
+                    ? bar.high().compareTo(trigger) >= 0
+                    : bar.low().compareTo(trigger) <= 0;
+        }
+
         private void manage(BacktestSpec spec, long instrumentId, OpenPosition position, AggregatedCandle bar) {
             if (bar.high() == null || bar.low() == null) {
                 return;
@@ -687,10 +708,31 @@ public final class BacktestEngine {
             boolean longSide = position.direction.isLong();
             BigDecimal stop = position.stop;
             BigDecimal target = position.target;
+            // Excursions are measured over the whole holding period, independent of the chosen exit.
+            BigDecimal favorable = longSide ? bar.high().subtract(position.entryPrice)
+                    : position.entryPrice.subtract(bar.low());
+            BigDecimal adverse = longSide ? position.entryPrice.subtract(bar.low())
+                    : bar.high().subtract(position.entryPrice);
+            position.mfePrice = position.mfePrice.max(favorable);
+            position.maePrice = position.maePrice.max(adverse);
             boolean stopHit = longSide ? bar.low().compareTo(stop) <= 0 : bar.high().compareTo(stop) >= 0;
-            boolean targetHit = target != null && (longSide ? bar.high().compareTo(target) >= 0 : bar.low().compareTo(target) <= 0);
+            boolean targetHit = target != null
+                    && (longSide ? bar.high().compareTo(target) >= 0 : bar.low().compareTo(target) <= 0);
             if (stopHit && targetHit) {
                 position.ambiguousBars++;
+                if (spec.execution().ambiguityPolicy()
+                        == BacktestSpec.ExecutionPolicy.AmbiguityPolicy.SKIP_AMBIGUOUS) {
+                    // Unresolvable from OHLC; leave the position open and let a later bar decide.
+                    return;
+                }
+                if (spec.execution().ambiguityPolicy()
+                        == BacktestSpec.ExecutionPolicy.AmbiguityPolicy.TARGET_FIRST_OPTIMISTIC) {
+                    BigDecimal reference = longSide ? bar.open().max(target) : bar.open().min(target);
+                    close(spec, instrumentId, position, bar,
+                            adjustedFill(spec, position.direction, reference, false), "TARGET");
+                    return;
+                }
+                // STOP_FIRST_CONSERVATIVE (default) falls through to the stop branch.
             }
             if (stopHit) {
                 BigDecimal reference = longSide ? bar.open().min(stop) : bar.open().max(stop);
@@ -725,8 +767,17 @@ public final class BacktestEngine {
                     position.initialRiskPerUnit, gross.setScale(2, RoundingMode.HALF_UP), explicit.setScale(2, RoundingMode.HALF_UP),
                     net.setScale(2, RoundingMode.HALF_UP), realizedR,
                     Duration.between(position.entryAt, bar.closeTime()).getSeconds(), reason,
-                    position.ambiguousBars, costs, position.planKey, position.decisionKey));
+                    position.ambiguousBars, costs, position.planKey, position.decisionKey,
+                    excursionR(position.mfePrice, position.initialRiskPerUnit),
+                    excursionR(position.maePrice, position.initialRiskPerUnit)));
             positions.remove(instrumentId);
+        }
+
+        private static BigDecimal excursionR(BigDecimal excursion, BigDecimal riskPerUnit) {
+            if (excursion == null || riskPerUnit == null || riskPerUnit.signum() == 0) {
+                return null;
+            }
+            return excursion.divide(riskPerUnit, 4, RoundingMode.HALF_UP);
         }
 
         void markEquity(Instant at, List<EquityPoint> equity) {
@@ -771,7 +822,9 @@ public final class BacktestEngine {
                         position.entryAt, position.entryPrice, null, null, position.quantity, position.initialRiskPerUnit,
                         gross.setScale(2, RoundingMode.HALF_UP), BigDecimal.ZERO.setScale(2), gross.setScale(2, RoundingMode.HALF_UP),
                         null, null, "OPEN_MARKED_TO_MARKET", position.ambiguousBars, Map.of(), position.planKey,
-                        position.decisionKey));
+                        position.decisionKey,
+                        excursionR(position.mfePrice, position.initialRiskPerUnit),
+                        excursionR(position.maePrice, position.initialRiskPerUnit)));
             }
         }
 
@@ -861,6 +914,8 @@ public final class BacktestEngine {
         final String entryPattern;
         int ambiguousBars;
         BigDecimal markPrice;
+        BigDecimal mfePrice = BigDecimal.ZERO;
+        BigDecimal maePrice = BigDecimal.ZERO;
 
         OpenPosition(
                 long instrumentId,
