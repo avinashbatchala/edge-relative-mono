@@ -37,6 +37,13 @@ import {
 import InstrumentSelector from '@/components/market-data/InstrumentSelector.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
 import WatchlistRow from '@/components/watchlist/WatchlistRow.vue'
+import WatchlistDecisionRow from '@/components/watchlist/WatchlistDecisionRow.vue'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
+import {
+  featureKeys,
+  getFeatureDashboard,
+  type FeatureDashboardRow,
+} from '@/api/features'
 import { useInstrumentSearch } from '@/composables/useInstrumentSearch'
 import { isDerivative } from '@/lib/instrument'
 
@@ -65,6 +72,29 @@ const filteredEntries = computed(() => {
   return entries.value.filter((entry) =>
     `${entry.symbol} ${entry.name ?? ''}`.toLowerCase().includes(term),
   )
+})
+
+// --- view: decision-first columns (default) vs full market anatomy ------------
+const view = ref<'decision' | 'market'>('decision')
+const viewTabs = [
+  { value: 'decision', label: 'Decision' },
+  { value: 'market', label: 'Market' },
+] as const
+const tableColspan = computed(() => (view.value === 'market' ? 14 : 15))
+
+const dashboardQuery = useQuery(() => ({
+  queryKey: featureKeys.dashboard(),
+  queryFn: ({ signal }) => getFeatureDashboard(signal),
+  staleTime: 15_000,
+  refetchInterval: 30_000,
+  retry: 1,
+}))
+const featuresById = computed(() => {
+  const map = new Map<number, FeatureDashboardRow>()
+  for (const row of dashboardQuery.data.value ?? []) {
+    map.set(row.instrumentId, row)
+  }
+  return map
 })
 
 // --- add ---------------------------------------------------------------------
@@ -235,6 +265,7 @@ function move(instrumentId: number, direction: -1 | 1) {
         >
           <RefreshCw class="mr-1 size-3.5" aria-hidden="true" /> Refresh
         </Button>
+        <SegmentedTabs v-model="view" :tabs="viewTabs" capitalize />
         <span class="ml-auto text-xs text-muted-foreground">
           Showing {{ filteredEntries.length }} of
           {{ entries.length }} instruments
@@ -245,47 +276,82 @@ function move(instrumentId: number, direction: -1 | 1) {
         <Table>
           <TableHeader class="sticky top-0 z-10 bg-card">
             <TableRow class="hover:bg-transparent">
-              <TableHead>Instrument</TableHead>
-              <TableHead class="hidden xl:table-cell">Market</TableHead>
-              <TableHead class="border-l text-right">LTP</TableHead>
-              <TableHead class="text-right">Chg</TableHead>
-              <TableHead class="text-right">Chg%</TableHead>
-              <TableHead class="hidden border-l text-right lg:table-cell"
-                >Open</TableHead
-              >
-              <TableHead class="hidden text-right lg:table-cell"
-                >High</TableHead
-              >
-              <TableHead class="hidden text-right lg:table-cell">Low</TableHead>
-              <TableHead class="hidden text-right xl:table-cell"
-                >Prev</TableHead
-              >
-              <TableHead class="hidden text-right lg:table-cell"
-                >Volume</TableHead
-              >
-              <TableHead class="hidden border-l text-right xl:table-cell"
-                >Bid / Ask</TableHead
-              >
-              <TableHead class="hidden border-l text-right xl:table-cell"
-                >Updated</TableHead
-              >
-              <TableHead class="text-right">Status</TableHead>
-              <TableHead class="w-[120px] text-right">Actions</TableHead>
+              <template v-if="view === 'decision'">
+                <TableHead>Instrument</TableHead>
+                <TableHead class="border-l text-right">LTP</TableHead>
+                <TableHead class="text-right">Chg%</TableHead>
+                <TableHead class="border-l text-right">RRS</TableHead>
+                <TableHead class="text-right">RVOL</TableHead>
+                <TableHead class="text-right">RVE</TableHead>
+                <TableHead class="border-l">Daily</TableHead>
+                <TableHead>Trend</TableHead>
+                <TableHead class="text-right">Vol</TableHead>
+                <TableHead class="border-l">Market</TableHead>
+                <TableHead>Sector</TableHead>
+                <TableHead class="border-l">Quality</TableHead>
+                <TableHead class="text-right">Status</TableHead>
+                <TableHead class="text-right">Updated</TableHead>
+                <TableHead class="w-[120px] text-right">Actions</TableHead>
+              </template>
+              <template v-else>
+                <TableHead>Instrument</TableHead>
+                <TableHead class="hidden xl:table-cell">Market</TableHead>
+                <TableHead class="border-l text-right">LTP</TableHead>
+                <TableHead class="text-right">Chg</TableHead>
+                <TableHead class="text-right">Chg%</TableHead>
+                <TableHead class="hidden border-l text-right lg:table-cell"
+                  >Open</TableHead
+                >
+                <TableHead class="hidden text-right lg:table-cell"
+                  >High</TableHead
+                >
+                <TableHead class="hidden text-right lg:table-cell"
+                  >Low</TableHead
+                >
+                <TableHead class="hidden text-right xl:table-cell"
+                  >Prev</TableHead
+                >
+                <TableHead class="hidden text-right lg:table-cell"
+                  >Volume</TableHead
+                >
+                <TableHead class="hidden border-l text-right xl:table-cell"
+                  >Bid / Ask</TableHead
+                >
+                <TableHead class="hidden border-l text-right xl:table-cell"
+                  >Updated</TableHead
+                >
+                <TableHead class="text-right">Status</TableHead>
+                <TableHead class="w-[120px] text-right">Actions</TableHead>
+              </template>
             </TableRow>
           </TableHeader>
           <TableBody>
-            <WatchlistRow
-              v-for="(entry, index) in filteredEntries"
-              :key="entry.instrumentId"
-              :entry="entry"
-              :first="index === 0"
-              :last="index === filteredEntries.length - 1"
-              @remove="remove"
-              @move="move"
-            />
+            <template v-if="view === 'decision'">
+              <WatchlistDecisionRow
+                v-for="(entry, index) in filteredEntries"
+                :key="entry.instrumentId"
+                :entry="entry"
+                :feature="featuresById.get(entry.instrumentId) ?? null"
+                :first="index === 0"
+                :last="index === filteredEntries.length - 1"
+                @remove="remove"
+                @move="move"
+              />
+            </template>
+            <template v-else>
+              <WatchlistRow
+                v-for="(entry, index) in filteredEntries"
+                :key="entry.instrumentId"
+                :entry="entry"
+                :first="index === 0"
+                :last="index === filteredEntries.length - 1"
+                @remove="remove"
+                @move="move"
+              />
+            </template>
             <TableRow v-if="filteredEntries.length === 0">
               <TableCell
-                :colspan="14"
+                :colspan="tableColspan"
                 class="py-10 text-center text-sm text-muted-foreground"
               >
                 No instruments match “{{ filter }}”.
