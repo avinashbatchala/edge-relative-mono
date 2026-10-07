@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import MarketContextPanel from '@/components/trade/MarketContextPanel.vue'
+import SectorBoard from '@/components/trade/SectorBoard.vue'
 import OpportunityBoard from '@/components/trade/OpportunityBoard.vue'
 import AttentionFeed from '@/components/trade/AttentionFeed.vue'
 import SystemTile from '@/components/desk/SystemTile.vue'
@@ -170,6 +171,8 @@ const notices = computed(() =>
       <SystemTile />
       <PortfolioTile />
     </div>
+
+    <SectorBoard :rows="featureRows" />
 
     <div class="space-y-4">
       <OpportunityBoard

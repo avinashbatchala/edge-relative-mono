@@ -35,6 +35,8 @@ function feature(
     atrPercent: 1,
     vwapDistanceAtr: 0,
     marketState: 'BULL_STRUCTURE',
+    sectorCode: null,
+    sectorName: null,
     sectorState: 'STRONG',
     sectorRrsRaw: 0.4,
     quality: 'GOOD',

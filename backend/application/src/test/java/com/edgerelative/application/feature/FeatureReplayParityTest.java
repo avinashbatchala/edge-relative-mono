@@ -42,7 +42,7 @@ class FeatureReplayParityTest {
         LiveFeatureStore store = new LiveFeatureStore(engine, 1000);
         store.seed(99L, "M5", market);
         FeatureContextTemplate template = new FeatureContextTemplate(
-                1L, "M5", 99L, "NIFTY50", null, null, null, null,
+                1L, "M5", 99L, "NIFTY50", null, null, null, null, null,
                 policy, new FeatureVersions(policy), FeatureTestSupport.CALENDAR);
         FeatureSnapshot live = null;
         for (AggregatedCandle candle : subject) {

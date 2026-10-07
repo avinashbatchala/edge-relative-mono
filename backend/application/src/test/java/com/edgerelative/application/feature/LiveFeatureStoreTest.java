@@ -26,7 +26,7 @@ class LiveFeatureStoreTest {
     private static FeatureContextTemplate template(long instrumentId) {
         FeaturePolicy policy = FeatureTestSupport.policy();
         return new FeatureContextTemplate(
-                instrumentId, "M5", null, "NIFTY50", null, null, null, null,
+                instrumentId, "M5", null, "NIFTY50", null, null, null, null, null,
                 policy, new FeatureVersions(policy), FeatureTestSupport.CALENDAR);
     }
 

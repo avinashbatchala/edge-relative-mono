@@ -9,8 +9,9 @@ import {
 } from '@/components/ui/tooltip'
 
 /**
- * Trading-mode badge. The backend has no current-mode endpoint yet, so the mode is a derived display
- * and is labelled as such. It never implies order authority: execution is disabled in this product.
+ * Trading-mode badge. The mode comes from the authoritative `/api/v1/system/mode` endpoint; when
+ * that is unreachable the caller passes `derived` so the badge says so. Execution remains disabled
+ * until the persisted control state enables it, so this never implies order authority.
  */
 const props = withDefaults(
   defineProps<{ mode?: string; derived?: boolean }>(),
@@ -49,8 +50,14 @@ const label = computed(() => LABELS[props.mode] ?? props.mode)
     </TooltipTrigger>
     <TooltipContent>
       <p class="max-w-xs text-xs">
-        Derived from current configuration — the backend does not yet expose an
-        authoritative mode. Execution remains disabled; this is advisory only.
+        <template v-if="derived">
+          Derived from current configuration — the backend mode endpoint is
+          unreachable. Execution remains disabled; this is advisory only.
+        </template>
+        <template v-else>
+          Authoritative declared mode from the backend. Execution remains
+          disabled until the persisted control state enables it.
+        </template>
       </p>
     </TooltipContent>
   </Tooltip>

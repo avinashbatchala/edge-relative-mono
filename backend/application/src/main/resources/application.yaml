@@ -206,6 +206,12 @@ feature:
       enabled: false
       interval-ms: 5000
 
+trading:
+  # Declared operating mode for the mode badge (DD-01 authority boundaries). RESEARCH holds no
+  # real-capital authority. Execution stays disabled until the persisted trading control state
+  # enables it; changing this value is an operator decision backed by a control-state row.
+  mode: ${ER_TRADING_MODE:RESEARCH}
+
 market:
   # Point-in-time sector membership, seeded into reference.instrument_sector_history. Only sectors
   # with a verified NSE index benchmark are mapped; RELIANCE, BHARTIARTL and ADANIENT are omitted

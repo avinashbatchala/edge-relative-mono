@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { Activity, Database, ShieldOff } from '@lucide/vue'
 import { getFeatureDiagnostics, featureKeys } from '@/api/features'
-import { getHealth, systemKeys } from '@/api/system'
+import { getHealth, getSystemMode, systemKeys } from '@/api/system'
 import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
@@ -33,6 +33,15 @@ const diagnostics = useQuery({
   queryFn: ({ signal }) => getFeatureDiagnostics(signal),
   refetchInterval: 30000,
 })
+
+const modeQuery = useQuery({
+  queryKey: systemKeys.mode(),
+  queryFn: ({ signal }) => getSystemMode(signal),
+  refetchInterval: 30000,
+})
+
+const mode = computed(() => modeQuery.data.value ?? null)
+const executionEnabled = computed(() => mode.value?.executionEnabled ?? false)
 
 const freshness = computed(() => diagnostics.data.value?.freshness ?? null)
 const broker = computed(() => {
@@ -125,14 +134,22 @@ const sessionLabel = computed(() =>
             }}</span>
             <span class="text-muted-foreground">Broker</span
             ><span>{{ broker.label }}</span>
-            <span class="text-muted-foreground">Execution</span
-            ><span>Disabled (advisory)</span>
+            <span class="text-muted-foreground">Stop new trades</span>
+            <span>{{ mode?.control.stopNewTrades ? 'Engaged' : 'No' }}</span>
+            <span class="text-muted-foreground">Flatten only</span>
+            <span>{{ mode?.control.flattenOnly ? 'Engaged' : 'No' }}</span>
+            <span class="text-muted-foreground">Execution</span>
+            <span>{{
+              executionEnabled
+                ? 'Enabled by control state'
+                : 'Disabled (advisory)'
+            }}</span>
           </section>
         </div>
       </SheetContent>
     </Sheet>
 
-    <TradingModeBadge />
+    <TradingModeBadge :mode="mode?.configuredMode" :derived="mode === null" />
 
     <Badge variant="outline" class="gap-1 font-normal">
       <Database class="size-3" aria-hidden="true" />
@@ -146,7 +163,9 @@ const sessionLabel = computed(() =>
 
     <Badge variant="outline" class="gap-1 font-normal">
       <ShieldOff class="size-3" aria-hidden="true" />
-      <span>Execution disabled</span>
+      <span>{{
+        executionEnabled ? 'Execution enabled' : 'Execution disabled'
+      }}</span>
     </Badge>
 
     <span class="ml-auto text-muted-foreground">

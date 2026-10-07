@@ -141,5 +141,7 @@ Domain components extracted from page monoliths: `SystemReadinessBar`, `TradingM
 The UI may only present data that exists. Current availability (see `dev/ui-ux-audit.md` §API gap):
 features, watchlist, opportunities, trade plans, broker positions/orders/margin, history coverage,
 backtests (metrics/rejections/timeline/aggregate/universe), catalog, fundamentals, strategy bindings,
-`/actuator/health`. Missing producers: live portfolio risk context, current trading mode, sector
-aggregation, global market regime, attention events, canonical position/order lifecycle.
+`/actuator/health`, current trading mode (`/api/v1/system/mode`), risk posture
+(`/api/v1/risk/posture`), and sector identity on feature rows. Still absent: a live portfolio
+producer (risk posture stays empty until it exists), global market regime, attention events, and the
+canonical position/order lifecycle.

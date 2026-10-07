@@ -38,6 +38,8 @@ public record FeatureDashboardRow(
         Double atrPercent,
         Double vwapDistanceAtr,
         String marketState,
+        String sectorCode,
+        String sectorName,
         String sectorState,
         Double sectorRrsRaw,
         String quality,

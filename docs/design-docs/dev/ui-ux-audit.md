@@ -30,15 +30,15 @@ search (4 surfaces); `FeatureHistoryPanel` (3×); `FundamentalPanel` (2×); unus
 |---|---|---|---|
 | Features RRS/RVOL/RVE/ATR/context | `/api/v1/features/*` | Available | use |
 | Market context (structure/efficiency) | features `MARKET_*` (no regime label) | Partial | derive; label "derived" |
-| Sector board | per-instrument `sectorState`/`sectorRrsRaw`; `reference.sector*` | Partial | derive client-side from dashboard |
+| Sector board | `/api/v1/features/dashboard` `sectorCode`/`sectorName` | Available | group client-side; `SectorBoard` |
 | Opportunity list | `/api/v1/opportunities` | Available (no rank/score) | deterministic rank rule, labelled |
 | Setup detail | `/api/v1/setups/{id}` | Available (no client) | add client |
 | Trade plans | `/api/v1/trade-plans/{key}` | Available | use |
 | Strategy bindings | `/api/v1/strategy-bindings` | Available (no client) | add client |
 | Positions/orders/margin | broker `/portfolio/*`, `/orders/*` | Available (read-only) | use; canonical model absent |
 | System readiness | `/actuator/health` (status only) | Partial | aggregate client-side; detail unavailable |
-| Trading mode | enum + DB only | Missing | derived display, labelled non-authoritative |
-| Risk Center | `RiskContext` domain only; live provider absent | Missing | render unavailable |
+| Trading mode | `/api/v1/system/mode` (declared mode + control state) | Available | authoritative badge |
+| Risk Center | `/api/v1/risk/posture` (portfolio/account/control, or unavailable) | Available (empty until producers) | render available/unavailable explicitly |
 | Attention/transitions | none | Missing | derive from feature stream diffs |
 | Backtest funnel/diagnostics | `metrics.stageCounts`, `/rejections`, `/timeline` | Available | restructure UI |
 | Data-health matrix | feature diagnostics + history coverage | Partial | derive per-instrument/meta |

@@ -33,7 +33,7 @@ public class FeatureReferenceResolver {
         LocalDate sessionDate = calendar.sessionDate(anchor);
         Long marketInstrumentId = resolveMarket(marketCode);
         Record sector = dsl.fetchOne(
-                "SELECT s.sector_id, s.code, m.source FROM reference.instrument_sector_history m "
+                "SELECT s.sector_id, s.code, s.name, m.source FROM reference.instrument_sector_history m "
                         + "JOIN reference.sector s ON s.sector_id = m.sector_id "
                         + "WHERE m.instrument_id = ? AND m.valid_from <= ? "
                         + "AND (m.valid_to IS NULL OR ? < m.valid_to) LIMIT 1",
@@ -42,10 +42,18 @@ public class FeatureReferenceResolver {
                 sessionDate);
         Long sectorId = sector == null ? null : sector.get("sector_id", Long.class);
         String sectorCode = sector == null ? null : sector.get("code", String.class);
+        String sectorName = sector == null ? null : sector.get("name", String.class);
         String mappingVersion = sector == null ? null : sector.get("source", String.class);
         Long sectorInstrumentId = sectorId == null ? null : resolveSectorInstrument(sectorId, sessionDate);
         return new BenchmarkIdentity(
-                marketInstrumentId, marketCode, sectorId, sectorCode, mappingVersion, sectorInstrumentId, anchor);
+                marketInstrumentId,
+                marketCode,
+                sectorId,
+                sectorCode,
+                sectorName,
+                mappingVersion,
+                sectorInstrumentId,
+                anchor);
     }
 
     private Long resolveMarket(String marketCode) {

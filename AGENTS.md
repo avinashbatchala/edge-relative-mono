@@ -17,7 +17,11 @@ volume, market/sector context) under `application/feature`, with a broker-neutra
 `/api/v1/features` API, a versioned `/ws/features` JSON stream, an observational
 Feature Dashboard at `/features`, and shared fixtures in `contracts/fixtures/features`.
 The stream has no live market-data producer yet: it sends an authoritative snapshot on
-connect/resync. There is still no strategy, risk, or broker execution. Root
+connect/resync. There is still no strategy, risk, or broker execution. Feature
+dashboard rows carry point-in-time `sectorCode`/`sectorName` for the derived Sector Board.
+`/api/v1/system/mode` reports the declared trading mode and persisted safety controls, and
+`/api/v1/risk/posture` reads persisted portfolio/account/control state (or reports it unavailable);
+the live portfolio producer is still absent, so risk posture stays empty rather than invented. Root
 `compose.yaml` provides local PostgreSQL; backend integration tests use Testcontainers
 PostgreSQL.
 

@@ -222,7 +222,7 @@ public final class BacktestEngine {
                 continue;
             }
             BenchmarkIdentity benchmark = new BenchmarkIdentity(
-                    spec.marketInstrumentId(), "NIFTY50", null, null, null,
+                    spec.marketInstrumentId(), "NIFTY50", null, null, null, null,
                     spec.sectorInstrumentId(), null);
             List<AggregatedCandle> sectorCandles = spec.sectorInstrumentId() == null
                     ? List.of()

@@ -33,6 +33,8 @@ function row(
     atrPercent: null,
     vwapDistanceAtr: null,
     marketState: null,
+    sectorCode: null,
+    sectorName: null,
     sectorState: null,
     sectorRrsRaw: null,
     quality: 'GOOD',

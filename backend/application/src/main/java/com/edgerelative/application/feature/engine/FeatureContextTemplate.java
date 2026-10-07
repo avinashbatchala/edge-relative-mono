@@ -15,6 +15,7 @@ public record FeatureContextTemplate(
         String marketCode,
         Long sectorInstrumentId,
         String sectorCode,
+        String sectorName,
         Long sectorId,
         String sectorMappingVersion,
         FeaturePolicy policy,
@@ -27,6 +28,7 @@ public record FeatureContextTemplate(
                 marketCode,
                 sectorId,
                 sectorCode,
+                sectorName,
                 sectorMappingVersion,
                 sectorInstrumentId,
                 null);

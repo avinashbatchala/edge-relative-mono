@@ -77,6 +77,8 @@ function row(
     atrPercent: 2,
     vwapDistanceAtr: null,
     marketState: 'BULL_STRUCTURE',
+    sectorCode: null,
+    sectorName: null,
     sectorState: 'BULL_STRUCTURE',
     sectorRrsRaw: 0.5,
     quality: 'GOOD',

@@ -14,6 +14,7 @@ public record BenchmarkIdentity(
         String marketCode,
         Long sectorId,
         String sectorCode,
+        String sectorName,
         String sectorMappingVersion,
         Long sectorInstrumentId,
         Instant resolvedAt) {

@@ -70,6 +70,7 @@ public final class FeatureTestSupport {
                 "NIFTY50",
                 hasSector ? 7L : null,
                 hasSector ? "NIFTY-ENERGY" : null,
+                hasSector ? "NIFTY Energy" : null,
                 hasSector ? "nse-sector-test-v1" : null,
                 hasSector ? 98L : null,
                 null);

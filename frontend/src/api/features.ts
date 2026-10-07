@@ -36,6 +36,8 @@ export interface FeatureDashboardRow {
   atrPercent: number | null
   vwapDistanceAtr: number | null
   marketState: string | null
+  sectorCode: string | null
+  sectorName: string | null
   sectorState: string | null
   sectorRrsRaw: number | null
   quality: string
