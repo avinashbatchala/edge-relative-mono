@@ -28,18 +28,30 @@ class BacktestApiError(RuntimeError):
         self.body = body
 
 
-def _urllib_transport(method: str, url: str, body: "bytes | None") -> "tuple[int, bytes]":
-    request = urllib.request.Request(
-        url,
-        data=body,
-        method=method,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310 (fixed http(s) base)
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read()
+def urllib_transport(timeout: float = 60.0) -> Transport:
+    """Build a stdlib transport with the given socket timeout.
+
+    Long-running calls (for example the ML training export, which replays a whole window) need a
+    larger timeout than the default interactive calls.
+    """
+
+    def transport(method: str, url: str, body: "bytes | None") -> "tuple[int, bytes]":
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method=method,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (fixed http(s) base)
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            return error.code, error.read()
+
+    return transport
+
+
+_urllib_transport: Transport = urllib_transport(60.0)
 
 
 @dataclass(frozen=True)

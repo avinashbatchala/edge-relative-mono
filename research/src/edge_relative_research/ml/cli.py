@@ -20,10 +20,11 @@ from edge_relative_research.ml.worker import default_store, run_forever
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Edge Relative ML ops")
-    parser.add_argument("--base-url", default="http://127.0.0.1:8090")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--base-url", default="http://127.0.0.1:8090")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    enqueue = sub.add_parser("enqueue", help="enqueue an analysis run")
+    enqueue = sub.add_parser("enqueue", parents=[common], help="enqueue an analysis run")
     enqueue.add_argument("--symbol", action="append", required=True)
     enqueue.add_argument("--timeframe", default="M5")
     enqueue.add_argument("--daily-timeframe", default="D1")
@@ -34,7 +35,7 @@ def _build_parser() -> argparse.ArgumentParser:
     enqueue.add_argument("--model-code", default="er-ranker")
     enqueue.add_argument("--requested-by", default="cli")
 
-    sub.add_parser("worker", help="poll and process the analysis queue")
+    sub.add_parser("worker", parents=[common], help="poll and process the analysis queue")
     return parser
 
 

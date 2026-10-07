@@ -13,22 +13,36 @@ from typing import Any, Callable, Mapping, Sequence
 from edge_relative_research.backtest.client import (
     BacktestApiError,
     _urllib_transport,
+    urllib_transport,
 )
 
 Transport = Callable[[str, str, "bytes | None"], "tuple[int, bytes]"]
+
+# The training export (and the verification replay) run the whole engine synchronously and can take
+# minutes; give them a generous socket timeout separate from the interactive default.
+_LONG_TIMEOUT_SECONDS = 3600.0
 
 
 @dataclass(frozen=True)
 class MlApiClient:
     base_url: str
     transport: Transport = _urllib_transport
+    long_transport: Transport = urllib_transport(_LONG_TIMEOUT_SECONDS)
 
-    def _call(self, method: str, path: str, payload: Mapping[str, Any] | None = None) -> Any:
+    def _call(
+        self,
+        method: str,
+        path: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        long_running: bool = False,
+    ) -> Any:
         import json
 
         body = None if payload is None else json.dumps(payload).encode("utf-8")
         url = self.base_url.rstrip("/") + path
-        status, raw = self.transport(method, url, body)
+        transport = self.long_transport if long_running else self.transport
+        status, raw = transport(method, url, body)
         text = raw.decode("utf-8") if raw else ""
         if status < 200 or status >= 300:
             raise BacktestApiError(status, text)
@@ -96,4 +110,4 @@ class MlApiClient:
 
     def export_anchors(self, request: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
         """Per-anchor training export from the backtest engine (features + realized outcome)."""
-        return self._call("POST", "/api/v1/ml/export/anchors", dict(request))
+        return self._call("POST", "/api/v1/ml/export/anchors", dict(request), long_running=True)
