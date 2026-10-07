@@ -103,8 +103,8 @@ test('sidebar exposes tools and highlights the active route', async () => {
   const deskLink = screen.getByRole('link', { name: 'Desk' })
   expect(deskLink.getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: 'Watchlist' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Chart' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Research' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Instrument' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Data' })).toBeTruthy()
   expect(
     await screen.findByRole('heading', { name: 'Desk', level: 1 }),
   ).toBeTruthy()

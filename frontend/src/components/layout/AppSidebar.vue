@@ -4,10 +4,12 @@ import {
   Database,
   FlaskConical,
   Gauge,
+  HeartPulse,
   LayoutDashboard,
   LineChart,
   ListChecks,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Target,
   Wallet,
@@ -41,25 +43,46 @@ interface NavItem {
   prefix?: string
 }
 
-const primary: NavItem[] = [
+const trade: NavItem[] = [
   { title: 'Desk', to: '/desk', icon: LayoutDashboard },
-  { title: 'Scanner', to: '/scanner', icon: Gauge, prefix: '/scanner' },
-  { title: 'Setups', to: '/setups', icon: Target },
-  { title: 'Chart', to: '/chart', icon: Activity, prefix: '/chart' },
+  { title: 'Opportunities', to: '/setups', icon: Target },
   { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
-  { title: 'Trades', to: '/trades', icon: Wallet },
+  { title: 'Scanner', to: '/scanner', icon: Gauge, prefix: '/scanner' },
+  { title: 'Instrument', to: '/chart', icon: Activity, prefix: '/chart' },
+  { title: 'Positions', to: '/positions', icon: Wallet, prefix: '/positions' },
 ]
 
-const analyze: NavItem[] = [
-  { title: 'Research', to: '/research', icon: Database },
+const research: NavItem[] = [
+  { title: 'Data', to: '/research', icon: Database },
   {
-    title: 'Validate',
+    title: 'Backtests',
     to: '/validate',
     icon: FlaskConical,
     prefix: '/validate',
   },
-  { title: 'Catalog', to: '/catalog', icon: ShieldCheck },
+  { title: 'Strategies', to: '/catalog', icon: ShieldCheck },
   { title: 'Fundamentals', to: '/fundamentals', icon: LineChart },
+]
+
+const system: NavItem[] = [
+  {
+    title: 'Risk',
+    to: '/system/risk',
+    icon: ShieldAlert,
+    prefix: '/system/risk',
+  },
+  {
+    title: 'Health',
+    to: '/system/health',
+    icon: HeartPulse,
+    prefix: '/system/health',
+  },
+  {
+    title: 'Config',
+    to: '/system/config',
+    icon: Settings,
+    prefix: '/system/config',
+  },
 ]
 
 const upcoming = [{ title: 'Journal', icon: Wrench }] as const
@@ -103,7 +126,7 @@ const brandActive = computed(() => route.path === '/desk')
         <SidebarGroupLabel>Trade</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem v-for="item in primary" :key="item.to">
+            <SidebarMenuItem v-for="item in trade" :key="item.to">
               <SidebarMenuButton as-child :is-active="isActive(item)">
                 <RouterLink
                   :to="item.to"
@@ -114,26 +137,34 @@ const brandActive = computed(() => route.path === '/desk')
                 </RouterLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
-            <SidebarMenuItem v-for="item in upcoming" :key="item.title">
-              <SidebarMenuButton
-                disabled
-                :aria-label="`${item.title} (coming soon)`"
-              >
-                <component :is="item.icon" aria-hidden="true" />
-                <span>{{ item.title }}</span>
+      <SidebarGroup>
+        <SidebarGroupLabel>Research</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem v-for="item in research" :key="item.to">
+              <SidebarMenuButton as-child :is-active="isActive(item)">
+                <RouterLink
+                  :to="item.to"
+                  :aria-current="isActive(item) ? 'page' : undefined"
+                >
+                  <component :is="item.icon" aria-hidden="true" />
+                  <span>{{ item.title }}</span>
+                </RouterLink>
               </SidebarMenuButton>
-              <SidebarMenuBadge>Soon</SidebarMenuBadge>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Analyse</SidebarGroupLabel>
+        <SidebarGroupLabel>System</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem v-for="item in analyze" :key="item.to">
+            <SidebarMenuItem v-for="item in system" :key="item.to">
               <SidebarMenuButton as-child :is-active="isActive(item)">
                 <RouterLink
                   :to="item.to"
@@ -152,10 +183,13 @@ const brandActive = computed(() => route.path === '/desk')
     <SidebarFooter>
       <SidebarSeparator />
       <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton disabled aria-label="System (coming soon)">
-            <Settings aria-hidden="true" />
-            <span>System</span>
+        <SidebarMenuItem v-for="item in upcoming" :key="item.title">
+          <SidebarMenuButton
+            disabled
+            :aria-label="`${item.title} (coming soon)`"
+          >
+            <component :is="item.icon" aria-hidden="true" />
+            <span>{{ item.title }}</span>
           </SidebarMenuButton>
           <SidebarMenuBadge>Soon</SidebarMenuBadge>
         </SidebarMenuItem>
