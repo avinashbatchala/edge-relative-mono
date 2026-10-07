@@ -57,6 +57,7 @@ public class BacktestService {
     private final Clock clock;
     private final HistoricalDataReader reader;
     private final NseTradingCalendar calendar;
+    private final com.edgerelative.application.catalog.application.StrategyParametersJson strategyParametersJson;
 
     public BacktestService(
             BacktestRepository repository,
@@ -69,7 +70,8 @@ public class BacktestService {
             BacktestExecutor backtestExecutor,
             Clock clock,
             HistoricalDataReader reader,
-            NseTradingCalendar calendar) {
+            NseTradingCalendar calendar,
+            com.edgerelative.application.catalog.application.StrategyParametersJson strategyParametersJson) {
         this.repository = repository;
         this.engine = engine;
         this.strategyCatalog = strategyCatalog;
@@ -81,6 +83,7 @@ public class BacktestService {
         this.clock = clock;
         this.reader = reader;
         this.calendar = calendar;
+        this.strategyParametersJson = strategyParametersJson;
     }
 
     public BacktestRunRow start(BacktestRunRequest request) {
@@ -102,6 +105,30 @@ public class BacktestService {
 
     public boolean cancel(String runKey) {
         return repository.cancel(runKey);
+    }
+
+    /**
+     * Runs a bounded batch of configurations, each with the same base request but a different inline
+     * parameter set. Submissions are serialized by the single-worker backtest executor.
+     */
+    public List<BacktestRunRow> sweep(BacktestSweepRequest request) {
+        if (request == null || request.base() == null) {
+            throw new BacktestValidationException("A base backtest request is required.");
+        }
+        List<Map<String, Object>> configs = request.configs() == null ? List.of() : request.configs();
+        if (configs.isEmpty()) {
+            throw new BacktestValidationException("Provide at least one parameter configuration.");
+        }
+        int max = request.maxConfigs() == null ? 200 : Math.clamp(request.maxConfigs(), 1, 500);
+        if (configs.size() > max) {
+            throw new BacktestValidationException(
+                    "Too many configurations: " + configs.size() + " (max " + max + ").");
+        }
+        List<BacktestRunRow> runs = new ArrayList<>(configs.size());
+        for (Map<String, Object> config : configs) {
+            runs.add(start(request.base().withStrategyParameters(config)));
+        }
+        return runs;
     }
 
     public List<BacktestRunRow> list(int limit) {
@@ -208,7 +235,16 @@ public class BacktestService {
         // production parameters. Fail closed with a clear reason otherwise.
         Long strategyVersionId = request.strategyVersionId();
         StrategyParameters parameters;
-        if (strategyVersionId != null) {
+        if (request.strategyParameters() != null && !request.strategyParameters().isEmpty()) {
+            // Inline automated-research parameters: validated by the StrategyParameters constructor and
+            // hashed into the run manifest so every distinct configuration is its own reproducible run.
+            try {
+                parameters = strategyParametersJson.read(request.strategyParameters(), "INLINE_SWEEP", 1);
+            } catch (RuntimeException invalid) {
+                throw new BacktestValidationException("Invalid strategy parameters: " + invalid.getMessage());
+            }
+            strategyVersionId = null;
+        } else if (strategyVersionId != null) {
             try {
                 parameters = strategyCatalog.resolveVersion(strategyVersionId).parameters();
             } catch (CatalogNotFoundException | com.edgerelative.application.catalog.application.CatalogValidationException unresolvable) {
@@ -261,6 +297,8 @@ public class BacktestService {
         canonical.put("strategyVersionId", strategyVersionId);
         canonical.put("riskPolicyVersionId", resolvedRisk.riskPolicyVersionId());
         canonical.put("strategy", parameters.parameterSetId() + "/" + parameters.parameterVersion());
+        // Full parameter content so distinct inline sweep configurations get distinct run keys.
+        canonical.put("strategyParameters", parameters);
         // Include resolved content so a materially different preset produces a different run.
         canonical.put("strategyFamilies", parameters.enabledFamilies().stream().map(Enum::name).sorted().toList());
         canonical.put("riskPolicy", policy.code() + "/" + policy.version());

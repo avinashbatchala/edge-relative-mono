@@ -349,3 +349,24 @@ still not profitable — but the strategy is no longer being destroyed by its st
 Remaining levers before judging edge: cost drag (prefer M15+ where costs are smaller per unit of
 move), entry timing (MFE−MAE asymmetry), and per-stock parameter optimisation (the research-layer
 program).
+
+---
+
+## Phase B — Sweepable backtests
+
+The backtest request now accepts inline, validated `strategyParameters` (precedence over
+preset/version) and the full parameter set is folded into the run manifest so every configuration is
+a distinct, reproducible run. A bounded `POST /api/v1/backtests/sweep` runs a batch of configurations
+sharing one base request, serialized by the single-worker executor.
+
+Initial SBIN M15 sweep (target 2R, 1.5 ATR floor, permissive, real data):
+
+| Config | trades | win % | net |
+|---|---:|---:|---:|
+| baseline params | 38 | 36.8 | −4,170 |
+| persistence threshold 0.40 | 28 | 35.7 | −4,996 |
+| RVOL interval minimum 1.5 | 30 | 43.3 | **+3,164** |
+
+The third configuration is positive — the first sign-flip observed — which is exactly the kind of
+per-stock parameter interaction the research layer is meant to search systematically (walk-forward,
+not a single-window optimiser).

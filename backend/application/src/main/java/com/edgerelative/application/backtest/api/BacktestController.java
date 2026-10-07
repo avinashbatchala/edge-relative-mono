@@ -39,6 +39,12 @@ public class BacktestController {
         return service.start(request);
     }
 
+    @PostMapping("/sweep")
+    public List<BacktestRunRow> sweep(
+            @RequestBody com.edgerelative.application.backtest.application.BacktestSweepRequest request) {
+        return service.sweep(request);
+    }
+
     @GetMapping
     public List<BacktestRunRow> list(@RequestParam(defaultValue = "50") int limit) {
         return service.list(limit);

@@ -3,6 +3,7 @@ package com.edgerelative.application.backtest.application;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /** API request to start (or idempotently re-request) a backtest run. */
 public record BacktestRunRequest(
@@ -16,6 +17,9 @@ public record BacktestRunRequest(
         String marketSymbol,
         String sectorSymbol,
         String strategyPreset,
+        // Inline, validated strategy parameters for automated research sweeps. Takes precedence over
+        // strategyPreset/strategyVersionId and is recorded in the run manifest.
+        Map<String, Object> strategyParameters,
         String riskPreset,
         String riskPolicyCode,
         Long strategyVersionId,
@@ -30,6 +34,15 @@ public record BacktestRunRequest(
         String endOfRun,
         ExecutionRequest execution,
         CostRequest costs) {
+
+    /** Copy this request with a different inline parameter set (used by sweeps). */
+    public BacktestRunRequest withStrategyParameters(Map<String, Object> parameters) {
+        return new BacktestRunRequest(
+                symbols, startDate, endDate, timeframe, dailyTimeframe, startingCapital, currency, marketSymbol,
+                sectorSymbol, strategyPreset, parameters, riskPreset, riskPolicyCode, strategyVersionId,
+                riskPolicyVersionId, contextSource, strictProducers, warmupBars, warmupSessions, seed, endOfRun,
+                execution, costs);
+    }
 
     public record ExecutionRequest(
             String version,
