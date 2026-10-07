@@ -1,6 +1,6 @@
 """Frozen artifact format and evaluator parity (dependency-free)."""
 
-from edge_relative_research.ml.artifact import GbmArtifact, evaluate
+from edge_relative_research.ml.artifact import GbmArtifact, evaluate, from_lightgbm
 
 MODEL = {
     "format": "er-gbm-v1",
@@ -41,3 +41,57 @@ def test_missing_feature_follows_stored_default():
 def test_round_trips_through_dict():
     artifact = GbmArtifact.from_dict(MODEL)
     assert GbmArtifact.from_dict(artifact.to_dict()) == artifact
+
+
+class _FakeBooster:
+    def __init__(self, dump):
+        self._dump = dump
+
+    def dump_model(self):
+        return self._dump
+
+
+def test_from_lightgbm_maps_split_index_to_feature_name():
+    dump = {
+        "average_output": 0.5,
+        "tree_info": [
+            {
+                "tree_structure": {
+                    "split_feature": 1,
+                    "threshold": 0.0,
+                    "decision_type": "<=",
+                    "default_left": True,
+                    "left_child": {"leaf_value": -0.1},
+                    "right_child": {"leaf_value": 0.3},
+                }
+            }
+        ],
+    }
+    artifact = from_lightgbm(_FakeBooster(dump), ["ATR", "RRS_RAW"])
+    assert artifact.base_score == 0.5
+    assert artifact.trees[0].nodes[0].feature == "RRS_RAW"
+    assert evaluate(artifact, {"RRS_RAW": 1.0}) == 0.5 + 0.3
+    assert evaluate(artifact, {"RRS_RAW": -1.0}) == 0.5 - 0.1
+
+
+def test_from_lightgbm_rejects_categorical_splits():
+    dump = {
+        "tree_info": [
+            {
+                "tree_structure": {
+                    "split_feature": 0,
+                    "threshold": "1||2",
+                    "decision_type": "==",
+                    "default_left": True,
+                    "left_child": {"leaf_value": -0.1},
+                    "right_child": {"leaf_value": 0.3},
+                }
+            }
+        ]
+    }
+    try:
+        from_lightgbm(_FakeBooster(dump), ["SECTOR"])
+    except ValueError as error:
+        assert "numeric" in str(error)
+    else:
+        raise AssertionError("categorical splits must be rejected")

@@ -135,7 +135,7 @@ def from_lightgbm(
     trees: list[Tree] = []
     for tree_info in dump["tree_info"]:
         nodes: list[Node] = []
-        _flatten(tree_info["tree_structure"], nodes)
+        _flatten(tree_info["tree_structure"], nodes, list(feature_names))
         trees.append(Tree(tuple(nodes)))
     base_score = _base_score(dump)
     artifact = GbmArtifact(
@@ -159,25 +159,31 @@ def from_lightgbm(
     return artifact
 
 
-def _flatten(structure: Mapping[str, Any], nodes: list[Node]) -> int:
+def _flatten(structure: Mapping[str, Any], nodes: list[Node], feature_names: list[str]) -> int:
     """Depth-first flatten of a LightGBM tree structure; returns this node's index.
 
-    Numeric splits only: categorical decision types are rejected so the model must one-hot encode
-    categorical inputs (matching the Java evaluator).
+    LightGBM stores ``decision_type`` as the string ``"<="`` for numeric splits and ``"=="`` for
+    categorical ones, and ``split_feature`` as a feature *index*. Only numeric splits are supported;
+    categorical inputs must be one-hot encoded upstream (matching the Java evaluator).
     """
     index = len(nodes)
     nodes.append(Node())
     if "leaf_value" in structure:
         nodes[index] = Node(leaf=float(structure["leaf_value"]))
         return index
-    decision_type = int(structure.get("decision_type", 0))
-    if decision_type != 0:
-        raise ValueError("categorical LightGBM splits are not supported; one-hot encode instead")
-    default_left = structure.get("default_left", True)
-    left_index = _flatten(structure["left_child"], nodes)
-    right_index = _flatten(structure["right_child"], nodes)
+    decision_type = structure.get("decision_type")
+    if decision_type is not None and decision_type != "<=":
+        raise ValueError(
+            "only numeric '<=' LightGBM splits are supported; one-hot encode categoricals"
+        )
+    feature_index = int(structure["split_feature"])
+    if feature_index < 0 or feature_index >= len(feature_names):
+        raise ValueError(f"LightGBM split_feature {feature_index} is outside the feature list")
+    default_left = bool(structure.get("default_left", True))
+    left_index = _flatten(structure["left_child"], nodes, feature_names)
+    right_index = _flatten(structure["right_child"], nodes, feature_names)
     nodes[index] = Node(
-        feature=str(structure.get("split_feature")),
+        feature=feature_names[feature_index],
         threshold=float(structure["threshold"]),
         left=left_index,
         right=right_index,
