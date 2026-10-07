@@ -57,9 +57,12 @@ search (4 surfaces); `FeatureHistoryPanel` (3×); `FundamentalPanel` (2×); unus
 4. **Research** — Backtest run workspace (summary/funnel/diagnostics/instruments/timeline/config/
    lineage), zero-trade debugging, consolidate duplicate run view and catalog keys.
 5. **Operations** — System health matrix, alerts, audit/config stubs.
+6. **ML ops** — ML Lab (configure/launch analysis), analysis detail (OOS quality + promote),
+   models & bindings, baseline-vs-ML verification. See `../DD08 - ML Operations.md`.
 
 Status: phases 1–5 are implemented as UI-only changes. Where the gap table reads "Missing" or
 "Partial" the UI renders an honest derived or unavailable state rather than a fabricated value.
+ML ops (phase 6) adds backend endpoints and the research trainer, not just UI.
 
 ## 4. Verification
 

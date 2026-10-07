@@ -43,6 +43,15 @@ position, or override risk. The Python research layer holds deterministic valuat
 workstation shows a Fundamentals tab (code-computed values plus advisory LLM narration) on the
 ticker workspace. See `docs/design-docs/DD06 - Fundamental Analysis.md` and ADR-005..007.
 
+ML operations run a gradient-boosted ranker over VALID setups, advisory only. The Java backend holds
+the model registry (`control.model`/`control.model_version`), the effective-dated per-instrument
+bindings (`control.ml_model_binding`) and the training queue (`control.ml_analysis_run`), and serves
+inference in-process via a dependency-free frozen `er-gbm-v1` artifact. The Python research layer
+(`research/src/edge_relative_research/ml/`) trains with LightGBM (lazy import) and polls the queue.
+The workstation exposes an ML Lab under RESEARCH: configure/launch an analysis, inspect out-of-sample
+rank quality, promote a survivor to a per-symbol binding, and run a baseline-vs-ML verification
+backtest. See `docs/design-docs/DD08 - ML Operations.md`.
+
 ## Design Documents
 
 Read the relevant document sections before implementing a feature:
