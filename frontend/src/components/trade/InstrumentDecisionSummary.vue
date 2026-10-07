@@ -6,6 +6,7 @@ import { getOpportunities, opportunityKeys } from '@/api/opportunities'
 import { getSetups, setupKeys } from '@/api/setups'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { setupStateMeta, riskStateMeta } from '@/lib/opportunity-presentation'
+import WhyBreakdown from '@/components/trade/WhyBreakdown.vue'
 
 const props = defineProps<{ symbol: string }>()
 
@@ -105,17 +106,24 @@ const chips = computed<Chip[]>(() => {
 </script>
 
 <template>
-  <div
-    class="grid grid-cols-3 gap-2 rounded-lg border bg-card p-3 sm:grid-cols-6"
-    data-testid="instrument-decision-summary"
-  >
-    <div v-for="chip in chips" :key="chip.label" class="space-y-0.5">
-      <p class="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {{ chip.label }}
-      </p>
-      <p class="truncate text-xs font-medium capitalize" :class="chip.tone">
-        {{ chip.value }}
-      </p>
+  <div class="space-y-4">
+    <div
+      class="grid grid-cols-3 gap-2 rounded-lg border bg-card p-3 sm:grid-cols-6"
+      data-testid="instrument-decision-summary"
+    >
+      <div v-for="chip in chips" :key="chip.label" class="space-y-0.5">
+        <p class="text-[10px] uppercase tracking-wide text-muted-foreground">
+          {{ chip.label }}
+        </p>
+        <p class="truncate text-xs font-medium capitalize" :class="chip.tone">
+          {{ chip.value }}
+        </p>
+      </div>
     </div>
+    <WhyBreakdown
+      :feature="feature"
+      :setup="latestSetup"
+      :opportunity="opportunity"
+    />
   </div>
 </template>

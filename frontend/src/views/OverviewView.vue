@@ -22,11 +22,15 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import MarketContextPanel from '@/components/trade/MarketContextPanel.vue'
 import OpportunityBoard from '@/components/trade/OpportunityBoard.vue'
+import AttentionFeed from '@/components/trade/AttentionFeed.vue'
 import SystemTile from '@/components/desk/SystemTile.vue'
 import PortfolioTile from '@/components/desk/PortfolioTile.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatAge } from '@/lib/format'
 import { recentRows } from '@/lib/desk'
+import { useAttentionFeed } from '@/composables/useAttentionFeed'
+
+const attention = useAttentionFeed()
 
 const watchlistQuery = useQuery(() => ({
   queryKey: watchlistKeys.all,
@@ -188,6 +192,19 @@ const notices = computed(() =>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader class="pb-3">
+          <CardTitle class="text-base">Attention</CardTitle>
+          <CardDescription
+            >Meaningful state changes from the live feature
+            stream.</CardDescription
+          >
+        </CardHeader>
+        <CardContent>
+          <AttentionFeed :events="attention.events.value" />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader class="pb-3">
           <CardTitle class="text-base">What changed</CardTitle>
