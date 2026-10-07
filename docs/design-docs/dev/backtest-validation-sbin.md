@@ -385,3 +385,17 @@ Sample run (SBIN M15, 2024, target 2R, 1.5-ATR floor), 8-config grid of RRS pers
 interval: all eight configurations finished and ranked positive (+₹3.5k…+₹5.1k, ~50% win, 6–10
 trades each). The samples are small and this is a single in-sample window; the point is that the
 per-stock search loop is now automated, reproducible and ready for walk-forward evaluation.
+
+---
+
+## Phase E — Per-instrument parameter binding (live per-stock strategy)
+
+Added an effective-dated, non-overlapping `control.strategy_instrument_binding` (V026) and a
+point-in-time resolver: the live setup path now resolves the parameter set for the specific
+instrument at the decision date (binding wins; otherwise the configured global parameters). Bindings
+are written through a validated, append-only API (`/api/v1/strategy-bindings`); an overlapping window
+is rejected (409). This is the mechanism by which the research layer promotes a per-stock strategy
+configuration; it changes parameters only — risk and setup gates remain authoritative and unchanged.
+
+Verified live against the real database: create → effective-at-date resolution, 404 before the
+effective window, and 409 on overlap.

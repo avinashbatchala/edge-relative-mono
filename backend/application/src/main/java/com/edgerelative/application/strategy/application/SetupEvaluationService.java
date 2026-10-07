@@ -46,7 +46,7 @@ public class SetupEvaluationService {
     private final CanonicalInstrumentService canonical;
     private final NseTradingCalendar calendar;
     private final StrategyEngine engine;
-    private final StrategyParametersProvider parameters;
+    private final StrategyBindingResolver bindings;
     private final SetupObservationRepository repository;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -56,7 +56,7 @@ public class SetupEvaluationService {
             CanonicalInstrumentService canonical,
             NseTradingCalendar calendar,
             StrategyEngine engine,
-            StrategyParametersProvider parameters,
+            StrategyBindingResolver bindings,
             SetupObservationRepository repository,
             ApplicationEventPublisher events,
             Clock clock) {
@@ -64,14 +64,14 @@ public class SetupEvaluationService {
         this.canonical = canonical;
         this.calendar = calendar;
         this.engine = engine;
-        this.parameters = parameters;
+        this.bindings = bindings;
         this.repository = repository;
         this.events = events;
         this.clock = clock;
     }
 
     public boolean enabled() {
-        return parameters.enabled();
+        return bindings.configured();
     }
 
     /**
@@ -80,18 +80,22 @@ public class SetupEvaluationService {
      * with {@code appended=false} and writes nothing.
      */
     public List<SetupEvaluation> evaluate(long instrumentId, Instant anchor) {
-        Optional<StrategyParameters> config = parameters.parameters();
-        if (config.isEmpty()) {
+        Instant effectiveAnchor = anchor == null ? clock.instant() : anchor;
+        Optional<StrategyBindingResolver.Resolved> configured =
+                bindings.resolve(instrumentId, calendar.sessionDate(effectiveAnchor));
+        if (configured.isEmpty()) {
             return List.of();
         }
-        StrategyParameters params = config.get();
-        Instant effectiveAnchor = anchor == null ? clock.instant() : anchor;
+        StrategyParameters params = configured.get().parameters();
         var cache = new ConcurrentHashMap<String, List<AggregatedCandle>>();
         FeatureSnapshot m5 = snapshots.snapshot(instrumentId, M5, effectiveAnchor, false, cache);
         FeatureSnapshot d1 = snapshots.snapshot(instrumentId, D1, effectiveAnchor, false, cache);
         Instant evaluationTime = m5.anchorTimestamp() == null ? effectiveAnchor : m5.anchorTimestamp();
 
-        Optional<Long> strategyVersionId = repository.strategyVersionId();
+        // Prefer the binding's strategy version; otherwise the latest seeded version.
+        Optional<Long> boundVersionId = Optional.ofNullable(configured.get().strategyVersionId());
+        Optional<Long> strategyVersionId =
+                boundVersionId.isPresent() ? boundVersionId : repository.strategyVersionId();
         if (strategyVersionId.isEmpty()) {
             throw new IllegalStateException("strategy_version seed is missing; apply V014");
         }
@@ -110,7 +114,7 @@ public class SetupEvaluationService {
 
         List<SetupEvaluation> results = new ArrayList<>();
         for (Direction direction : Direction.values()) {
-            StrategyEvaluationInput input = input(instrumentId, m5, d1, subject, direction, evaluationTime);
+            StrategyEvaluationInput input = input(instrumentId, m5, d1, subject, params, direction, evaluationTime);
             StrategyEvaluationResult result = engine.evaluate(input, params, direction);
             boolean appended = repository.append(result, strategyVersionId.get(), marketObservationId, sectorId);
             if (appended) {
@@ -130,12 +134,12 @@ public class SetupEvaluationService {
             FeatureSnapshot m5,
             FeatureSnapshot d1,
             List<AggregatedCandle> subject,
+            StrategyParameters params,
             Direction direction,
             Instant evaluationTime) {
         LocalDate sessionDate = calendar.sessionDate(evaluationTime);
         boolean tradingDay = calendar.isTradingDay(sessionDate);
         AggregatedCandle completed = subject.get(subject.size() - 1);
-        StrategyParameters params = parameters.parameters().orElseThrow();
 
         // Session windows come from the exchange calendar plus configured blackout/cutoff minutes; they
         // are never assumed open. Blackout/cutoff are empty when their configured minutes are 0.
@@ -191,7 +195,7 @@ public class SetupEvaluationService {
                 evaluationTime,
                 sessionDate,
                 StrategyIdentity.STRATEGY_VERSION,
-                parameters.parameters().orElseThrow().parameterSetId(),
+                params.parameterSetId(),
                 instrumentId,
                 evaluationTime.toEpochMilli(),
                 "mo:" + instrumentId + ":" + completed.closeTime(),

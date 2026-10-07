@@ -33,6 +33,17 @@ public class StrategyParametersJson {
         return read(node, code, version);
     }
 
+    /**
+     * Parse a fully-formed canonical parameter document (e.g. a persisted per-instrument binding),
+     * keeping its own {@code parameterSetId}/{@code parameterVersion} rather than forcing lineage.
+     */
+    public StrategyParameters readCanonical(String parametersJson) {
+        if (parametersJson == null || parametersJson.isBlank()) {
+            throw new IllegalArgumentException("strategy parameters document is empty");
+        }
+        return json.readValue(parametersJson, StrategyParameters.class);
+    }
+
     private StrategyParameters read(ObjectNode node, String code, int version) {
         node.put("parameterSetId", code);
         node.put("parameterVersion", version);
