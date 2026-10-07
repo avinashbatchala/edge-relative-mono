@@ -370,3 +370,18 @@ Initial SBIN M15 sweep (target 2R, 1.5 ATR floor, permissive, real data):
 The third configuration is positive — the first sign-flip observed — which is exactly the kind of
 per-stock parameter interaction the research layer is meant to search systematically (walk-forward,
 not a single-window optimiser).
+
+---
+
+## Phase C — Research-layer search orchestration
+
+Added a standard-library-only research package (`research/src/edge_relative_research/backtest/`):
+an HTTP client for the Java API, chronological train/validation/OOS and walk-forward splitters, a
+parameter-grid generator, a sweep runner, and a one-shot CLI
+(`python -m edge_relative_research.backtest.cli`). It reads/executes backtests over HTTP and writes
+nothing — Python never owns production state.
+
+Sample run (SBIN M15, 2024, target 2R, 1.5-ATR floor), 8-config grid of RRS persistence and RVOL
+interval: all eight configurations finished and ranked positive (+₹3.5k…+₹5.1k, ~50% win, 6–10
+trades each). The samples are small and this is a single in-sample window; the point is that the
+per-stock search loop is now automated, reproducible and ready for walk-forward evaluation.
