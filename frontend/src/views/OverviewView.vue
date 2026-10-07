@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import MarketTile from '@/components/desk/MarketTile.vue'
+import MarketContextPanel from '@/components/trade/MarketContextPanel.vue'
 import SystemTile from '@/components/desk/SystemTile.vue'
 import PortfolioTile from '@/components/desk/PortfolioTile.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -101,6 +101,12 @@ const opportunitiesQuery = useQuery(() => ({
 }))
 
 const featureRows = computed(() => dashboardQuery.data.value ?? [])
+const session = computed(
+  () => diagnosticsQuery.data.value?.freshness?.sessionContext ?? null,
+)
+const freshnessState = computed(
+  () => diagnosticsQuery.data.value?.freshness?.state ?? null,
+)
 const opportunities = computed(() =>
   (opportunitiesQuery.data.value ?? []).slice(0, 5),
 )
@@ -153,8 +159,10 @@ const notices = computed(() =>
         </CardContent>
       </Card>
 
-      <MarketTile
+      <MarketContextPanel
         :rows="featureRows"
+        :session="session"
+        :freshness="freshnessState"
         :loading="dashboardQuery.isPending.value"
       />
       <SystemTile />
@@ -199,12 +207,17 @@ const notices = computed(() =>
             title="No setups"
             description="No setup observations for the active watchlist yet."
           />
-          <Button as-child variant="outline" size="sm" class="mt-3">
-            <RouterLink to="/setups">
-              Open scanner
-              <ArrowRight class="size-4" aria-hidden="true" />
-            </RouterLink>
-          </Button>
+          <div class="mt-3 flex gap-2">
+            <Button as-child variant="outline" size="sm">
+              <RouterLink to="/setups">
+                Open opportunities
+                <ArrowRight class="size-4" aria-hidden="true" />
+              </RouterLink>
+            </Button>
+            <Button as-child variant="ghost" size="sm">
+              <RouterLink to="/scanner">Scanner</RouterLink>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
