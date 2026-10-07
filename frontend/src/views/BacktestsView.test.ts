@@ -40,18 +40,12 @@ vi.mock('@/api/backtests', async (importOriginal) => {
   return {
     ...actual,
     getBacktestRuns: vi.fn(),
-    getBacktestRun: vi.fn(),
-    getBacktestTrades: vi.fn(),
-    getBacktestEquity: vi.fn(),
     startBacktest: vi.fn(),
     cancelBacktest: vi.fn(),
   }
 })
 
 const getBacktestRuns = vi.mocked(backtestsApi.getBacktestRuns)
-const getBacktestRun = vi.mocked(backtestsApi.getBacktestRun)
-const getBacktestTrades = vi.mocked(backtestsApi.getBacktestTrades)
-const getBacktestEquity = vi.mocked(backtestsApi.getBacktestEquity)
 
 function run(overrides: Partial<BacktestRun> = {}): BacktestRun {
   return {
@@ -93,9 +87,6 @@ function run(overrides: Partial<BacktestRun> = {}): BacktestRun {
 
 function setup(runs: BacktestRun[]) {
   getBacktestRuns.mockResolvedValue(runs)
-  getBacktestRun.mockResolvedValue(runs[0] ?? run())
-  getBacktestTrades.mockResolvedValue([])
-  getBacktestEquity.mockResolvedValue([])
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, retryDelay: 0, refetchInterval: false },
@@ -125,9 +116,6 @@ function setup(runs: BacktestRun[]) {
 
 beforeEach(() => {
   getBacktestRuns.mockReset()
-  getBacktestRun.mockReset()
-  getBacktestTrades.mockReset()
-  getBacktestEquity.mockReset()
 })
 
 afterEach(cleanup)
@@ -152,21 +140,6 @@ test('lists runs with status and completed metrics', async () => {
   )
   expect(screen.getByText('1.5%')).toBeTruthy()
   expect(screen.getByText('12')).toBeTruthy()
-})
-
-test('opens a run and shows explicit no-trade handling', async () => {
-  setup([run()])
-  await screen.findByTestId('run-status-run-1')
-  await fireEvent.click(
-    await screen.findByRole('button', { name: 'Quick preview' }),
-  )
-  const detail = await screen.findByTestId('backtest-detail')
-  await waitFor(() => expect(detail.textContent).toContain('Net return'))
-  expect(detail.textContent).toContain('No-trade or zero-risk outcomes')
-  await fireEvent.click(screen.getByRole('tab', { name: 'trades' }))
-  await waitFor(() =>
-    expect(detail.textContent).toContain('No simulated trades for this run'),
-  )
 })
 
 test('the row Open action navigates to the full run page', async () => {

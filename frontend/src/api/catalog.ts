@@ -146,5 +146,8 @@ export function restoreRiskPolicy(code: string): Promise<RiskPolicyView> {
 export const catalogKeys = {
   all: ['catalog'] as const,
   strategies: () => [...catalogKeys.all, 'strategies'] as const,
+  activeStrategies: () => [...catalogKeys.all, 'strategies', 'active'] as const,
   riskPolicies: () => [...catalogKeys.all, 'risk-policies'] as const,
+  activeRiskPolicies: () =>
+    [...catalogKeys.all, 'risk-policies', 'active'] as const,
 }
