@@ -46,6 +46,7 @@ import PriceChart from '@/components/market-data/PriceChart.vue'
 import RawMarketData from '@/components/market-data/RawMarketData.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
 import SessionSummary from '@/components/market-data/SessionSummary.vue'
+import InstrumentDecisionSummary from '@/components/trade/InstrumentDecisionSummary.vue'
 import { useCommandPalette } from '@/composables/useCommandPalette'
 import { pickUnderlying } from '@/lib/instrument'
 import {
@@ -324,6 +325,8 @@ function onCustomRange(start: string, end: string) {
           {{ underlying.name ?? 'Unnamed instrument' }}
         </span>
       </div>
+
+      <InstrumentDecisionSummary :symbol="underlying.tradingSymbol" />
 
       <div class="grid gap-3 sm:grid-cols-2">
         <Card class="flex h-full flex-col">

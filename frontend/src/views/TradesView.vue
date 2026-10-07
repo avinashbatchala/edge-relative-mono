@@ -32,6 +32,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import PermissionNotice from '@/components/common/PermissionNotice.vue'
 import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
+import PositionsThesisPanel from '@/components/trade/PositionsThesisPanel.vue'
 import { formatInr, formatIstDateTime, formatQuantity } from '@/lib/format'
 
 const tab = ref<'positions' | 'holdings' | 'orders' | 'margin'>('positions')
@@ -140,6 +141,7 @@ function openChart(symbol: string) {
         <CardDescription>Open positions across segments.</CardDescription>
       </CardHeader>
       <CardContent>
+        <PositionsThesisPanel :positions="positionsQuery.data.value ?? []" />
         <SectionState
           v-if="positionsQuery.isError.value"
           title="Positions unavailable"

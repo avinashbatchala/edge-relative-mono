@@ -58,11 +58,14 @@ const router = createRouter({
       meta: { title: 'Scanner' },
     },
     {
+      // The standalone feature-detail page is merged into the Instrument Workspace; keep the name as
+      // a redirecting alias so existing navigation by name still works.
       path: '/scanner/:symbol',
       name: 'feature-ticker',
-      component: () => import('@/views/FeatureTickerView.vue'),
-      props: true,
-      meta: { title: 'Feature Detail' },
+      redirect: (to) => ({
+        name: 'market-ticker',
+        params: { symbol: to.params.symbol },
+      }),
     },
     {
       path: '/setups',
