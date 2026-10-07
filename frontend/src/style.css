@@ -151,3 +151,10 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Density: compact tightens table rows. */
+html[data-density='compact'] [data-slot='table-cell'],
+html[data-density='compact'] [data-slot='table-head'] {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}

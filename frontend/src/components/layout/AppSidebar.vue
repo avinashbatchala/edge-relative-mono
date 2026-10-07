@@ -5,9 +5,12 @@ import {
   FlaskConical,
   Gauge,
   LayoutDashboard,
+  LineChart,
   ListChecks,
   Settings,
   ShieldCheck,
+  Target,
+  Wallet,
   Wrench,
 } from '@lucide/vue'
 import { computed } from 'vue'
@@ -30,26 +33,47 @@ import {
 
 const route = useRoute()
 
-const tools = [
-  { title: 'Overview', to: '/overview', icon: LayoutDashboard },
-  { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
-  { title: 'Opportunities', to: '/opportunities', icon: Gauge },
-  { title: 'Market Data', to: '/market', icon: Activity },
-  { title: 'Research Data', to: '/research', icon: Database },
-  { title: 'Backtests', to: '/backtests', icon: FlaskConical },
-  { title: 'Strategies & Risk', to: '/strategies', icon: ShieldCheck },
-] as const
-
-const upcoming = [{ title: 'Trades', icon: Wrench }] as const
-
-function isActive(to: string): boolean {
-  if (to === '/market') {
-    return route.path === '/market' || route.path.startsWith('/market/')
-  }
-  return route.path === to
+interface NavItem {
+  title: string
+  to: string
+  icon: unknown
+  /** Optional path prefix treated as active (for detail routes). */
+  prefix?: string
 }
 
-const brandActive = computed(() => route.path === '/overview')
+const primary: NavItem[] = [
+  { title: 'Desk', to: '/desk', icon: LayoutDashboard },
+  { title: 'Scanner', to: '/scanner', icon: Gauge, prefix: '/scanner' },
+  { title: 'Setups', to: '/setups', icon: Target },
+  { title: 'Chart', to: '/chart', icon: Activity, prefix: '/chart' },
+  { title: 'Watchlist', to: '/watchlist', icon: ListChecks },
+  { title: 'Trades', to: '/trades', icon: Wallet },
+]
+
+const analyze: NavItem[] = [
+  { title: 'Research', to: '/research', icon: Database },
+  {
+    title: 'Validate',
+    to: '/validate',
+    icon: FlaskConical,
+    prefix: '/validate',
+  },
+  { title: 'Catalog', to: '/catalog', icon: ShieldCheck },
+  { title: 'Fundamentals', to: '/fundamentals', icon: LineChart },
+]
+
+const upcoming = [{ title: 'Journal', icon: Wrench }] as const
+
+function isActive(item: NavItem): boolean {
+  if (item.prefix) {
+    return (
+      route.path === item.prefix || route.path.startsWith(`${item.prefix}/`)
+    )
+  }
+  return route.path === item.to
+}
+
+const brandActive = computed(() => route.path === '/desk')
 </script>
 
 <template>
@@ -58,7 +82,7 @@ const brandActive = computed(() => route.path === '/overview')
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" as-child :is-active="brandActive">
-            <RouterLink to="/overview">
+            <RouterLink to="/desk">
               <span
                 class="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground"
                 aria-hidden="true"
@@ -76,14 +100,14 @@ const brandActive = computed(() => route.path === '/overview')
 
     <SidebarContent>
       <SidebarGroup>
-        <SidebarGroupLabel>Tools</SidebarGroupLabel>
+        <SidebarGroupLabel>Trade</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem v-for="item in tools" :key="item.to">
-              <SidebarMenuButton as-child :is-active="isActive(item.to)">
+            <SidebarMenuItem v-for="item in primary" :key="item.to">
+              <SidebarMenuButton as-child :is-active="isActive(item)">
                 <RouterLink
                   :to="item.to"
-                  :aria-current="isActive(item.to) ? 'page' : undefined"
+                  :aria-current="isActive(item) ? 'page' : undefined"
                 >
                   <component :is="item.icon" aria-hidden="true" />
                   <span>{{ item.title }}</span>
@@ -104,15 +128,34 @@ const brandActive = computed(() => route.path === '/overview')
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
+
+      <SidebarGroup>
+        <SidebarGroupLabel>Analyse</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem v-for="item in analyze" :key="item.to">
+              <SidebarMenuButton as-child :is-active="isActive(item)">
+                <RouterLink
+                  :to="item.to"
+                  :aria-current="isActive(item) ? 'page' : undefined"
+                >
+                  <component :is="item.icon" aria-hidden="true" />
+                  <span>{{ item.title }}</span>
+                </RouterLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
     </SidebarContent>
 
     <SidebarFooter>
       <SidebarSeparator />
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton disabled aria-label="Settings (coming soon)">
+          <SidebarMenuButton disabled aria-label="System (coming soon)">
             <Settings aria-hidden="true" />
-            <span>System / Settings</span>
+            <span>System</span>
           </SidebarMenuButton>
           <SidebarMenuBadge>Soon</SidebarMenuBadge>
         </SidebarMenuItem>

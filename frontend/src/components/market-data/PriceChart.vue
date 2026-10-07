@@ -28,8 +28,10 @@ const props = withDefaults(
     candles: BrokerCandle[]
     syncKey?: string
     markers?: ChartMarker[]
+    /** Fill the parent height instead of the fixed 420px default. */
+    fill?: boolean
   }>(),
-  { markers: () => [], syncKey: undefined },
+  { markers: () => [], syncKey: undefined, fill: false },
 )
 
 const container = ref<HTMLDivElement | null>(null)
@@ -300,7 +302,13 @@ watch(isDark, () => {
 </script>
 
 <template>
-  <div class="relative h-[420px] w-full">
+  <div
+    :class="
+      fill
+        ? 'relative h-full min-h-[280px] w-full'
+        : 'relative h-[420px] w-full'
+    "
+  >
     <div ref="container" class="h-full w-full" />
 
     <div

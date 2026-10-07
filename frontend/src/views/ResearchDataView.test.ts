@@ -18,6 +18,7 @@ vi.mock('@/api/history', async (importOriginal) => {
     ...actual,
     getCoverage: vi.fn(),
     getCandles: vi.fn(),
+    getBackfillRuns: vi.fn(),
     startBackfill: vi.fn(),
   }
 })
@@ -40,6 +41,7 @@ vi.mock('@/api/watchlist', async (importOriginal) => {
 
 const getCoverage = vi.mocked(historyApi.getCoverage)
 const getCandles = vi.mocked(historyApi.getCandles)
+const getBackfillRuns = vi.mocked(historyApi.getBackfillRuns)
 const startBackfill = vi.mocked(historyApi.startBackfill)
 
 const candle = {
@@ -125,6 +127,7 @@ beforeEach(() => {
   })
   getCoverage.mockReset().mockResolvedValue(coverage)
   getCandles.mockReset().mockResolvedValue([candle])
+  getBackfillRuns.mockReset().mockResolvedValue({ items: [run], total: 25 })
   startBackfill.mockReset().mockResolvedValue(run)
 })
 
@@ -176,4 +179,16 @@ test('starting a backfill posts the selected instrument and timeframe', async ()
   expect(request?.timeframe).toBe('M1')
   expect(request?.from).toMatch(/T/)
   expect(request?.to).toMatch(/T/)
+})
+
+test('paginates backfill runs', async () => {
+  setup()
+
+  await screen.findByText('PARTIAL')
+  await fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  await waitFor(() => {
+    const last = getBackfillRuns.mock.calls.at(-1)
+    expect(last?.[1]?.offset).toBe(20)
+  })
 })

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { useRouter } from 'vue-router'
-import { BarChart3, Inbox, Search } from '@lucide/vue'
+import { Inbox, Search } from '@lucide/vue'
 import { getCandles, historyKeys } from '@/api/history'
 import { ApiError } from '@/api/http'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
@@ -14,7 +13,7 @@ import {
   type HistoricalCandlesRequest,
   type QuoteRequest,
 } from '@/api/market-data'
-import type { BrokerCandleInterval, BrokerInstrument } from '@/api/types'
+import type { BrokerCandleInterval } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import {
   Breadcrumb,
@@ -25,50 +24,42 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import EmptyState from '@/components/common/EmptyState.vue'
 import ChartToolbar from '@/components/market-data/ChartToolbar.vue'
 import DataFreshness from '@/components/market-data/DataFreshness.vue'
-import FuturesPanel from '@/components/market-data/FuturesPanel.vue'
+import FeatureHistoryPanel from '@/components/feature/FeatureHistoryPanel.vue'
+import FundamentalPanel from '@/components/fundamental/FundamentalPanel.vue'
 import HistoricalTable from '@/components/market-data/HistoricalTable.vue'
 import InstrumentDetails from '@/components/market-data/InstrumentDetails.vue'
-import InstrumentHeader from '@/components/market-data/InstrumentHeader.vue'
-import InstrumentSelector from '@/components/market-data/InstrumentSelector.vue'
 import MarketDepthTable from '@/components/market-data/MarketDepthTable.vue'
 import OptionChainPanel from '@/components/market-data/OptionChainPanel.vue'
 import PriceChart from '@/components/market-data/PriceChart.vue'
-import QuoteSummary from '@/components/market-data/QuoteSummary.vue'
 import RawMarketData from '@/components/market-data/RawMarketData.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
-import { useInstrumentSearch } from '@/composables/useInstrumentSearch'
-import { pickUnderlying, routeSymbolFor } from '@/lib/instrument'
+import SessionSummary from '@/components/market-data/SessionSummary.vue'
+import { useCommandPalette } from '@/composables/useCommandPalette'
+import { pickUnderlying } from '@/lib/instrument'
+import {
+  formatInr,
+  formatPercent,
+  formatSigned,
+  movementClass,
+} from '@/lib/format'
 import { resolveRange } from '@/lib/market-time'
 import { useMarketDataStore, type RangeKey } from '@/stores/market-data'
 
 const props = defineProps<{ symbol: string }>()
 const store = useMarketDataStore()
-const router = useRouter()
-
-// --- Instrument search (to switch underlying) -------------------------------
-const instrumentSearch = ref('')
-const instrumentSearchOpen = ref(false)
-const { query: instrumentsQuery } = useInstrumentSearch(
-  instrumentSearch,
-  instrumentSearchOpen,
-)
-
-function onInstrumentSearch(value: string) {
-  instrumentSearch.value = value
-}
-
-function openInstrument(instrument: BrokerInstrument) {
-  const next = routeSymbolFor(instrument)
-  if (next.toUpperCase() === props.symbol.toUpperCase()) {
-    return
-  }
-  router.push({ name: 'market-ticker', params: { symbol: next } })
-}
+const palette = useCommandPalette()
 
 // --- Resolve the underlying for the route -----------------------------------
 const underlyingQuery = useQuery(() => ({
@@ -170,6 +161,8 @@ const historyQuery = useQuery(() => ({
 
 const quote = computed(() => quoteQuery.data.value ?? null)
 const history = computed(() => historyQuery.data.value ?? null)
+const change = computed(() => quote.value?.dayChange ?? null)
+const changePercent = computed(() => quote.value?.dayChangePercent ?? null)
 
 // --- Canonical history (preferred) vs live broker fallback ------------------
 const watchlistQuery = useQuery(() => ({
@@ -270,68 +263,25 @@ function onRange(range: RangeKey) {
 function onCustomRange(start: string, end: string) {
   store.setCustomRange(start, end)
 }
-
-function focusSearch() {
-  window.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
-  )
-}
 </script>
 
 <template>
   <main
-    class="mx-auto w-full max-w-[1600px] flex-1 space-y-4 px-4 py-6 lg:px-6"
+    class="mx-auto flex w-full max-w-[1900px] flex-1 flex-col gap-4 px-4 py-4 lg:px-6"
   >
-    <div
-      class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-    >
-      <div class="space-y-1">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink as-child>
-                <RouterLink :to="{ name: 'market-search' }"
-                  >Market Data</RouterLink
-                >
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{{ symbol.toUpperCase() }}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <h1 class="text-2xl font-semibold tracking-tight">Market Data</h1>
-        <p class="text-sm text-muted-foreground">
-          Live and historical market information for the selected underlying.
-        </p>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <Badge :variant="brokerStatus.variant"
-          >● Groww · {{ brokerStatus.label }}</Badge
-        >
-        <DataFreshness
-          v-if="quoteQuery.dataUpdatedAt.value"
-          :updated-at="quoteQuery.dataUpdatedAt.value"
-          label="Last refresh"
-        />
-      </div>
-    </div>
-
-    <Card>
-      <CardContent class="p-3">
-        <InstrumentSelector
-          v-model:open="instrumentSearchOpen"
-          :instruments="instrumentsQuery.data.value ?? []"
-          :loading="instrumentsQuery.isFetching.value"
-          :model-value="underlying"
-          :search="instrumentSearch"
-          @update:model-value="openInstrument"
-          @update:search="onInstrumentSearch"
-        />
-      </CardContent>
-    </Card>
+    <Breadcrumb class="text-xs">
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink as-child>
+            <RouterLink :to="{ name: 'market-search' }">Chart</RouterLink>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage>{{ symbol.toUpperCase() }}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
 
     <Card v-if="unresolved">
       <CardContent class="flex flex-col items-center gap-3 py-16 text-center">
@@ -344,7 +294,7 @@ function focusSearch() {
             No listed instrument matches “{{ symbol }}”.
           </p>
         </div>
-        <Button size="sm" @click="focusSearch">
+        <Button size="sm" @click="palette.show()">
           <Search class="size-3.5" aria-hidden="true" />
           Search instruments
         </Button>
@@ -353,116 +303,181 @@ function focusSearch() {
 
     <Card v-else-if="!underlying">
       <CardContent class="space-y-4 pt-6">
-        <Skeleton class="h-6 w-48" />
-        <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <Skeleton class="h-[420px] w-full" />
-          <Skeleton class="h-[320px] w-full" />
-        </div>
+        <Skeleton class="h-24 w-full" />
+        <Skeleton class="h-[420px] w-full" />
       </CardContent>
     </Card>
 
     <template v-else>
-      <Card>
-        <CardContent class="pt-6">
-          <InstrumentHeader
-            :instrument="underlying"
-            :quote="quote"
-            :loading="quoteQuery.isPending.value"
-            :updated-at="quoteQuery.dataUpdatedAt.value || null"
-          />
-        </CardContent>
-      </Card>
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h1 class="text-xl font-semibold tracking-tight">
+          {{ underlying.tradingSymbol }}
+        </h1>
+        <Badge variant="secondary">{{ underlying.exchange }}</Badge>
+        <Badge v-if="underlying.segment" variant="outline">{{
+          underlying.segment
+        }}</Badge>
+        <Badge v-if="underlying.instrumentType" variant="outline">{{
+          underlying.instrumentType
+        }}</Badge>
+        <span class="min-w-0 truncate text-sm text-muted-foreground">
+          {{ underlying.name ?? 'Unnamed instrument' }}
+        </span>
+      </div>
 
-      <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card>
-          <CardContent class="space-y-3 pt-6">
-            <ChartToolbar
-              :interval="store.interval"
-              :range="store.range"
-              :custom-start="store.customStart"
-              :custom-end="store.customEnd"
-              @update:interval="onInterval"
-              @update:range="onRange"
-              @update:custom="onCustomRange"
-            />
-
-            <div class="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge :variant="usingCanonicalHistory ? 'secondary' : 'outline'">
-                {{ usingCanonicalHistory ? 'Canonical' : 'Live broker' }}
-              </Badge>
-              <span>
-                {{
-                  usingCanonicalHistory
-                    ? 'From the canonical store'
-                    : 'Live broker history (not yet downloaded)'
-                }}
-              </span>
-            </div>
-
-            <SectionState
-              v-if="historyQuery.isError.value"
-              title="Historical data unavailable"
-              :error="historyQuery.error.value"
-              @retry="historyQuery.refetch()"
-            />
-
-            <div v-else-if="historyQuery.isPending.value" class="space-y-2">
-              <Skeleton class="h-[420px] w-full" />
-            </div>
-
-            <div
-              v-else-if="candles.length === 0"
-              class="flex h-[420px] flex-col items-center justify-center gap-2 rounded-md border border-dashed text-center"
-            >
-              <BarChart3
-                class="size-5 text-muted-foreground"
-                aria-hidden="true"
+      <div class="grid gap-3 sm:grid-cols-2">
+        <Card class="flex h-full flex-col">
+          <CardHeader class="pb-2">
+            <CardDescription>Price</CardDescription>
+            <CardTitle class="text-3xl tabular-nums">
+              <Skeleton
+                v-if="quoteQuery.isPending.value && !quote"
+                class="h-8 w-32"
               />
-              <p class="text-sm font-medium">No candles in this range</p>
-              <p class="text-xs text-muted-foreground">
-                Try a wider range or a different interval.
-              </p>
+              <template v-else>{{
+                formatInr(quote?.lastPrice ?? null)
+              }}</template>
+            </CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            <p class="flex items-center gap-2 text-sm tabular-nums">
+              <span :class="movementClass(change)">{{
+                formatSigned(change)
+              }}</span>
+              <span :class="movementClass(change)">{{
+                formatPercent(changePercent)
+              }}</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <Badge :variant="brokerStatus.variant"
+                >● Groww · {{ brokerStatus.label }}</Badge
+              >
+              <DataFreshness
+                v-if="quoteQuery.dataUpdatedAt.value"
+                :updated-at="quoteQuery.dataUpdatedAt.value"
+              />
             </div>
-
-            <PriceChart v-else :candles="candles" />
           </CardContent>
         </Card>
 
-        <div class="space-y-4">
-          <QuoteSummary v-if="quote" :quote="quote" />
-          <Card v-else-if="quoteQuery.isError.value">
-            <CardContent class="pt-6">
-              <SectionState
-                title="Quote unavailable"
-                :error="quoteQuery.error.value"
-                @retry="quoteQuery.refetch()"
-              />
-            </CardContent>
-          </Card>
-          <Card v-else>
-            <CardContent class="space-y-3 pt-6">
-              <Skeleton class="h-4 w-24" />
-              <div class="grid grid-cols-2 gap-4">
-                <Skeleton v-for="n in 8" :key="n" class="h-8 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <SessionSummary :quote="quote" :loading="quoteQuery.isPending.value" />
       </div>
 
-      <Tabs default-value="depth" class="space-y-3">
-        <TabsList>
-          <TabsTrigger value="depth">Depth</TabsTrigger>
-          <TabsTrigger value="historical">Historical</TabsTrigger>
-          <TabsTrigger value="futures">Futures</TabsTrigger>
-          <TabsTrigger value="options">Options</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="raw">Raw</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardContent class="space-y-3 pt-6">
+          <ChartToolbar
+            :interval="store.interval"
+            :range="store.range"
+            :custom-start="store.customStart"
+            :custom-end="store.customEnd"
+            @update:interval="onInterval"
+            @update:range="onRange"
+            @update:custom="onCustomRange"
+          />
 
-        <TabsContent value="depth">
-          <Card>
-            <CardContent class="pt-6">
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge :variant="usingCanonicalHistory ? 'secondary' : 'outline'">
+              {{ usingCanonicalHistory ? 'Canonical' : 'Live broker' }}
+            </Badge>
+            <span>
+              {{
+                usingCanonicalHistory
+                  ? 'From the canonical store'
+                  : 'Live broker history (not yet downloaded)'
+              }}
+            </span>
+          </div>
+
+          <SectionState
+            v-if="historyQuery.isError.value"
+            title="Historical data unavailable"
+            :error="historyQuery.error.value"
+            @retry="historyQuery.refetch()"
+          />
+
+          <div v-else-if="historyQuery.isPending.value" class="h-[420px]">
+            <Skeleton class="h-full w-full" />
+          </div>
+
+          <div
+            v-else-if="candles.length === 0"
+            class="flex h-[420px] flex-col items-center justify-center gap-2 rounded-md border border-dashed text-center"
+          >
+            <Inbox class="size-5 text-muted-foreground" aria-hidden="true" />
+            <p class="text-sm font-medium">No candles in this range</p>
+            <p class="text-xs text-muted-foreground">
+              Try a wider range or a different interval.
+            </p>
+          </div>
+
+          <div v-else class="h-[460px]">
+            <PriceChart :candles="candles" fill />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card
+        class="flex h-[600px] min-h-[420px] flex-col gap-0 overflow-hidden py-0"
+      >
+        <Tabs default-value="features" class="flex h-full min-h-0 flex-col">
+          <div class="border-b p-2">
+            <TabsList
+              class="h-auto w-full flex-wrap justify-start gap-1 border-0 bg-transparent p-0"
+            >
+              <TabsTrigger
+                value="features"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Features</TabsTrigger
+              >
+              <TabsTrigger
+                value="depth"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Depth</TabsTrigger
+              >
+              <TabsTrigger
+                value="options"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Options</TabsTrigger
+              >
+              <TabsTrigger
+                value="fundamentals"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Fundamentals</TabsTrigger
+              >
+              <TabsTrigger
+                value="historical"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Historical</TabsTrigger
+              >
+              <TabsTrigger
+                value="details"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Details</TabsTrigger
+              >
+              <TabsTrigger
+                value="raw"
+                class="h-8 flex-none border border-border px-3 data-[state=active]:border-transparent"
+                >Raw</TabsTrigger
+              >
+            </TabsList>
+          </div>
+
+          <div class="min-h-0 flex-1 overflow-auto p-3">
+            <TabsContent value="features" class="mt-0">
+              <FeatureHistoryPanel
+                v-if="canonicalInstrumentId !== null"
+                :instrument-id="canonicalInstrumentId"
+                :symbol="underlying.tradingSymbol"
+              />
+              <EmptyState
+                v-else
+                :icon="Inbox"
+                title="Not on the watchlist"
+                description="Add this instrument to the watchlist to load its point-in-time features."
+              />
+            </TabsContent>
+
+            <TabsContent value="depth" class="mt-0">
               <SectionState
                 v-if="quoteQuery.isError.value"
                 title="Depth unavailable"
@@ -487,13 +502,20 @@ function focusSearch() {
                 </p>
               </div>
               <MarketDepthTable v-else :bids="quote.bids" :asks="quote.asks" />
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="historical">
-          <Card>
-            <CardContent class="pt-6">
+            <TabsContent value="options" class="mt-0">
+              <OptionChainPanel
+                :exchange="underlying.exchange"
+                :underlying="underlying.tradingSymbol"
+              />
+            </TabsContent>
+
+            <TabsContent value="fundamentals" class="mt-0">
+              <FundamentalPanel :instrument-id="canonicalInstrumentId" />
+            </TabsContent>
+
+            <TabsContent value="historical" class="mt-0">
               <SectionState
                 v-if="historyQuery.isError.value"
                 title="Historical data unavailable"
@@ -510,40 +532,22 @@ function focusSearch() {
                 No candles in the selected range.
               </p>
               <HistoricalTable v-else :candles="candles" />
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="futures">
-          <FuturesPanel
-            :exchange="underlying.exchange"
-            :underlying="underlying.tradingSymbol"
-          />
-        </TabsContent>
+            <TabsContent value="details" class="mt-0">
+              <InstrumentDetails :instrument="underlying" :quote="quote" />
+            </TabsContent>
 
-        <TabsContent value="options">
-          <OptionChainPanel
-            :exchange="underlying.exchange"
-            :underlying="underlying.tradingSymbol"
-          />
-        </TabsContent>
-
-        <TabsContent value="details">
-          <InstrumentDetails :instrument="underlying" />
-        </TabsContent>
-
-        <TabsContent value="raw">
-          <Card>
-            <CardContent class="pt-6">
+            <TabsContent value="raw" class="mt-0">
               <RawMarketData
                 :instrument="underlying"
                 :quote="quote"
                 :history="history"
               />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+          </div>
+        </Tabs>
+      </Card>
     </template>
   </main>
 </template>

@@ -38,6 +38,30 @@ class InstrumentSearchTest {
                 true);
     }
 
+    private static BrokerInstrument instrumentOn(
+            BrokerExchange exchange, String symbol, BrokerInstrumentType type) {
+        return new BrokerInstrument(
+                exchange,
+                "1",
+                symbol,
+                exchange + "-" + symbol,
+                symbol,
+                type,
+                BrokerSegment.CASH,
+                "EQ",
+                null,
+                null,
+                null,
+                1,
+                null,
+                null,
+                null,
+                null,
+                false,
+                true,
+                true);
+    }
+
     private static final List<BrokerInstrument> MASTER = List.of(
             instrument("RELIANCE", "Reliance Industries Ltd", "INE002A01018", null, BrokerInstrumentType.EQ),
             instrument("TCS", "Tata Consultancy Services", "INE467B01029", null, BrokerInstrumentType.EQ),
@@ -131,5 +155,30 @@ class InstrumentSearchTest {
         assertThat(InstrumentSearch.filter(withDerivatives, "Reliance Industries", 10))
                 .extracting(BrokerInstrument::tradingSymbol)
                 .containsExactly("RELIANCE");
+    }
+
+    @Test
+    void restrictsToTheRequestedExchange() {
+        List<BrokerInstrument> master = List.of(
+                instrumentOn(BrokerExchange.NSE, "RELIANCE", BrokerInstrumentType.EQ),
+                instrumentOn(BrokerExchange.BSE, "001HCCL29", BrokerInstrumentType.EQ));
+
+        assertThat(InstrumentSearch.filter(master, null, 50, BrokerExchange.NSE, true))
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactly("RELIANCE");
+    }
+
+    @Test
+    void excludesDerivativesWhenRequested() {
+        List<BrokerInstrument> master = List.of(
+                instrument("RELIANCE", "Reliance Industries Ltd", "INE002A01018", null, BrokerInstrumentType.EQ),
+                instrument("NIFTY", "Nifty 50", null, null, BrokerInstrumentType.IDX),
+                instrument("RELIANCE26NOV-FUT", null, null, "RELIANCE", BrokerInstrumentType.FUT),
+                instrument("RELIANCE26NOV3000CE", null, null, "RELIANCE", BrokerInstrumentType.CE),
+                instrument("RELIANCE26NOV3000PE", null, null, "RELIANCE", BrokerInstrumentType.PE));
+
+        assertThat(InstrumentSearch.filter(master, null, 50, null, false))
+                .extracting(BrokerInstrument::tradingSymbol)
+                .containsExactlyInAnyOrder("RELIANCE", "NIFTY");
     }
 }

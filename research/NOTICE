@@ -1,0 +1,18 @@
+Edge Relative research layer — third-party notices
+
+Deterministic valuation operators
+---------------------------------
+The valuation approach in
+``research/src/edge_relative_research/fundamentals/`` follows the
+"numbers are code-computed, narratives are LLM-assisted" separation used by
+FinRobot (https://github.com/AI4Finance-Foundation/FinRobot),
+Copyright the AI4Finance Foundation, licensed under the Apache License,
+Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+
+The operators here are independent implementations of standard, published
+financial formulas (CAPM/WACC, discounted cash flow, Gordon growth,
+comparable-company multiples). No source code was copied verbatim. Where a
+specific adaptation is made from FinRobot, the affected file records it and
+the modification is noted here. FinRobot's trademark is not used.
+
+See ``docs/design-docs/dev/ADR-006-finrobot-port-licensing.md``.

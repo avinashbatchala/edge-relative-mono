@@ -13,10 +13,17 @@ It has no market feed, strategy implementation, risk engine, or live order capab
 - `broker-groww`: implements Groww read-only capabilities. All broker-side mutations are
   exposed as Edge Relative contracts but return `BROKER_OPERATION_NOT_ENABLED` and make
   zero downstream requests. See `docs/design-docs/dev/groww-endpoint-matrix.md`.
+- `llm-api` / `llm-deepseek`: framework-free advisory LLM port plus the DeepSeek adapter.
+  The Java backend is the only process that holds the key; `/api/v1/llm/narration` returns
+  advisory text and never carries trading authority.
+- `fundamentals-api` / `fundamentals-nse`: framework-free fundamental ports plus the Yahoo
+  NSE/BSE (`.NS`/`.BO`) provider, stored point-in-time and served by `/api/v1/fundamentals`.
+  Advisory only; see `docs/design-docs/DD06 - Fundamental Analysis.md`.
 - `frontend/`: Vue 3 / TypeScript / Vite operator-workstation placeholder.
 - `research/`: Python src-layout package managed with uv, without trading logic.
 - `compose.yaml`: local PostgreSQL with persistent storage.
-- `docs/design-docs`: product, strategy, risk, stack, and data specifications.
+- `docs/design-docs`: product, strategy, risk, stack, data, and fundamental specifications,
+  with accepted ADRs (including candle/feature storage, fundamentals, and LLM).
 - `.github/workflows/ci.yml`: independent backend, frontend, and research checks.
 
 Add further modules, contracts, SQL Flyway migrations, jOOQ adapters, and deployment
@@ -127,6 +134,12 @@ local database and Groww secrets; Spring imports it and Compose reads it via
 leak or block startup. Broker-side mutations return `BROKER_OPERATION_NOT_ENABLED`
 and never call Groww.
 
+The same file holds the advisory LLM key (`LLM_API_KEY`, with `DEEPSEEK_*` settings)
+and the fundamentals source selector (`FUNDAMENTALS_*`). The Java backend is the only
+process that holds the LLM key: it is never placed in a frontend `VITE_*` variable or
+bundled into an app. The application boots without a key and reports narration as
+unavailable rather than failing.
+
 The application binds to `127.0.0.1:8080`. Interactive API docs are available at
 `http://127.0.0.1:8080/swagger-ui/index.html` and the raw spec at
 `http://127.0.0.1:8080/v3/api-docs`. The Swagger UI lets you exercise the read-only
@@ -172,8 +185,10 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-The package currently contains only an import smoke test. Python never owns
-authoritative production trading state.
+The package contains the point-in-time research layer and deterministic fundamental
+valuation operators (WACC, DCF, DDM, comparable multiples, ratios) under
+`src/edge_relative_research/fundamentals/`, sharing frozen fixtures with Java in
+`contracts/fixtures/fundamentals`. Python never owns authoritative production trading state.
 
 ## Development Rules
 

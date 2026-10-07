@@ -1,9 +1,8 @@
 package com.edgerelative.application.history;
 
 import com.edgerelative.application.history.api.BackfillRunResponse;
+import com.edgerelative.application.history.api.BackfillRunsPage;
 import com.edgerelative.application.history.api.StartBackfillRequest;
-
-import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,9 +33,12 @@ public class HistoryBackfillController {
     }
 
     @GetMapping("/backfill")
-    public List<BackfillRunResponse> runs(
-            @RequestParam long instrumentId, @RequestParam(defaultValue = "20") int limit) {
-        return service.runs(instrumentId, limit);
+    public BackfillRunsPage runs(
+            @RequestParam long instrumentId,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(required = false) String status) {
+        return service.runs(instrumentId, status, limit, offset);
     }
 
     @GetMapping("/backfill/{runKey}")

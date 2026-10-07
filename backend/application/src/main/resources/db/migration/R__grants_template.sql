@@ -6,12 +6,13 @@
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'edge_java') THEN
-        GRANT USAGE ON SCHEMA reference, control, market, operational, research, audit TO edge_java;
+        GRANT USAGE ON SCHEMA reference, control, market, operational, research, audit, fundamental TO edge_java;
         GRANT SELECT ON ALL TABLES IN SCHEMA reference, control, research TO edge_java;
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA operational TO edge_java;
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA market TO edge_java;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA fundamental TO edge_java;
         GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA audit TO edge_java;
-        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA market, operational, audit TO edge_java;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA market, operational, audit, fundamental TO edge_java;
 
         -- Append-only/immutable evidence: the runtime role may append but never
         -- mutate or delete. Row triggers also enforce this; these grants make it
@@ -36,13 +37,14 @@ BEGIN
 
         ALTER DEFAULT PRIVILEGES IN SCHEMA operational GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO edge_java;
         ALTER DEFAULT PRIVILEGES IN SCHEMA market GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO edge_java;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA fundamental GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO edge_java;
         ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT SELECT, INSERT ON TABLES TO edge_java;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA market, operational, audit GRANT USAGE, SELECT ON SEQUENCES TO edge_java;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA market, operational, audit, fundamental GRANT USAGE, SELECT ON SEQUENCES TO edge_java;
     END IF;
 
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'edge_python') THEN
-        GRANT USAGE ON SCHEMA reference, control, market, operational, research TO edge_python;
-        GRANT SELECT ON ALL TABLES IN SCHEMA reference, control, market, operational TO edge_python;
+        GRANT USAGE ON SCHEMA reference, control, market, operational, research, fundamental TO edge_python;
+        GRANT SELECT ON ALL TABLES IN SCHEMA reference, control, market, operational, fundamental TO edge_python;
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA research TO edge_python;
         GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA research TO edge_python;
 

@@ -93,6 +93,46 @@ export function startBackfill(
   return apiPost<BackfillRunResponse>(`${BASE}/backfill`, request)
 }
 
+export interface BackfillRunsPage {
+  items: BackfillRunResponse[]
+  total: number
+}
+
+export interface BackfillRunsQuery {
+  limit?: number
+  offset?: number
+  /** `ALL` (or omitted) returns every status. */
+  status?: string
+}
+
+export function getBackfillRuns(
+  instrumentId: number,
+  options: BackfillRunsQuery = {},
+  signal?: AbortSignal,
+): Promise<BackfillRunsPage> {
+  return apiGet<BackfillRunsPage>(`${BASE}/backfill`, {
+    signal,
+    params: {
+      instrumentId,
+      limit: options.limit ?? 20,
+      offset: options.offset ?? 0,
+      status:
+        options.status && options.status !== 'ALL' ? options.status : undefined,
+    },
+  })
+}
+
+export function getBackfillRun(
+  runKey: string,
+  signal?: AbortSignal,
+): Promise<BackfillRunResponse> {
+  return apiGet<BackfillRunResponse>(`${BASE}/backfill/${runKey}`, { signal })
+}
+
+export function retryBackfill(runKey: string): Promise<BackfillRunResponse> {
+  return apiPost<BackfillRunResponse>(`${BASE}/backfill/${runKey}/retry`)
+}
+
 export function getCandles(
   instrumentId: number,
   timeframe: string,
@@ -111,6 +151,20 @@ export const historyKeys = {
   all: ['history'] as const,
   coverage: (instrumentId: number, timeframe: string) =>
     [...historyKeys.all, 'coverage', instrumentId, timeframe] as const,
+  backfillRuns: (
+    instrumentId: number,
+    status: string,
+    limit: number,
+    offset: number,
+  ) =>
+    [
+      ...historyKeys.all,
+      'backfill-runs',
+      instrumentId,
+      status,
+      limit,
+      offset,
+    ] as const,
   candles: (
     instrumentId: number,
     timeframe: string,

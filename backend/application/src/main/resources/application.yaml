@@ -86,6 +86,36 @@ broker:
     cooldown:
       default-duration: 5s
 
+llm:
+  # Advisory narration only; never trading authority (DD-06 §2, ADR-007). The Java backend is the
+  # only process that calls the provider, so the key never reaches the browser or the macOS app. An
+  # empty key disables narration instead of failing startup.
+  enabled: true
+  provider: ${LLM_PROVIDER:deepseek}
+  api-key: ${LLM_API_KEY:}
+  request-timeout: 30s
+  deepseek:
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+    path: /chat/completions
+
+fundamentals:
+  # Free-first NSE/BSE fundamentals (DD-06, ADR-005). Yahoo needs no key; FUNDAMENTALS_API_KEY is
+  # reserved for a future paid vendor behind the same port. Yahoo is an observation-time source:
+  # the adapter records the request instant as the filing time so point-in-time reads stay safe.
+  enabled: true
+  provider: ${FUNDAMENTALS_PROVIDER:yahoo-nse}
+  api-key: ${FUNDAMENTALS_API_KEY:}
+  query-base-url: ${FUNDAMENTALS_QUERY_BASE_URL:https://query1.finance.yahoo.com}
+  fallback-query-base-url: ${FUNDAMENTALS_FALLBACK_QUERY_BASE_URL:https://query2.finance.yahoo.com}
+  cookie-base-url: ${FUNDAMENTALS_COOKIE_BASE_URL:https://fc.yahoo.com}
+  # Yahoo gates quote-summary behind a cookie + crumb and rate-limits non-browser clients.
+  crumb-ttl: 30m
+  min-request-interval: 1s
+  suffix-nse: .NS
+  suffix-bse: .BO
+  request-timeout: 30s
+
 history:
   backfill:
     # Low-priority background workload: bounded workers/queue, chunk-by-chunk.

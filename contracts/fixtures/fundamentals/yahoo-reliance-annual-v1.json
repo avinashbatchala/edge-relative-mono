@@ -1,0 +1,73 @@
+{
+  "fixture": "yahoo-reliance-annual-v1",
+  "provider": "yahoo-nse",
+  "exchange": "NSE",
+  "symbol": "RELIANCE",
+  "asOf": "2026-04-01T00:00:00Z",
+  "tolerance": 1e-6,
+  "providerResponse": {
+    "quoteSummary": {
+      "result": [
+        {
+          "financialData": {
+            "returnOnEquity": { "raw": 0.15 },
+            "debtToEquity": { "raw": 0.4 },
+            "revenueGrowth": { "raw": 0.1 },
+            "earningsGrowth": { "raw": 0.08 },
+            "profitMargins": { "raw": 0.12 },
+            "targetMeanPrice": { "raw": 3000.0 }
+          },
+          "defaultKeyStatistics": {
+            "priceToBook": { "raw": 2.5 },
+            "forwardPE": { "raw": 20.0 },
+            "trailingEps": { "raw": 100.0 }
+          },
+          "summaryDetail": {
+            "trailingPE": { "raw": 25.0 },
+            "dividendYield": { "raw": 0.004 },
+            "marketCap": { "raw": 2000000000000 }
+          },
+          "incomeStatementHistory": {
+            "incomeStatementHistory": [
+              {
+                "endDate": { "raw": 1743359400 },
+                "totalRevenue": { "raw": 9000000000000 },
+                "grossProfit": { "raw": 3000000000000 },
+                "operatingIncome": { "raw": 2000000000000 },
+                "netIncome": { "raw": 1500000000000 }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  },
+  "expected": {
+    "fiscalYear": "FY2025",
+    "periodType": "ANNUAL",
+    "reportingBasis": "CONSOLIDATED",
+    "periodEnd": "2025-03-31",
+    "filedAt": "2026-04-01T00:00:00Z",
+    "statements": [
+      { "lineCode": "total_revenue", "value": "9000000000000", "unit": "INR", "scale": "unit" },
+      { "lineCode": "gross_profit", "value": "3000000000000", "unit": "INR", "scale": "unit" },
+      { "lineCode": "operating_income", "value": "2000000000000", "unit": "INR", "scale": "unit" },
+      { "lineCode": "net_income", "value": "1500000000000", "unit": "INR", "scale": "unit" }
+    ],
+    "metrics": [
+      { "metricCode": "trailing_pe", "value": "25.0", "unit": "ratio" },
+      { "metricCode": "dividend_yield", "value": "0.004", "unit": "ratio" },
+      { "metricCode": "market_cap", "value": "2000000000000", "unit": "INR" },
+      { "metricCode": "price_to_book", "value": "2.5", "unit": "ratio" },
+      { "metricCode": "forward_pe", "value": "20.0", "unit": "ratio" },
+      { "metricCode": "trailing_eps", "value": "100.0", "unit": "INR" },
+      { "metricCode": "return_on_equity", "value": "0.15", "unit": "ratio" },
+      { "metricCode": "debt_to_equity", "value": "0.4", "unit": "ratio" },
+      { "metricCode": "revenue_growth", "value": "0.1", "unit": "ratio" },
+      { "metricCode": "earnings_growth", "value": "0.08", "unit": "ratio" },
+      { "metricCode": "profit_margin", "value": "0.12", "unit": "ratio" },
+      { "metricCode": "target_mean_price", "value": "3000.0", "unit": "INR" }
+    ]
+  }
+}

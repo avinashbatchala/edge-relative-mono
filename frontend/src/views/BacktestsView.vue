@@ -17,6 +17,7 @@ import { ApiError } from '@/api/http'
 import { getRiskPolicies, getStrategies } from '@/api/catalog'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { Badge } from '@/components/ui/badge'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -43,6 +44,11 @@ function openDetail(runKey: string) {
   void router.push({ name: 'backtest-run', params: { runKey } })
 }
 const tab = ref<'overview' | 'trades' | 'symbols'>('overview')
+const resultTabs = [
+  { value: 'overview', label: 'overview' },
+  { value: 'trades', label: 'trades' },
+  { value: 'symbols', label: 'symbols' },
+] as const
 const symbolFilter = ref('')
 const formError = ref<string | null>(null)
 
@@ -667,8 +673,14 @@ function parameter(key: string): string {
                 <Button
                   variant="ghost"
                   size="sm"
-                  @click.stop="selectRun(item.runKey)"
+                  @click.stop="openDetail(item.runKey)"
                   >Open</Button
+                >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click.stop="selectRun(item.runKey)"
+                  >Quick preview</Button
                 >
                 <Button
                   v-if="item.status === 'CREATED' || item.status === 'RUNNING'"
@@ -711,6 +723,9 @@ function parameter(key: string): string {
             <span v-if="openRun">
               {{ run.progressEvents }} / {{ run.progressTotal ?? '—' }} events
             </span>
+            <Button variant="ghost" size="sm" @click="openDetail(run.runKey)">
+              Full page
+            </Button>
           </div>
         </div>
         <CardDescription class="text-xs">
@@ -746,23 +761,13 @@ function parameter(key: string): string {
         </p>
       </CardHeader>
 
-      <div
-        class="flex gap-1 border-y px-5 py-2"
-        role="tablist"
-        aria-label="Backtest results"
-      >
-        <button
-          v-for="name in ['overview', 'trades', 'symbols'] as const"
-          :key="name"
-          type="button"
-          role="tab"
-          :aria-selected="tab === name"
-          class="rounded-md px-3 py-1 text-sm font-medium capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          :class="tab === name ? 'bg-muted' : 'text-muted-foreground'"
-          @click="tab = name"
-        >
-          {{ name }}
-        </button>
+      <div class="flex items-center border-y px-5 py-2">
+        <SegmentedTabs
+          v-model="tab"
+          :tabs="resultTabs"
+          capitalize
+          aria-label="Backtest results"
+        />
       </div>
 
       <CardContent class="space-y-4 p-5">

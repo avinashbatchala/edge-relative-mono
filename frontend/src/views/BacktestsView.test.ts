@@ -120,6 +120,7 @@ function setup(runs: BacktestRun[]) {
   render(defineComponent({ render: () => h(BacktestsView) }), {
     global: { plugins: [[VueQueryPlugin, { queryClient }], router] },
   })
+  return router
 }
 
 beforeEach(() => {
@@ -156,13 +157,24 @@ test('lists runs with status and completed metrics', async () => {
 test('opens a run and shows explicit no-trade handling', async () => {
   setup([run()])
   await screen.findByTestId('run-status-run-1')
-  await fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
+  await fireEvent.click(
+    await screen.findByRole('button', { name: 'Quick preview' }),
+  )
   const detail = await screen.findByTestId('backtest-detail')
   await waitFor(() => expect(detail.textContent).toContain('Net return'))
   expect(detail.textContent).toContain('No-trade or zero-risk outcomes')
   await fireEvent.click(screen.getByRole('tab', { name: 'trades' }))
   await waitFor(() =>
     expect(detail.textContent).toContain('No simulated trades for this run'),
+  )
+})
+
+test('the row Open action navigates to the full run page', async () => {
+  const router = setup([run()])
+  await screen.findByTestId('run-status-run-1')
+  await fireEvent.click(await screen.findByRole('button', { name: 'Open' }))
+  await waitFor(() =>
+    expect(router.currentRoute.value.name).toBe('backtest-run'),
   )
 })
 

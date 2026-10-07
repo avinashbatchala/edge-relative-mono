@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { Activity, ArrowRight, ListChecks } from '@lucide/vue'
+import { ArrowRight, Activity, ListChecks } from '@lucide/vue'
+import {
+  featureKeys,
+  getFeatureDashboard,
+  getFeatureDiagnostics,
+} from '@/api/features'
 import { getLtp, marketDataKeys } from '@/api/market-data'
+import { getOpportunities, opportunityKeys } from '@/api/opportunities'
 import type { BrokerSegment } from '@/api/types'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +21,12 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import MarketTile from '@/components/desk/MarketTile.vue'
+import SystemTile from '@/components/desk/SystemTile.vue'
+import PortfolioTile from '@/components/desk/PortfolioTile.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { formatAge } from '@/lib/format'
+import { recentRows } from '@/lib/desk'
 
 const watchlistQuery = useQuery(() => ({
   queryKey: watchlistKeys.all,
@@ -35,10 +47,9 @@ const liveQuery = useQuery(() => {
     if (!entry.segment) {
       continue
     }
-    const key = entry.segment
-    const symbols = groups.get(key) ?? []
+    const symbols = groups.get(entry.segment) ?? []
     symbols.push(`${entry.exchange}_${entry.symbol}`)
-    groups.set(key, symbols)
+    groups.set(entry.segment, symbols)
   }
   const grouped = [...groups.entries()]
   return {
@@ -67,18 +78,36 @@ const liveCount = computed(
     ).length,
 )
 
-const brokerStatus = computed(() => {
-  if (entries.value.length === 0) {
-    return { label: 'Idle', variant: 'outline' as const }
-  }
-  if (liveQuery.isError.value) {
-    return { label: 'Unavailable', variant: 'destructive' as const }
-  }
-  if (liveQuery.isSuccess.value) {
-    return { label: 'Connected', variant: 'secondary' as const }
-  }
-  return { label: 'Checking', variant: 'outline' as const }
-})
+const dashboardQuery = useQuery(() => ({
+  queryKey: featureKeys.dashboard(),
+  queryFn: ({ signal }) => getFeatureDashboard(signal),
+  staleTime: 15_000,
+  refetchInterval: 30_000,
+  retry: 1,
+}))
+
+const diagnosticsQuery = useQuery(() => ({
+  queryKey: featureKeys.diagnostics(),
+  queryFn: ({ signal }) => getFeatureDiagnostics(signal),
+  staleTime: 15_000,
+  retry: 1,
+}))
+
+const opportunitiesQuery = useQuery(() => ({
+  queryKey: opportunityKeys.list(),
+  queryFn: ({ signal }) => getOpportunities(signal),
+  staleTime: 15_000,
+  retry: 1,
+}))
+
+const featureRows = computed(() => dashboardQuery.data.value ?? [])
+const opportunities = computed(() =>
+  (opportunitiesQuery.data.value ?? []).slice(0, 5),
+)
+const recent = computed(() => recentRows(featureRows.value, 5))
+const notices = computed(() =>
+  (diagnosticsQuery.data.value?.metricAvailability ?? []).slice(0, 3),
+)
 </script>
 
 <template>
@@ -86,9 +115,10 @@ const brokerStatus = computed(() => {
     class="mx-auto w-full max-w-[1600px] flex-1 space-y-4 px-4 py-6 lg:px-6"
   >
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold tracking-tight">Overview</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">Desk</h1>
       <p class="text-sm text-muted-foreground">
-        A compact view of your watchlist and market-data health.
+        Market, system and opportunity state at a glance. Advisory only — no
+        execution.
       </p>
     </div>
 
@@ -123,22 +153,131 @@ const brokerStatus = computed(() => {
         </CardContent>
       </Card>
 
+      <MarketTile
+        :rows="featureRows"
+        :loading="dashboardQuery.isPending.value"
+      />
+      <SystemTile />
+      <PortfolioTile />
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader class="pb-3">
-          <CardDescription>Broker</CardDescription>
-          <CardTitle class="text-2xl">
-            <Badge :variant="brokerStatus.variant"
-              >Groww · {{ brokerStatus.label }}</Badge
-            >
-          </CardTitle>
+          <CardTitle class="text-base">Opportunity board</CardTitle>
+          <CardDescription
+            >Top-ranked setups for the watchlist.</CardDescription
+          >
         </CardHeader>
         <CardContent>
-          <p class="text-xs text-muted-foreground">
-            Derived from recent market-data calls
-          </p>
+          <div v-if="opportunitiesQuery.isPending.value" class="space-y-2">
+            <Skeleton v-for="n in 3" :key="n" class="h-8 w-full" />
+          </div>
+          <ul v-else-if="opportunities.length" class="space-y-2 text-sm">
+            <li
+              v-for="row in opportunities"
+              :key="row.symbol"
+              class="flex items-center justify-between gap-2"
+            >
+              <RouterLink
+                :to="{ name: 'market-ticker', params: { symbol: row.symbol } }"
+                class="font-medium hover:underline"
+              >
+                {{ row.symbol }}
+              </RouterLink>
+              <div class="flex items-center gap-1">
+                <Badge v-if="row.setupStatus" variant="outline">{{
+                  row.setupStatus
+                }}</Badge>
+                <Badge variant="secondary">Risk {{ row.riskState }}</Badge>
+              </div>
+            </li>
+          </ul>
+          <EmptyState
+            v-else
+            :icon="Activity"
+            title="No setups"
+            description="No setup observations for the active watchlist yet."
+          />
+          <Button as-child variant="outline" size="sm" class="mt-3">
+            <RouterLink to="/setups">
+              Open scanner
+              <ArrowRight class="size-4" aria-hidden="true" />
+            </RouterLink>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader class="pb-3">
+          <CardTitle class="text-base">What changed</CardTitle>
+          <CardDescription>Most recent feature observations.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div v-if="dashboardQuery.isPending.value" class="space-y-2">
+            <Skeleton v-for="n in 3" :key="n" class="h-8 w-full" />
+          </div>
+          <ul v-else-if="recent.length" class="space-y-2 text-sm">
+            <li
+              v-for="row in recent"
+              :key="`${row.instrumentId}:${row.timeframe}`"
+              class="flex items-center justify-between gap-2"
+            >
+              <RouterLink
+                :to="{ name: 'market-ticker', params: { symbol: row.symbol } }"
+                class="font-medium hover:underline"
+              >
+                {{ row.symbol }}
+              </RouterLink>
+              <span class="flex items-center gap-3 text-xs tabular-nums">
+                <span
+                  :class="
+                    row.rrsRaw !== null && row.rrsRaw > 0
+                      ? 'text-positive'
+                      : 'text-muted-foreground'
+                  "
+                >
+                  RRS {{ row.rrsRaw === null ? '—' : row.rrsRaw.toFixed(2) }}
+                </span>
+                <span class="text-muted-foreground">{{
+                  formatAge(row.observationTime)
+                }}</span>
+              </span>
+            </li>
+          </ul>
+          <EmptyState
+            v-else
+            :icon="ListChecks"
+            title="Nothing yet"
+            description="Feature observations will appear here once data is ingested."
+          />
         </CardContent>
       </Card>
     </div>
+
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">Notices</CardTitle>
+        <CardDescription>Data-quality and coverage flags.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul v-if="notices.length" class="space-y-1 text-sm">
+          <li
+            v-for="notice in notices"
+            :key="`${notice.metric}:${notice.state}`"
+            class="flex items-center justify-between gap-2"
+          >
+            <span>{{ notice.metric }}</span>
+            <span class="text-xs text-muted-foreground">
+              {{ notice.state }} · {{ notice.affectedCount }} affected
+            </span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-muted-foreground">
+          No known data issues.
+        </p>
+      </CardContent>
+    </Card>
 
     <div class="flex flex-wrap gap-2">
       <Button as-child variant="outline" size="sm">
@@ -149,9 +288,9 @@ const brokerStatus = computed(() => {
         </RouterLink>
       </Button>
       <Button as-child variant="outline" size="sm">
-        <RouterLink to="/market">
+        <RouterLink to="/chart">
           <Activity class="size-4" aria-hidden="true" />
-          Inspect market data
+          Inspect a chart
           <ArrowRight class="size-4" aria-hidden="true" />
         </RouterLink>
       </Button>

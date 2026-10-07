@@ -27,9 +27,7 @@ function openInstrument(instrument: BrokerInstrument) {
 }
 
 function focusSearch() {
-  window.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
-  )
+  open.value = true
 }
 </script>
 

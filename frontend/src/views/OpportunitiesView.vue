@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import FeatureDashboardView from '@/views/FeatureDashboardView.vue'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import { formatIstDateTime, formatPrice } from '@/lib/format'
 import {
   directionLabel,
@@ -41,6 +42,10 @@ import {
 } from '@/lib/opportunity-presentation'
 
 const tab = ref<'setups' | 'features'>('setups')
+const tabs = [
+  { value: 'setups', label: 'Setups' },
+  { value: 'features', label: 'Features' },
+] as const
 
 const opportunitiesQuery = useQuery(() => ({
   queryKey: opportunityKeys.list(),
@@ -82,36 +87,15 @@ function featureHref(symbol: string): string {
         strategy-qualified, not risk-approved; risk and plan state are shown
         separately.
       </p>
-      <div
-        class="inline-flex rounded-lg border p-0.5"
-        role="tablist"
+      <SegmentedTabs
+        v-model="tab"
+        :tabs="tabs"
         aria-label="Opportunity views"
-      >
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'setups'"
-          class="rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          :class="tab === 'setups' ? 'bg-muted' : 'text-muted-foreground'"
-          @click="tab = 'setups'"
-        >
-          Setups
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'features'"
-          class="rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          :class="tab === 'features' ? 'bg-muted' : 'text-muted-foreground'"
-          @click="tab = 'features'"
-        >
-          Features
-        </button>
-      </div>
+      />
     </header>
 
     <div v-show="tab === 'features'">
-      <FeatureDashboardView />
+      <FeatureDashboardView embedded />
     </div>
 
     <Card v-show="tab === 'setups'" class="gap-0 overflow-hidden py-0">

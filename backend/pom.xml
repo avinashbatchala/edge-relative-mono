@@ -17,6 +17,10 @@
         <module>domain</module>
         <module>broker-api</module>
         <module>broker-groww</module>
+        <module>llm-api</module>
+        <module>llm-deepseek</module>
+        <module>fundamentals-api</module>
+        <module>fundamentals-nse</module>
         <module>application</module>
     </modules>
     <properties>

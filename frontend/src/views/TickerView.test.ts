@@ -140,7 +140,6 @@ test('resolves the underlying equity and renders quote, session, chart and deriv
   ).toBeGreaterThan(0)
   expect(screen.getByText('Session')).toBeTruthy()
   expect(await screen.findByTestId('price-chart')).toBeTruthy()
-  expect(screen.getByRole('tab', { name: 'Futures' })).toBeTruthy()
   expect(screen.getByRole('tab', { name: 'Options' })).toBeTruthy()
 })
 
@@ -154,10 +153,8 @@ test('keeps the chart when the quote (and therefore depth) fails', async () => {
   )
   setup()
 
-  expect(
-    await screen.findByText('Quote unavailable', undefined, { timeout: 3000 }),
-  ).toBeTruthy()
   expect(await screen.findByTestId('price-chart')).toBeTruthy()
+  expect(await screen.findByText(/Groww · Unavailable/)).toBeTruthy()
 })
 
 test('changing the interval issues the matching historical request', async () => {
@@ -224,19 +221,8 @@ test('handles missing depth without rendering NaN', async () => {
   await screen.findAllByText('₹1,428.35')
   expect(screen.queryByText(/NaN/)).toBeNull()
 
-  await fireEvent.click(screen.getByRole('tab', { name: 'Depth' }))
+  await fireEvent.mouseDown(screen.getByRole('tab', { name: 'Depth' }))
   expect(await screen.findByText('No order book depth available.')).toBeTruthy()
-})
-
-test('futures tab lists contracts for the underlying', async () => {
-  setup()
-  await screen.findAllByText('₹1,428.35')
-
-  // reka-ui tabs activate on mousedown, not click.
-  await fireEvent.mouseDown(screen.getByRole('tab', { name: 'Futures' }))
-
-  expect(await screen.findByText('NSE-RELIANCE-26Nov26-FUT')).toBeTruthy()
-  expect(screen.queryByText('NSE-RELIANCE-26Nov26-3000-CE')).toBeNull()
 })
 
 test('options tab renders the option chain for the underlying', async () => {

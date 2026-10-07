@@ -70,6 +70,11 @@ import FeatureFilterBar from '@/components/feature/FeatureFilterBar.vue'
 import FeatureColumnSelector from '@/components/feature/FeatureColumnSelector.vue'
 import FeatureSummaryCards from '@/components/feature/FeatureSummaryCards.vue'
 import ConnectionStatus from '@/components/feature/ConnectionStatus.vue'
+import FeatureWhyDrawer from '@/components/feature/FeatureWhyDrawer.vue'
+import {
+  useScannerScreensStore,
+  type ScannerScreenState,
+} from '@/stores/scanner-screens'
 
 type SortKey =
   | 'symbol'
@@ -330,6 +335,55 @@ const visible = ref<Record<string, boolean>>(
 )
 
 const selected = ref<FeatureDashboardRow | null>(null)
+
+const whyRow = ref<FeatureDashboardRow | null>(null)
+const whyOpen = computed({
+  get: () => whyRow.value !== null,
+  set: (open: boolean) => {
+    if (!open) {
+      whyRow.value = null
+    }
+  },
+})
+
+const screens = useScannerScreensStore()
+
+function captureScreen(): ScannerScreenState {
+  return {
+    search: search.value,
+    timeframe: timeframeFilter.value,
+    rs: rsFilter.value,
+    rve: rveFilter.value,
+    alignment: alignmentFilter.value,
+    quality: qualityFilter.value,
+    freshness: freshnessFilter.value,
+    minRvol: minRvol.value,
+    visible: { ...visible.value },
+    sortKey: sortKey.value,
+    sortDir: sortDir.value,
+  }
+}
+
+function applyScreen(state: ScannerScreenState) {
+  search.value = state.search
+  timeframeFilter.value = state.timeframe
+  rsFilter.value = state.rs
+  rveFilter.value = state.rve
+  alignmentFilter.value = state.alignment
+  qualityFilter.value = state.quality
+  freshnessFilter.value = state.freshness
+  minRvol.value = state.minRvol
+  visible.value = { ...state.visible }
+  sortKey.value = state.sortKey as SortKey
+  sortDir.value = state.sortDir
+}
+
+function saveCurrentScreen() {
+  const name = window.prompt('Name this screen')
+  if (name) {
+    screens.save(name, captureScreen())
+  }
+}
 
 function matches(row: FeatureDashboardRow): boolean {
   if (
@@ -721,11 +775,15 @@ const hasRows = computed(() => store.rowList.length > 0)
 const showingEmptyWatchlist = computed(
   () => !dashboardQuery.isPending.value && !hasRows.value,
 )
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 </script>
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 lg:p-6">
-    <header class="flex flex-wrap items-start justify-between gap-3">
+    <header
+      v-if="!embedded"
+      class="flex flex-wrap items-start justify-between gap-3"
+    >
       <div class="space-y-1">
         <h1 class="text-xl font-semibold tracking-tight">Feature Dashboard</h1>
         <p class="max-w-2xl text-sm text-muted-foreground">
@@ -739,13 +797,38 @@ const showingEmptyWatchlist = computed(
           :gap-detected="store.gapDetected"
           :last-updated-at="store.lastUpdatedAt"
         />
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" size="sm">Screens</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem @select="saveCurrentScreen()">
+              Save current screen
+            </DropdownMenuItem>
+            <template v-if="screens.screens.length">
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Saved screens</DropdownMenuLabel>
+              <DropdownMenuItem
+                v-for="screen in screens.screens"
+                :key="screen.name"
+                @select="applyScreen(screen.state)"
+              >
+                {{ screen.name }}
+              </DropdownMenuItem>
+            </template>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" size="sm" @click="resync">
           <RefreshCw class="mr-1 size-3.5" aria-hidden="true" /> Refresh
         </Button>
       </div>
     </header>
 
-    <FeatureSummaryCards :rows="store.rowList" timeframe="M5" />
+    <FeatureSummaryCards
+      v-if="!embedded"
+      :rows="store.rowList"
+      timeframe="M5"
+    />
 
     <FeatureDiagnosticsPanel
       :diagnostics="diagnosticsQuery.data.value ?? null"
@@ -1059,6 +1142,9 @@ const showingEmptyWatchlist = computed(
                   <DropdownMenuContent align="end" @click.stop>
                     <DropdownMenuLabel>{{ row.symbol }}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem @select="whyRow = row">
+                      Why this state
+                    </DropdownMenuItem>
                     <DropdownMenuItem @select="selected = row">
                       Open feature history
                     </DropdownMenuItem>
@@ -1127,5 +1213,7 @@ const showingEmptyWatchlist = computed(
         </div>
       </SheetContent>
     </Sheet>
+
+    <FeatureWhyDrawer v-model:open="whyOpen" :row="whyRow" />
   </div>
 </template>

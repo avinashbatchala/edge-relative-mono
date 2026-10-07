@@ -51,4 +51,39 @@ class SecretsPropertiesImportTest {
             Files.deleteIfExists(secrets);
         }
     }
+
+    /**
+     * The LLM and fundamentals placeholders in {@code application.yaml} resolve from the same file,
+     * so the backend holds the only copy of the DeepSeek key (ADR-007).
+     */
+    @Test
+    void importedSecretsPropertiesPopulateLlmAndFundamentalPlaceholders() throws Exception {
+        Path secrets = Files.createTempFile("edge-relative-secrets-llm-", ".properties");
+        Files.writeString(secrets, """
+                LLM_PROVIDER=deepseek
+                LLM_API_KEY=llm-key-from-secrets
+                DEEPSEEK_MODEL=deepseek-chat
+                FUNDAMENTALS_PROVIDER=yahoo-nse
+                """);
+        try {
+            SpringApplication application = new SpringApplication(EmptyConfiguration.class);
+            application.setWebApplicationType(WebApplicationType.NONE);
+            application.setDefaultProperties(Map.of(
+                    "spring.config.name", "edge-relative-secrets-llm-test",
+                    "spring.config.import", "optional:file:" + secrets.toAbsolutePath(),
+                    "probe.llm-key", "${LLM_API_KEY:absent}",
+                    "probe.llm-provider", "${LLM_PROVIDER:deepseek}",
+                    "probe.fundamentals-provider", "${FUNDAMENTALS_PROVIDER:yahoo-nse}"));
+
+            try (ConfigurableApplicationContext context = application.run()) {
+                var environment = context.getEnvironment();
+                assertThat(environment.getProperty("LLM_API_KEY")).isEqualTo("llm-key-from-secrets");
+                assertThat(environment.getProperty("probe.llm-key")).isEqualTo("llm-key-from-secrets");
+                assertThat(environment.getProperty("probe.llm-provider")).isEqualTo("deepseek");
+                assertThat(environment.getProperty("probe.fundamentals-provider")).isEqualTo("yahoo-nse");
+            }
+        } finally {
+            Files.deleteIfExists(secrets);
+        }
+    }
 }

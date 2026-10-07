@@ -434,16 +434,38 @@ public class HistoryRepository {
         return record == null ? Optional.empty() : Optional.of(toRun(record));
     }
 
-    public List<BackfillRunResponse> runsForInstrument(long instrumentId, int limit) {
-        return dsl.fetch(
-                        "SELECT ir.run_key, ir.instrument_id, t.code AS timeframe_code, ir.requested_from, ir.requested_to, "
-                                + "ir.status, ir.total_chunks, ir.completed_chunks, ir.failed_chunks, ir.candles_written, "
-                                + "ir.last_error, ir.created_at, ir.updated_at, ir.completed_at "
-                                + "FROM market.ingestion_run ir JOIN reference.timeframe t ON t.timeframe_id = ir.timeframe_id "
-                                + "WHERE ir.instrument_id = ? ORDER BY ir.created_at DESC LIMIT ?",
-                        instrumentId,
-                        limit)
+    public List<BackfillRunResponse> runsForInstrument(
+            long instrumentId, String status, int limit, int offset) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT ir.run_key, ir.instrument_id, t.code AS timeframe_code, ir.requested_from, ir.requested_to, "
+                        + "ir.status, ir.total_chunks, ir.completed_chunks, ir.failed_chunks, ir.candles_written, "
+                        + "ir.last_error, ir.created_at, ir.updated_at, ir.completed_at "
+                        + "FROM market.ingestion_run ir JOIN reference.timeframe t ON t.timeframe_id = ir.timeframe_id "
+                        + "WHERE ir.instrument_id = ?");
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(instrumentId);
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND ir.status = ?");
+            params.add(status);
+        }
+        sql.append(" ORDER BY ir.created_at DESC OFFSET ? LIMIT ?");
+        params.add(Math.max(offset, 0));
+        params.add(limit);
+        return dsl.fetch(sql.toString(), params.toArray())
                 .map(HistoryRepository::toRun);
+    }
+
+    public long countRunsForInstrument(long instrumentId, String status) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT count(*) AS total FROM market.ingestion_run ir WHERE ir.instrument_id = ?");
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(instrumentId);
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND ir.status = ?");
+            params.add(status);
+        }
+        Record record = dsl.fetchOne(sql.toString(), params.toArray());
+        return record == null ? 0L : record.get("total", Long.class);
     }
 
     public void requeueFailed(String runKey) {

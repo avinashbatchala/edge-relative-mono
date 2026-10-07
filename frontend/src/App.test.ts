@@ -48,24 +48,27 @@ function buildRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', redirect: '/overview' },
+      { path: '/', redirect: '/desk' },
       {
-        path: '/overview',
+        path: '/desk',
         name: 'overview',
         component: () => import('@/views/OverviewView.vue'),
+        meta: { title: 'Desk' },
       },
       {
         path: '/watchlist',
         name: 'watchlist',
         component: () => import('@/views/WatchlistView.vue'),
+        meta: { title: 'Watchlist' },
       },
       {
-        path: '/market',
+        path: '/chart',
         name: 'market-search',
         component: () => import('@/views/MarketSearchView.vue'),
+        meta: { title: 'Chart' },
       },
       {
-        path: '/market/:symbol',
+        path: '/chart/:symbol',
         name: 'market-ticker',
         component: () => import('@/views/TickerView.vue'),
       },
@@ -77,7 +80,7 @@ afterEach(cleanup)
 
 test('sidebar exposes tools and highlights the active route', async () => {
   const router = buildRouter()
-  await router.push('/overview')
+  await router.push('/desk')
   await router.isReady()
 
   render(App, {
@@ -97,19 +100,19 @@ test('sidebar exposes tools and highlights the active route', async () => {
     },
   })
 
-  const overviewLink = screen.getByRole('link', { name: 'Overview' })
-  expect(overviewLink.getAttribute('aria-current')).toBe('page')
+  const deskLink = screen.getByRole('link', { name: 'Desk' })
+  expect(deskLink.getAttribute('aria-current')).toBe('page')
   expect(screen.getByRole('link', { name: 'Watchlist' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Market Data' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Research Data' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Chart' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Research' })).toBeTruthy()
   expect(
-    await screen.findByRole('heading', { name: 'Overview', level: 1 }),
+    await screen.findByRole('heading', { name: 'Desk', level: 1 }),
   ).toBeTruthy()
 })
 
 test('navigating to Watchlist updates the route and active state', async () => {
   const router = buildRouter()
-  await router.push('/overview')
+  await router.push('/desk')
   await router.isReady()
 
   render(App, {

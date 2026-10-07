@@ -21,6 +21,7 @@ import {
 } from '@/api/catalog'
 import { ApiError } from '@/api/http'
 import { Badge } from '@/components/ui/badge'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -33,6 +34,10 @@ import { formatIstDateTime } from '@/lib/format'
 
 const queryClient = useQueryClient()
 const tab = ref<'strategies' | 'risk'>('strategies')
+const tabs = [
+  { value: 'strategies', label: 'Strategies' },
+  { value: 'risk', label: 'Risk policies' },
+] as const
 
 const strategiesQuery = useQuery(() => ({
   queryKey: catalogKeys.strategies(),
@@ -240,28 +245,7 @@ function selectRisk(policy: RiskPolicyView) {
         Versions are immutable — saving creates a new version — and retired
         entries stay resolvable for reproducible backtests.
       </p>
-      <div class="inline-flex rounded-lg border p-0.5" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'strategies'"
-          class="rounded-md px-3 py-1.5 text-sm font-medium"
-          :class="tab === 'strategies' ? 'bg-muted' : 'text-muted-foreground'"
-          @click="tab = 'strategies'"
-        >
-          Strategies
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'risk'"
-          class="rounded-md px-3 py-1.5 text-sm font-medium"
-          :class="tab === 'risk' ? 'bg-muted' : 'text-muted-foreground'"
-          @click="tab = 'risk'"
-        >
-          Risk policies
-        </button>
-      </div>
+      <SegmentedTabs v-model="tab" :tabs="tabs" />
       <p v-if="errorMessage" class="text-sm text-negative" role="alert">
         {{ errorMessage }}
       </p>

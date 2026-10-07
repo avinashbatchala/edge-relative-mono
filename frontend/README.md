@@ -39,14 +39,36 @@ pnpm build
 
 ## Application shell
 
-The left sidebar (native shadcn-vue `Sidebar`) is the navigation shell:
+The left sidebar (native shadcn-vue `Sidebar`) is the navigation shell, organised around
+the decision pipeline:
 
-- `/overview` — compact dashboard: watchlist count, live-data count, broker status.
+- `/desk` — Desk: watchlist/live counts plus Market, System and Portfolio tiles, an
+  opportunity-board preview, a "what changed" recent-observations list, and data-quality
+  notices.
+- `/scanner` — Scanner: the feature board (filters, saved screens, column selector, and a
+  per-row **Why** drawer with the deterministic measurements behind a row).
+- `/setups` — Setups: setup, risk and plan state for the watchlist, with the trade-plan sheet.
+- `/chart` and `/chart/:symbol` — Chart: the market-data workspace for one underlying.
 - `/watchlist` — the active watchlist (up to 20 canonical instruments).
-- `/market` and `/market/:symbol` — the market-data tools.
+- `/trades` — Trades: read-only broker account state (positions, holdings, orders, margin).
+  Order placement/modification/cancellation is not enabled.
+- `/research` — Research: canonical M1 coverage, backfill with a **paginated** run history
+  (status filter, run detail, retry), and a chart/table view of persisted candles.
+- `/validate` — Validate: backtests.
+- `/catalog` — Catalog: versioned strategies and risk policies.
+- `/fundamentals` — Fundamentals: a point-in-time, code-computed watchlist screener with
+  advisory LLM narration; values are also available in the Chart rail.
 
-`Setups`, `Trades` and `System / Settings` are shown disabled as coming later; they
-do not navigate anywhere.
+Legacy paths (`/overview`, `/market`, `/opportunities`, `/features`, `/backtests`,
+`/strategies`) redirect to the workspace paths. `Journal` and `System` are shown
+disabled as coming later.
+
+The shell also provides a global **command palette** (⌘K / Ctrl+K) for navigation, symbol
+search and actions, a bottom **status bar** (broker health, stream state, data age, and the
+advisory/no-execution reminder), a **density** toggle (comfortable/compact, persisted), and
+toasts. Reusable primitives live in `src/components/common` (`EmptyState`,
+`PermissionNotice`, `SegmentedTabs`) and `src/components/data-table` (`DataTable`, built on
+`@tanstack/vue-table`). Client preferences persist via `src/stores/preferences`.
 
 ## Watchlist
 
@@ -65,17 +87,19 @@ never as identity.
 
 Market Data is underlying-first:
 
-- `/market` is the search landing page. The search is ticker/company-first: the
+- `/chart` is the search landing page. The search is ticker/company-first: the
   backend ranks an exact ticker or company name on the cash equity above its
   futures/options, so searching `RELIANCE` or `Reliance Industries` selects the
   equity.
-- `/market/:symbol` is the ticker workspace for one underlying (e.g.
-  `/market/RELIANCE`). Selecting a derivative in search routes to its underlying.
+- `/chart/:symbol` is the ticker workspace for one underlying (e.g.
+  `/chart/RELIANCE`). Selecting a derivative in search routes to its underlying.
 
-The ticker workspace shows live quote/OHLC, bid/ask and depth, a candlestick chart, a
-dense historical table, instrument reference details, and the raw normalized API
-payloads — plus **Futures** and **Options** tabs as secondary data for that
-underlying.
+The ticker workspace shows a slim instrument title (symbol · name · badges) above two
+even-height cards (Price, Session), a full-width **chart card**, and a separate full-width
+**data card** with tabs (Features, Depth, Options, Fundamentals, Historical, Details, Raw).
+The data card scrolls internally; the Options chain defaults to the nearest upcoming expiry
+(Groww does not expose futures enumeration, so there is no Futures tab). Range metrics live in
+the Details tab. `src/components/common/WhyPanel.vue` renders the "why" explanations.
 
 - Server state lives in TanStack Query, keyed per symbol/interval/range, so a late
   response for a previous instrument can never overwrite the current one.

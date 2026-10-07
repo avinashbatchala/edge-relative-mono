@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table'
 import SectionState from './SectionState.vue'
 import { formatCompact, formatIstDate, formatPrice } from '@/lib/format'
+import { nearestExpiry } from '@/lib/expiry'
 
 const props = defineProps<{
   exchange: BrokerExchange
@@ -44,7 +45,7 @@ watch(
   (list) => {
     const dates = (list ?? []).map((expiry) => expiry.expiryDate)
     if (!dates.includes(selectedExpiry.value) && dates.length > 0) {
-      selectedExpiry.value = dates[0] ?? ''
+      selectedExpiry.value = nearestExpiry(dates)
     }
   },
   { immediate: true },

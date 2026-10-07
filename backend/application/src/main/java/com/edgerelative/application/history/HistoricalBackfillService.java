@@ -3,6 +3,7 @@ package com.edgerelative.application.history;
 import com.edgerelative.application.history.HistoricalBackfillPlanner.Chunk;
 import com.edgerelative.application.history.HistoryRepository.ClaimedChunk;
 import com.edgerelative.application.history.api.BackfillRunResponse;
+import com.edgerelative.application.history.api.BackfillRunsPage;
 import com.edgerelative.application.history.api.StartBackfillRequest;
 import com.edgerelative.application.reference.CanonicalInstrumentService;
 import com.edgerelative.application.reference.TimeframeCatalog;
@@ -86,8 +87,21 @@ public class HistoricalBackfillService {
                 .orElseThrow(() -> new HistoryException(HistoryException.NOT_FOUND, "Run not found"));
     }
 
-    public List<BackfillRunResponse> runs(long instrumentId, int limit) {
-        return repository.runsForInstrument(instrumentId, Math.min(Math.max(limit, 1), 100));
+    public BackfillRunsPage runs(long instrumentId, String status, int limit, int offset) {
+        int boundedLimit = Math.min(Math.max(limit, 1), 100);
+        int boundedOffset = Math.max(offset, 0);
+        String normalizedStatus = normalizeStatus(status);
+        List<BackfillRunResponse> items =
+                repository.runsForInstrument(instrumentId, normalizedStatus, boundedLimit, boundedOffset);
+        long total = repository.countRunsForInstrument(instrumentId, normalizedStatus);
+        return new BackfillRunsPage(items, total);
+    }
+
+    private static String normalizeStatus(String status) {
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status.trim())) {
+            return null;
+        }
+        return status.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     public BackfillRunResponse run(String runKey) {

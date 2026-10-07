@@ -1,5 +1,6 @@
 package com.edgerelative.application.broker;
 
+import com.edgerelative.broker.api.model.BrokerExchange;
 import com.edgerelative.broker.api.model.BrokerInstrument;
 import com.edgerelative.broker.api.model.BrokerInstrumentType;
 
@@ -38,9 +39,25 @@ public final class InstrumentSearch {
     }
 
     public static List<BrokerInstrument> filter(List<BrokerInstrument> instruments, String query, Integer limit) {
+        return filter(instruments, query, limit, null, true);
+    }
+
+    /**
+     * Relevance-ordered lookup with an optional exchange restriction and an option to exclude
+     * futures/options. Filtering happens before ranking and the limit, so a bounded slice is never
+     * crowded out by off-exchange or derivative rows.
+     */
+    public static List<BrokerInstrument> filter(
+            List<BrokerInstrument> instruments,
+            String query,
+            Integer limit,
+            BrokerExchange exchange,
+            boolean includeDerivatives) {
         int bounded = bound(limit);
         String needle = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         return instruments.stream()
+                .filter(instrument -> exchange == null || instrument.exchange() == exchange)
+                .filter(instrument -> includeDerivatives || !isDerivative(instrument))
                 .map(instrument -> score(instrument, needle))
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparingLong(Scored::score)
@@ -49,6 +66,13 @@ public final class InstrumentSearch {
                 .limit(bounded)
                 .map(Scored::instrument)
                 .toList();
+    }
+
+    private static boolean isDerivative(BrokerInstrument instrument) {
+        BrokerInstrumentType type = instrument.instrumentType();
+        return type == BrokerInstrumentType.FUT
+                || type == BrokerInstrumentType.CE
+                || type == BrokerInstrumentType.PE;
     }
 
     private static Scored score(BrokerInstrument instrument, String needle) {

@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import type { BrokerCandle } from '@/api/types'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -44,8 +43,8 @@ function goTo(next: number) {
 </script>
 
 <template>
-  <div class="space-y-2">
-    <ScrollArea class="h-[420px] rounded-md border">
+  <div class="flex flex-col gap-2">
+    <div class="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader class="sticky top-0 z-10 bg-background">
           <TableRow>
@@ -88,7 +87,7 @@ function goTo(next: number) {
           </TableRow>
         </TableBody>
       </Table>
-    </ScrollArea>
+    </div>
 
     <div
       class="flex items-center justify-between text-xs text-muted-foreground"

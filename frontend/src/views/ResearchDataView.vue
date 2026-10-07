@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { Download, Loader2 } from '@lucide/vue'
+import { Download, Loader2, RotateCcw } from '@lucide/vue'
 import {
+  getBackfillRuns,
   getCandles,
   getCoverage,
   HISTORY_TIMEFRAMES,
   historyKeys,
+  retryBackfill,
   startBackfill,
+  type BackfillRunResponse,
 } from '@/api/history'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
 import { Badge } from '@/components/ui/badge'
@@ -24,8 +27,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import PriceChart from '@/components/market-data/PriceChart.vue'
+import HistoricalTable from '@/components/market-data/HistoricalTable.vue'
 import SectionState from '@/components/market-data/SectionState.vue'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import { formatAge, formatCompact, formatIstDateTime } from '@/lib/format'
 import { exchangeDateToInstant } from '@/lib/market-time'
 
@@ -44,6 +57,11 @@ const VIEW_LIMIT = 5000
 const selectedInstrumentId = ref<number | null>(null)
 // The persisted base is always M1; this selects which derived timeframe the chart shows.
 const viewTimeframe = ref('D1')
+const historyView = ref<'chart' | 'table'>('chart')
+const historyViewTabs = [
+  { value: 'chart', label: 'Chart' },
+  { value: 'table', label: 'Table' },
+] as const
 
 const entries = computed(() => watchlistQuery.data.value?.entries ?? [])
 
@@ -148,6 +166,118 @@ const candlesQuery = useQuery(() => ({
   staleTime: 10_000,
   retry: 1,
 }))
+
+const runsPage = ref(1)
+const runsPageSize = ref(20)
+const runsStatus = ref('ALL')
+const runsOffset = computed(() => (runsPage.value - 1) * runsPageSize.value)
+const RUN_STATUS_OPTIONS = [
+  'ALL',
+  'QUEUED',
+  'RUNNING',
+  'PARTIAL',
+  'COMPLETED',
+  'CANCELLED',
+] as const
+
+const runsQuery = useQuery(() => ({
+  queryKey: historyKeys.backfillRuns(
+    selectedInstrumentId.value ?? 0,
+    runsStatus.value,
+    runsPageSize.value,
+    runsOffset.value,
+  ),
+  queryFn: ({ signal }) =>
+    getBackfillRuns(
+      selectedInstrumentId.value ?? 0,
+      {
+        limit: runsPageSize.value,
+        offset: runsOffset.value,
+        status: runsStatus.value,
+      },
+      signal,
+    ),
+  enabled: selectedInstrumentId.value !== null,
+  // Poll faster only while the visible page has active work.
+  refetchInterval: (query: {
+    state: { data?: { items?: BackfillRunResponse[] } }
+  }) =>
+    (query.state.data?.items ?? []).some(
+      (run) => run.status === 'RUNNING' || run.status === 'QUEUED',
+    )
+      ? 3_000
+      : 15_000,
+  staleTime: 5_000,
+  retry: 1,
+}))
+
+const runs = computed(() => runsQuery.data.value?.items ?? [])
+const runsTotal = computed(() => runsQuery.data.value?.total ?? 0)
+const runsFirst = computed(() =>
+  runsTotal.value === 0 ? 0 : runsOffset.value + 1,
+)
+const runsLast = computed(() =>
+  Math.min(runsOffset.value + runs.value.length, runsTotal.value),
+)
+const runsHasPrev = computed(() => runsPage.value > 1)
+const runsHasNext = computed(
+  () => runsOffset.value + runsPageSize.value < runsTotal.value,
+)
+
+watch([selectedInstrumentId, runsStatus, runsPageSize], () => {
+  runsPage.value = 1
+})
+
+const expandedRunKey = ref<string | null>(null)
+function toggleRun(runKey: string) {
+  expandedRunKey.value = expandedRunKey.value === runKey ? null : runKey
+}
+
+function prevRunsPage() {
+  runsPage.value = Math.max(1, runsPage.value - 1)
+}
+
+function nextRunsPage() {
+  runsPage.value += 1
+}
+
+const retryMutation = useMutation({
+  mutationFn: (runKey: string) => retryBackfill(runKey),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: historyKeys.all })
+  },
+})
+
+function runProgress(run: BackfillRunResponse): number {
+  if (run.totalChunks <= 0) {
+    return 0
+  }
+  return Math.round((run.completedChunks / run.totalChunks) * 100)
+}
+
+function canRetry(status: string): boolean {
+  return status === 'FAILED' || status === 'PARTIAL'
+}
+
+function runDuration(run: BackfillRunResponse): string {
+  const start = run.createdAt ? Date.parse(run.createdAt) : NaN
+  const end = run.completedAt
+    ? Date.parse(run.completedAt)
+    : Date.parse(run.updatedAt ?? '')
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) {
+    return '—'
+  }
+  const seconds = Math.round((end - start) / 1000)
+  if (seconds < 60) {
+    return `${seconds}s`
+  }
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) {
+    return `${minutes}m ${seconds % 60}s`
+  }
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m`
+}
 
 const persistedCandles = computed(() => candlesQuery.data.value ?? [])
 const candlesCapped = computed(
@@ -364,17 +494,17 @@ function statusVariant(
               </span>
             </div>
             <Progress
+              v-if="coverage.status === 'RUNNING'"
               :model-value="coverageProgress"
               :class="progressClass(coverage.status)"
-              :aria-label="`${coverage.completedChunks} of ${plannedChunks} chunks`"
-              :title="`${coverage.completedChunks} of ${plannedChunks} chunks`"
+              :aria-label="`Downloading — ${coverageProgress}%`"
+              :title="`Downloading — ${coverageProgress}%`"
             />
             <p
               v-if="coverage.status === 'RUNNING'"
-              class="text-xs text-muted-foreground tabular-nums"
+              class="text-xs text-muted-foreground"
             >
-              {{ coverage.completedChunks }} / {{ plannedChunks }} chunks
-              downloaded
+              Downloading…
             </p>
             <dl class="grid grid-cols-2 gap-x-6 text-sm">
               <div>
@@ -391,15 +521,216 @@ function statusVariant(
               </div>
             </dl>
             <p
-              v-if="coverage.status === 'PARTIAL'"
+              v-if="coverage.failedChunks > 0"
               class="text-xs text-muted-foreground"
             >
-              Some chunks failed — Download / resume retries them.
+              Some sessions failed — retry from the Backfill runs table.
             </p>
           </template>
         </CardContent>
       </Card>
     </div>
+
+    <Card>
+      <CardHeader
+        class="flex flex-wrap items-center justify-between gap-2 pb-3"
+      >
+        <CardTitle class="text-sm font-medium">Backfill runs</CardTitle>
+        <div class="flex flex-wrap items-center gap-2">
+          <Select v-model="runsStatus">
+            <SelectTrigger class="w-[140px]" aria-label="Run status filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="option in RUN_STATUS_OPTIONS"
+                :key="option"
+                :value="option"
+              >
+                {{ option === 'ALL' ? 'All statuses' : option }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select v-model="runsPageSize">
+            <SelectTrigger class="w-[120px]" aria-label="Runs per page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem :value="10">10 / page</SelectItem>
+              <SelectItem :value="20">20 / page</SelectItem>
+              <SelectItem :value="50">50 / page</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <SectionState
+          v-if="runsQuery.isError.value"
+          title="Backfill runs unavailable"
+          :error="runsQuery.error.value"
+          @retry="runsQuery.refetch()"
+        />
+        <p
+          v-else-if="selectedInstrumentId === null"
+          class="text-sm text-muted-foreground"
+        >
+          No instrument selected.
+        </p>
+        <div v-else-if="runsQuery.isPending.value" class="space-y-2">
+          <Skeleton v-for="n in 3" :key="n" class="h-9 w-full" />
+        </div>
+        <p v-else-if="runs.length === 0" class="text-sm text-muted-foreground">
+          No backfill runs{{
+            runsStatus === 'ALL' ? '' : ` with status ${runsStatus}`
+          }}.
+        </p>
+        <template v-else>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Range</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead class="text-right">Candles</TableHead>
+                <TableHead class="text-right">Duration</TableHead>
+                <TableHead>Completed</TableHead>
+                <TableHead class="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-for="run in runs" :key="run.runKey">
+                <TableRow>
+                  <TableCell class="text-xs text-muted-foreground">
+                    {{ formatIstDateTime(run.requestedFrom) }} →
+                    {{ formatIstDateTime(run.requestedTo) }}
+                  </TableCell>
+                  <TableCell>
+                    <div class="space-y-1">
+                      <Badge :variant="statusVariant(run.status)">{{
+                        run.status
+                      }}</Badge>
+                      <span
+                        v-if="run.failedChunks"
+                        class="block text-xs text-negative"
+                      >
+                        {{ run.failedChunks }} failed
+                      </span>
+                      <Progress
+                        v-if="
+                          run.status === 'RUNNING' || run.status === 'QUEUED'
+                        "
+                        :model-value="runProgress(run)"
+                        class="h-1 w-20"
+                        :aria-label="`Progress ${runProgress(run)}%`"
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">{{
+                    formatCompact(run.candlesWritten)
+                  }}</TableCell>
+                  <TableCell class="text-right tabular-nums">{{
+                    runDuration(run)
+                  }}</TableCell>
+                  <TableCell class="text-muted-foreground">
+                    {{
+                      run.completedAt
+                        ? formatIstDateTime(run.completedAt)
+                        : formatIstDateTime(run.updatedAt)
+                    }}
+                  </TableCell>
+                  <TableCell class="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      @click="toggleRun(run.runKey)"
+                    >
+                      {{ expandedRunKey === run.runKey ? 'Hide' : 'Details' }}
+                    </Button>
+                    <Button
+                      v-if="canRetry(run.status)"
+                      variant="outline"
+                      size="sm"
+                      :disabled="retryMutation.isPending.value"
+                      @click="retryMutation.mutate(run.runKey)"
+                    >
+                      <RotateCcw class="mr-1 size-3.5" aria-hidden="true" />
+                      Retry
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                <TableRow v-if="expandedRunKey === run.runKey">
+                  <TableCell colspan="6" class="bg-muted/40">
+                    <dl
+                      class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4"
+                    >
+                      <div>
+                        <dt class="text-muted-foreground">Updated</dt>
+                        <dd class="tabular-nums">
+                          {{ formatIstDateTime(run.updatedAt) }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-muted-foreground">Completed</dt>
+                        <dd class="tabular-nums">
+                          {{
+                            run.completedAt
+                              ? formatIstDateTime(run.completedAt)
+                              : '—'
+                          }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="text-muted-foreground">Chunks</dt>
+                        <dd class="tabular-nums">
+                          {{ run.completedChunks }} / {{ run.totalChunks }} ({{
+                            run.failedChunks
+                          }}
+                          failed)
+                        </dd>
+                      </div>
+                      <div class="min-w-0">
+                        <dt class="text-muted-foreground">Run key</dt>
+                        <dd class="truncate font-mono">{{ run.runKey }}</dd>
+                      </div>
+                      <div class="col-span-full">
+                        <dt class="text-muted-foreground">Last error</dt>
+                        <dd :class="run.lastError ? 'text-negative' : ''">
+                          {{ run.lastError ?? '—' }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </TableCell>
+                </TableRow>
+              </template>
+            </TableBody>
+          </Table>
+          <div
+            class="mt-3 flex items-center justify-between text-xs text-muted-foreground"
+          >
+            <span class="tabular-nums">
+              Showing {{ runsFirst }}–{{ runsLast }} of {{ runsTotal }}
+            </span>
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="!runsHasPrev"
+                @click="prevRunsPage"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="!runsHasNext"
+                @click="nextRunsPage"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </template>
+      </CardContent>
+    </Card>
 
     <Card>
       <CardHeader class="pb-3">
@@ -451,6 +782,10 @@ function statusVariant(
           </div>
         </div>
 
+        <div class="flex items-center">
+          <SegmentedTabs v-model="historyView" :tabs="historyViewTabs" />
+        </div>
+
         <SectionState
           v-if="candlesQuery.isError.value"
           title="Persisted history unavailable"
@@ -498,7 +833,11 @@ function statusVariant(
               · capped at the first {{ formatCompact(VIEW_LIMIT) }} in range
             </span>
           </p>
-          <PriceChart :candles="persistedCandles" />
+          <PriceChart
+            v-if="historyView === 'chart'"
+            :candles="persistedCandles"
+          />
+          <HistoricalTable v-else :candles="persistedCandles" />
         </template>
       </CardContent>
     </Card>

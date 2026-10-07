@@ -1,9 +1,11 @@
 package com.edgerelative.application.broker;
 
 import com.edgerelative.broker.api.model.BrokerCapabilities;
+import com.edgerelative.broker.api.model.BrokerExchange;
 import com.edgerelative.broker.api.model.BrokerInstrument;
 import com.edgerelative.broker.api.port.BrokerAdapter;
 import com.edgerelative.broker.api.port.InstrumentBroker;
+import com.edgerelative.application.broker.api.BrokerApiEnums;
 
 import java.util.List;
 
@@ -32,16 +34,24 @@ public class GrowwInstrumentController {
      *
      * <p>With no parameters the full master is returned (large, intended for tooling). Supplying
      * {@code query} (and optional {@code limit}, default 50, max 200) returns a bounded slice for
-     * interactive search without shipping ~140k rows to the browser.
+     * interactive search without shipping ~140k rows to the browser. {@code exchange} restricts the
+     * slice to one exchange and {@code derivatives} (default false) controls whether futures/options
+     * are included; filtering happens before the limit.
      */
     @GetMapping("/instruments")
     public List<BrokerInstrument> instrumentMaster(
-            @RequestParam(required = false) String query, @RequestParam(required = false) Integer limit) {
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String exchange,
+            @RequestParam(required = false) Boolean derivatives) {
         List<BrokerInstrument> master = instruments.downloadInstrumentMaster();
-        if ((query == null || query.isBlank()) && limit == null) {
+        if ((query == null || query.isBlank()) && limit == null && exchange == null && derivatives == null) {
             return master;
         }
-        return InstrumentSearch.filter(master, query, limit);
+        BrokerExchange exchangeFilter =
+                exchange == null || exchange.isBlank() ? null : BrokerApiEnums.exchange(exchange);
+        boolean includeDerivatives = derivatives != null && derivatives;
+        return InstrumentSearch.filter(master, query, limit, exchangeFilter, includeDerivatives);
     }
 
     @GetMapping("/capabilities")

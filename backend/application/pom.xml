@@ -26,6 +26,26 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.edgerelative</groupId>
+            <artifactId>llm-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.edgerelative</groupId>
+            <artifactId>llm-deepseek</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.edgerelative</groupId>
+            <artifactId>fundamentals-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.edgerelative</groupId>
+            <artifactId>fundamentals-nse</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>

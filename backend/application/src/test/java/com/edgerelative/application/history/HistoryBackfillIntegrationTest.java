@@ -387,6 +387,27 @@ class HistoryBackfillIntegrationTest {
     }
 
     @Test
+    void listsBackfillRunsWithPaginationAndStatusFilter() throws Exception {
+        long instrumentId = watchInstrument("HISTPAGE");
+        JsonNode run = startBackfill(instrumentId, "M1", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z");
+        String runKey = run.path("runKey").asString();
+
+        JsonNode firstPage = getJson(
+                "/api/v1/history/backfill?instrumentId=" + instrumentId + "&limit=1&offset=0");
+        assertThat(firstPage.path("total").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(firstPage.path("items").size()).isEqualTo(1);
+        assertThat(firstPage.path("items").get(0).path("runKey").asString()).isEqualTo(runKey);
+
+        JsonNode secondPage = getJson(
+                "/api/v1/history/backfill?instrumentId=" + instrumentId + "&limit=1&offset=1");
+        assertThat(secondPage.path("items").size()).isZero();
+
+        JsonNode cancelled = getJson(
+                "/api/v1/history/backfill?instrumentId=" + instrumentId + "&status=CANCELLED");
+        assertThat(cancelled.path("total").asLong()).isZero();
+    }
+
+    @Test
     void derivesHigherTimeframesFromThePersistedM1Base() throws Exception {
         WIREMOCK.stubFor(get(urlPathEqualTo("/v1/historical/candles")).willReturn(okJson(MINUTES)));
 

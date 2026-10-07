@@ -3,10 +3,13 @@ import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import type { BrokerInstrument } from '@/api/types'
+import type { BrokerInstrument, BrokerQuote } from '@/api/types'
 import { formatIstDate, formatPrice, formatQuantity } from '@/lib/format'
 
-const props = defineProps<{ instrument: BrokerInstrument }>()
+const props = defineProps<{
+  instrument: BrokerInstrument
+  quote?: BrokerQuote | null
+}>()
 
 interface Entry {
   label: string
@@ -63,6 +66,27 @@ const brokerIdentifiers = computed<Entry[]>(() => [
     value: props.instrument.underlyingExchangeToken ?? '—',
   },
 ])
+
+const range = computed<Entry[]>(() => {
+  const quote = props.quote
+  return [
+    {
+      label: 'Upper circuit',
+      value: formatPrice(quote?.upperCircuitLimit ?? null),
+    },
+    {
+      label: 'Lower circuit',
+      value: formatPrice(quote?.lowerCircuitLimit ?? null),
+    },
+    { label: '52W high', value: formatPrice(quote?.week52High ?? null) },
+    { label: '52W low', value: formatPrice(quote?.week52Low ?? null) },
+    { label: 'Avg price', value: formatPrice(quote?.averagePrice ?? null) },
+    {
+      label: 'Last qty',
+      value: quote ? formatQuantity(quote.lastTradeQuantity) : '—',
+    },
+  ]
+})
 </script>
 
 <template>
@@ -107,6 +131,20 @@ const brokerIdentifiers = computed<Entry[]>(() => [
               :key="entry.label"
               class="space-y-0.5"
             >
+              <dt class="text-xs text-muted-foreground">{{ entry.label }}</dt>
+              <dd class="truncate text-sm tabular-nums">{{ entry.value }}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card v-if="quote">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-sm font-medium">Range</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+            <div v-for="entry in range" :key="entry.label" class="space-y-0.5">
               <dt class="text-xs text-muted-foreground">{{ entry.label }}</dt>
               <dd class="truncate text-sm tabular-nums">{{ entry.value }}</dd>
             </div>

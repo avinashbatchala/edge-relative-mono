@@ -27,6 +27,18 @@ broker-side mutation is exposed through an Edge Relative contract but refused wi
 `BROKER_OPERATION_NOT_ENABLED` and emits zero downstream HTTP. See
 `docs/design-docs/dev/groww-endpoint-matrix.md`.
 
+Advisory fundamental analysis and LLM narration are separate bounded contexts. `fundamentals-api`
+(framework-free ports/models) plus `fundamentals-nse` (Yahoo `.NS`/`.BO` provider) feed a
+point-in-time `fundamental` schema served by `/api/v1/fundamentals`. `llm-api` (framework-free port)
+plus `llm-deepseek` provide advisory narration through `/api/v1/llm/narration`; the Java backend is
+the only process that holds the key. Both are advisory only: they cannot qualify a setup, size a
+position, or override risk. The Python research layer holds deterministic valuation operators
+(WACC, DCF, DDM, comparable multiples, ratios) in
+`research/src/edge_relative_research/fundamentals/`, sharing frozen fixtures with Java under
+`contracts/fixtures/fundamentals` (see `research/NOTICE` for FinRobot attribution). The Vue
+workstation shows a Fundamentals tab (code-computed values plus advisory LLM narration) on the
+ticker workspace. See `docs/design-docs/DD06 - Fundamental Analysis.md` and ADR-005..007.
+
 ## Design Documents
 
 Read the relevant document sections before implementing a feature:
@@ -36,8 +48,9 @@ Read the relevant document sections before implementing a feature:
 - `design-docs/DD03 - Risk Management and Position Sizing.md`: risk permission, sizing, portfolio constraints, and safety controls.
 - `design-docs/DD04 - Dev Stack.md`: planned technology stack, module boundaries, engineering standards, testing, and deployment. Its internal document ID is DD-04A.
 - `design-docs/DD05 - Market Data & Feature Architecture.md`: canonical events, candles, point-in-time correctness, data quality, storage, and lineage.
+- `design-docs/DD06 - Fundamental Analysis.md`: advisory fundamentals, Indian-market constraints, deterministic valuation, and the code-computed/LLM-narrated boundary.
 
-The documents refer to future specifications such as DD-06 and DD-09 that are not
+The documents refer to future specifications such as DD-09 that are not
 currently present. Do not invent their requirements. Preserve the distinction
 between methodological sources, Edge formalizations, NSE adaptations, safety
 rules, and research hypotheses. Illustrative thresholds are not production defaults.

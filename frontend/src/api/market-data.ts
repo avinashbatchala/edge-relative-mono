@@ -39,20 +39,34 @@ export function toExchangeSymbol(
   return `${exchange}_${tradingSymbol}`
 }
 
+export interface InstrumentSearchOptions {
+  /** Restrict to one exchange. Defaults to NSE. */
+  exchange?: BrokerExchange
+  /** Include futures/options. Defaults to false (equities and indices only). */
+  derivatives?: boolean
+}
+
 /**
  * Broker instrument master.
  *
  * The master has ~140k rows; the UI always passes a query so the backend returns a bounded slice.
+ * Defaults to NSE, non-derivative instruments so search never surfaces BSE rows or F&O contracts.
  * Omitting the query returns the full master (large) and is intended for tooling only.
  */
 export function listInstruments(
   query?: string,
   limit?: number,
   signal?: AbortSignal,
+  options: InstrumentSearchOptions = {},
 ): Promise<BrokerInstrument[]> {
   return apiGet<BrokerInstrument[]>(`${BASE}/instruments`, {
     signal,
-    params: { query, limit },
+    params: {
+      query,
+      limit,
+      exchange: options.exchange ?? 'NSE',
+      derivatives: options.derivatives ?? false,
+    },
   })
 }
 

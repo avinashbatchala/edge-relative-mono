@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { Check, ChevronsUpDown, Search } from '@lucide/vue'
 import type { BrokerInstrument } from '@/api/types'
 import { Button } from '@/components/ui/button'
@@ -60,24 +60,6 @@ function pick(instrument: BrokerInstrument) {
 function handleSearch(value: unknown) {
   emit('update:search', typeof value === 'string' ? value : '')
 }
-
-function shortcut(event: KeyboardEvent) {
-  const target = event.target as HTMLElement | null
-  const typing =
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target?.isContentEditable === true
-  const isCommandK =
-    (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k'
-  const isSlash = event.key === '/' && !typing
-  if (isCommandK || isSlash) {
-    event.preventDefault()
-    open.value = true
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', shortcut))
-onUnmounted(() => window.removeEventListener('keydown', shortcut))
 </script>
 
 <template>
@@ -112,11 +94,6 @@ onUnmounted(() => window.removeEventListener('keydown', shortcut))
           >
         </span>
         <span class="flex items-center gap-2">
-          <kbd
-            v-if="!modelValue"
-            class="hidden rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline"
-            >⌘K</kbd
-          >
           <ChevronsUpDown
             class="size-4 shrink-0 text-muted-foreground"
             aria-hidden="true"

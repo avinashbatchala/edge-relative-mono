@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import FeatureHistoryPanel from '@/components/feature/FeatureHistoryPanel.vue'
+import SegmentedTabs from '@/components/common/SegmentedTabs.vue'
 import type { ChartMarker } from '@/lib/chart-markers'
 import { formatInr, formatIstDateTime, formatPrice } from '@/lib/format'
 
@@ -35,6 +36,11 @@ const router = useRouter()
 const runKey = computed(() => String(route.params.runKey))
 
 const tab = ref<'overview' | 'trades' | 'chart'>('overview')
+const tabs = [
+  { value: 'overview', label: 'overview' },
+  { value: 'trades', label: 'trades' },
+  { value: 'chart', label: 'chart' },
+] as const
 const selectedSymbol = ref<string | null>(null)
 
 const runQuery = useQuery(() => ({
@@ -227,20 +233,7 @@ const symbolStats = computed(() => {
       Run not found.
     </div>
 
-    <div class="inline-flex rounded-lg border p-0.5" role="tablist">
-      <button
-        v-for="name in ['overview', 'trades', 'chart'] as const"
-        :key="name"
-        type="button"
-        role="tab"
-        :aria-selected="tab === name"
-        class="rounded-md px-3 py-1.5 text-sm font-medium capitalize"
-        :class="tab === name ? 'bg-muted' : 'text-muted-foreground'"
-        @click="tab = name"
-      >
-        {{ name }}
-      </button>
-    </div>
+    <SegmentedTabs v-model="tab" :tabs="tabs" capitalize />
 
     <template v-if="run">
       <Card v-if="tab === 'overview'" class="gap-0 py-0">
