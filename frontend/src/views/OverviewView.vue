@@ -11,7 +11,6 @@ import { getLtp, marketDataKeys } from '@/api/market-data'
 import { getOpportunities, opportunityKeys } from '@/api/opportunities'
 import type { BrokerSegment } from '@/api/types'
 import { getWatchlist, watchlistKeys } from '@/api/watchlist'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import MarketContextPanel from '@/components/trade/MarketContextPanel.vue'
+import OpportunityBoard from '@/components/trade/OpportunityBoard.vue'
 import SystemTile from '@/components/desk/SystemTile.vue'
 import PortfolioTile from '@/components/desk/PortfolioTile.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -107,9 +107,7 @@ const session = computed(
 const freshnessState = computed(
   () => diagnosticsQuery.data.value?.freshness?.state ?? null,
 )
-const opportunities = computed(() =>
-  (opportunitiesQuery.data.value ?? []).slice(0, 5),
-)
+const opportunities = computed(() => opportunitiesQuery.data.value ?? [])
 const recent = computed(() => recentRows(featureRows.value, 5))
 const notices = computed(() =>
   (diagnosticsQuery.data.value?.metricAvailability ?? []).slice(0, 3),
@@ -169,58 +167,27 @@ const notices = computed(() =>
       <PortfolioTile />
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader class="pb-3">
-          <CardTitle class="text-base">Opportunity board</CardTitle>
-          <CardDescription
-            >Top-ranked setups for the watchlist.</CardDescription
-          >
-        </CardHeader>
-        <CardContent>
-          <div v-if="opportunitiesQuery.isPending.value" class="space-y-2">
-            <Skeleton v-for="n in 3" :key="n" class="h-8 w-full" />
-          </div>
-          <ul v-else-if="opportunities.length" class="space-y-2 text-sm">
-            <li
-              v-for="row in opportunities"
-              :key="row.symbol"
-              class="flex items-center justify-between gap-2"
-            >
-              <RouterLink
-                :to="{ name: 'market-ticker', params: { symbol: row.symbol } }"
-                class="font-medium hover:underline"
-              >
-                {{ row.symbol }}
-              </RouterLink>
-              <div class="flex items-center gap-1">
-                <Badge v-if="row.setupStatus" variant="outline">{{
-                  row.setupStatus
-                }}</Badge>
-                <Badge variant="secondary">Risk {{ row.riskState }}</Badge>
-              </div>
-            </li>
-          </ul>
-          <EmptyState
-            v-else
-            :icon="Activity"
-            title="No setups"
-            description="No setup observations for the active watchlist yet."
-          />
-          <div class="mt-3 flex gap-2">
-            <Button as-child variant="outline" size="sm">
-              <RouterLink to="/setups">
-                Open opportunities
-                <ArrowRight class="size-4" aria-hidden="true" />
-              </RouterLink>
-            </Button>
-            <Button as-child variant="ghost" size="sm">
-              <RouterLink to="/scanner">Scanner</RouterLink>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div class="space-y-4">
+      <OpportunityBoard
+        :opportunities="opportunities"
+        :features="featureRows"
+        :loading="opportunitiesQuery.isPending.value"
+        :limit="8"
+      />
+      <div class="flex flex-wrap gap-2">
+        <Button as-child variant="outline" size="sm">
+          <RouterLink to="/setups">
+            Open opportunities
+            <ArrowRight class="size-4" aria-hidden="true" />
+          </RouterLink>
+        </Button>
+        <Button as-child variant="ghost" size="sm">
+          <RouterLink to="/scanner">Scanner</RouterLink>
+        </Button>
+      </div>
+    </div>
 
+    <div class="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader class="pb-3">
           <CardTitle class="text-base">What changed</CardTitle>
